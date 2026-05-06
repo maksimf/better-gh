@@ -1,0 +1,76 @@
+"""Domain models for PRs and their derived rendering state."""
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class Checks(BaseModel):
+    """Bucketed CI check counts for a single PR."""
+
+    model_config = ConfigDict(frozen=True)
+
+    passed: int = Field(default=0, ge=0)
+    pending: int = Field(default=0, ge=0)
+    failed: int = Field(default=0, ge=0)
+
+
+class PR(BaseModel):
+    """A pull request as displayed on the dashboard."""
+
+    model_config = ConfigDict(frozen=True)
+
+    number: int
+    title: str
+    url: str
+    repo: str
+    author: str
+    is_draft: bool
+    checks: Checks
+    comments_human: int = Field(ge=0)
+    comments_bot: int = Field(ge=0)
+    preview_url: str | None
+    conflicts: int = Field(ge=0)
+    updated_at: str
+    review_requested: bool = False
+
+    @property
+    def is_ready(self) -> bool:
+        """Implements the readiness rule from the spec."""
+        return (
+            not self.is_draft
+            and self.checks.failed == 0
+            and self.checks.pending == 0
+            and self.comments_human == 0
+            and self.comments_bot == 0
+            and self.preview_url is not None
+            and self.conflicts == 0
+        )
+
+    @property
+    def column(self) -> Literal["ready", "progress"]:
+        return "ready" if self.is_ready else "progress"
+
+    def fingerprint(self) -> tuple:
+        """Stable hashable tuple of every field that affects rendering.
+
+        The poller uses this to detect "did anything visible change?"
+        without diffing rendered HTML.
+        """
+        return (
+            self.number,
+            self.title,
+            self.url,
+            self.repo,
+            self.author,
+            self.is_draft,
+            self.checks.passed,
+            self.checks.pending,
+            self.checks.failed,
+            self.comments_human,
+            self.comments_bot,
+            self.preview_url,
+            self.conflicts,
+            self.review_requested,
+        )

@@ -1,7 +1,8 @@
 # Better GitHub UI
 
-A clearer, calmer view of your open pull requests. Bauhaus-styled, HTMX-driven,
-no backend (yet).
+A clearer, calmer view of your open pull requests. Bauhaus-styled,
+HTMX-driven, with a tiny FastAPI backend that polls GitHub and pushes
+updates to the browser over Server-Sent Events.
 
 ## Layout
 
@@ -30,27 +31,91 @@ A PR is considered ready for human review when **all** of the following hold:
 - Draft PRs are flat grey.
 - Ready PRs get a thick green border.
 
-## Stack
+## Repo layout
 
-- Static HTML + CSS
-- [HTMX](https://htmx.org) loads `prs.html` into the page on first load and on
-  Refresh.
-- No build step. No backend. No JS framework.
+```
+better-gh/
+├── frontend/            # static UI shell (HTMX + SSE extension)
+│   ├── index.html
+│   └── styles.css
+└── backend/             # FastAPI + GitHub poller
+    ├── pyproject.toml
+    ├── .env.example
+    ├── app/
+    │   ├── main.py      # FastAPI app, lifespan, routes
+    │   ├── config.py    # pydantic-settings
+    │   ├── model.py     # PR / Checks dataclasses + readiness rule
+    │   ├── github.py    # async GraphQL client
+    │   ├── preview.py   # deployment-comment parser
+    │   ├── state.py     # snapshot store + SSE registry
+    │   ├── poller.py    # background loop
+    │   └── render.py    # Jinja env
+    └── templates/
+        └── prs.html     # PR-card fragment template
+```
 
 ## Run it
 
-Just open `index.html` in a browser, or serve the directory:
-
 ```sh
-python3 -m http.server 8000
-# then visit http://localhost:8000
+cd backend
+uv venv
+uv pip install -e .
+cp .env.example .env
+# then edit .env and set GITHUB_TOKEN
+uvicorn app.main:app --reload
 ```
 
-> HTMX is loaded from a CDN in `index.html`. Browsers may block `hx-get` against
-> a `file://` URL — use the local server above for the live experience.
+If you don't have [uv](https://github.com/astral-sh/uv) handy, plain pip
+works too (`python -m venv .venv && source .venv/bin/activate && pip install -e .`).
 
-## Files
+A console script is installed alongside the package:
 
-- `index.html` — page shell, header, two columns, refresh button
-- `styles.css` — Bauhaus palette and components
-- `prs.html` — mock PR fragment (the only data source for now)
+```sh
+better-gh   # equivalent to: uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Then open <http://localhost:8000>. The first paint hits `/prs.html`; after
+that, SSE keeps the page live and the poller refreshes from GitHub every
+five minutes.
+
+## Environment variables (backend)
+
+All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
+
+| Var | Default | Notes |
+|---|---|---|
+| `GITHUB_TOKEN` | _required_ | PAT used for the GraphQL API. |
+| `GITHUB_GRAPHQL_URL` | `https://api.github.com/graphql` | Override for GHE. |
+| `POLL_INTERVAL_SECONDS` | `300` | How often the poller polls. |
+| `MAX_PRS` | `50` | Top-N most recently updated open PRs. |
+| `BOT_LOGINS` | `cursor,cursor[bot],coderabbitai,coderabbitai[bot]` | Comma-separated. |
+| `PREVIEW_COMMENT_PREFIX` | `Preview Environment URL:` | Marker for the preview comment. |
+
+## Routes
+
+- `GET /` — serves `frontend/index.html`.
+- `GET /styles.css` — serves the stylesheet.
+- `GET /prs.html` — Jinja-rendered PR cards (cold start + Refresh button).
+- `GET /events` — SSE stream; each subscriber gets the current snapshot
+  immediately and any subsequent change.
+- `POST /refresh` — kick off an out-of-band poll; returns 204.
+
+## Stack
+
+- Python 3.11+, FastAPI, uvicorn, httpx, pydantic, jinja2, sse-starlette
+- Static HTML + CSS + [HTMX](https://htmx.org) (with the SSE extension)
+- No build step on the frontend.
+
+## Troubleshooting
+
+- **401 / 403 from GitHub** — your PAT needs `repo` + `read:org` (classic),
+  or fine-grained PR read across the orgs/repos you care about. Without it
+  the poller logs an error every interval and the dashboard stays empty.
+- **`/events` shows nothing** — make sure the HTMX SSE extension script is
+  loaded (it lives next to the main `htmx.org` bundle). Browsers will also
+  silently disconnect if your reverse proxy buffers responses; uvicorn alone
+  is fine.
+- **Card stuck in the wrong column** — the column is driven by
+  `data-column` on each `<article>`. If you see drift, check that the
+  template's class list matches `styles.css` (it should be unchanged from
+  the original mock).

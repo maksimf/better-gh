@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BETTER//GH</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
+  </head>
+  <body hx-ext="sse" sse-connect="/events">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="shape shape--circle"></span>
+          <span class="shape shape--square"></span>
+          <span class="shape shape--triangle"></span>
+        </span>
+        <h1 class="brand-title">BETTER<span class="slash">//</span>GH</h1>
+      </div>
+      <div class="topbar-actions">
+        <span class="me">@maksimf</span>
+        <button
+          type="button"
+          class="btn btn--settings"
+          id="open-settings"
+          aria-haspopup="dialog"
+          aria-controls="settings-modal"
+        >
+          SETTINGS
+        </button>
+        <button
+          class="btn btn--refresh"
+          hx-post="/refresh"
+          hx-target="#pr-stream"
+          hx-swap="innerHTML"
+          hx-trigger="click"
+          hx-disabled-elt="this"
+        >
+          REFRESH
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div class="board">
+        <section class="column column--progress" aria-labelledby="col-progress-title">
+          <header class="column-header">
+            <h2 id="col-progress-title" class="column-title">IN PROGRESS</h2>
+            <span class="column-count" data-count-for="progress">0</span>
+          </header>
+          <div id="col-progress" class="column-body"></div>
+        </section>
+
+        <section class="column column--ready" aria-labelledby="col-ready-title">
+          <header class="column-header">
+            <h2 id="col-ready-title" class="column-title">READY FOR REVIEW</h2>
+            <span class="column-count" data-count-for="ready">0</span>
+          </header>
+          <div id="col-ready" class="column-body"></div>
+        </section>
+      </div>
+
+      <section class="empty-state" hidden aria-live="polite">
+        <div class="empty-state-mark" aria-hidden="true">
+          <span class="shape shape--circle"></span>
+          <span class="shape shape--square"></span>
+          <span class="shape shape--triangle"></span>
+        </div>
+        <h2 class="empty-state-title">INBOX ZERO</h2>
+        <p class="empty-state-sub">No open pull requests. Go touch grass.</p>
+      </section>
+    </main>
+
+    <div
+      id="pr-stream"
+      hidden
+      sse-swap="prs"
+      hx-get="/prs.html"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+    ></div>
+
+    <aside
+      id="last-updated"
+      class="footer-meta"
+      sse-swap="meta"
+      hx-get="/status"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+      aria-live="polite"
+    ></aside>
+
+    <dialog id="settings-modal" class="settings-modal" aria-labelledby="settings-modal-title">
+      <header class="settings-modal-header">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="shape shape--circle"></span>
+          <span class="shape shape--square"></span>
+          <span class="shape shape--triangle"></span>
+        </span>
+        <div class="settings-modal-titles">
+          <h2 id="settings-modal-title" class="settings-modal-title">SETTINGS</h2>
+          <p class="settings-modal-subtitle">IGNORE REPOS</p>
+        </div>
+        <button
+          type="button"
+          class="settings-modal-close"
+          id="close-settings"
+          aria-label="Close settings"
+        >&times;</button>
+      </header>
+      <div class="settings-modal-body">
+        <ul id="settings-repo-list" class="settings-repo-list" aria-live="polite">
+          <li class="settings-empty">Loading...</li>
+        </ul>
+      </div>
+      <footer class="settings-modal-footer">
+        Stored in your browser. No server-side state.
+      </footer>
+    </dialog>
+
+    <script>
+      // Ignore-repos store + filter. Persists a Set of "owner/repo" strings
+      // in localStorage; falls back to in-memory for private-mode tabs.
+      var ignoreStore = (function () {
+        var KEY = "better-gh.ignored-repos";
+        var memory = new Set();
+        function read() {
+          try {
+            var raw = localStorage.getItem(KEY);
+            if (!raw) return new Set();
+            var arr = JSON.parse(raw);
+            return new Set(Array.isArray(arr) ? arr : []);
+          } catch (e) {
+            return new Set(memory);
+          }
+        }
+        function write(set) {
+          memory = new Set(set);
+          try {
+            localStorage.setItem(KEY, JSON.stringify(Array.from(set)));
+          } catch (e) {
+            /* private mode -- keep in-memory copy only */
+          }
+        }
+        return {
+          get: read,
+          has: function (repo) { return read().has(repo); },
+          toggle: function (repo, ignored) {
+            var set = read();
+            if (ignored) set.add(repo); else set.delete(repo);
+            write(set);
+            return set;
+          },
+        };
+      })();
+
+      function applyIgnoreFilter() {
+        var ignored = ignoreStore.get();
+        document
+          .querySelectorAll(".pr-card[data-repo]")
+          .forEach(function (card) {
+            var repo = card.getAttribute("data-repo");
+            card.classList.toggle("is-ignored", ignored.has(repo));
+          });
+      }
+
+      // Distribute cards from the hidden #pr-stream into the two columns
+      // based on each card's data-column attribute. Keeps prs.html a flat
+      // list (clean swap target) while the shell owns the two-column layout.
+      (function () {
+        function visibleChildren(el) {
+          var n = 0;
+          for (var i = 0; i < el.children.length; i++) {
+            if (!el.children[i].classList.contains("is-ignored")) n++;
+          }
+          return n;
+        }
+
+        function distribute() {
+          var stream = document.getElementById("pr-stream");
+          var progress = document.getElementById("col-progress");
+          var ready = document.getElementById("col-ready");
+          if (!stream || !progress || !ready) return;
+
+          progress.innerHTML = "";
+          ready.innerHTML = "";
+
+          var cards = stream.querySelectorAll(".pr-card");
+          cards.forEach(function (card) {
+            var col = card.getAttribute("data-column");
+            (col === "ready" ? ready : progress).appendChild(card);
+          });
+
+          applyIgnoreFilter();
+
+          var progressCount = visibleChildren(progress);
+          var readyCount = visibleChildren(ready);
+
+          document
+            .querySelectorAll("[data-count-for]")
+            .forEach(function (el) {
+              var key = el.getAttribute("data-count-for");
+              el.textContent = String(
+                key === "ready" ? readyCount : progressCount
+              );
+            });
+
+          var board = document.querySelector(".board");
+          var progressCol = document.querySelector(".column--progress");
+          var readyCol = document.querySelector(".column--ready");
+          var emptyState = document.querySelector(".empty-state");
+
+          if (progressCol) progressCol.hidden = progressCount === 0;
+          if (readyCol) readyCol.hidden = readyCount === 0;
+
+          var bothEmpty = progressCount === 0 && readyCount === 0;
+          var onlyOne =
+            !bothEmpty &&
+            (progressCount === 0 || readyCount === 0);
+
+          if (board) {
+            board.classList.toggle("board--single", onlyOne);
+            board.hidden = bothEmpty;
+          }
+          if (emptyState) emptyState.hidden = !bothEmpty;
+        }
+
+        window.__betterGhDistribute = distribute;
+        document.body.addEventListener("htmx:afterSwap", function (evt) {
+          if (evt.target && evt.target.id === "pr-stream") distribute();
+        });
+      })();
+
+      // "Last updated X ago" ticker. Server emits a <span data-iso="...">,
+      // and we recompute the relative text on load, on every SSE meta swap,
+      // and once a minute thereafter.
+      (function () {
+        function formatRelative(then) {
+          var seconds = Math.max(
+            0,
+            Math.round((Date.now() - then.getTime()) / 1000)
+          );
+          if (seconds < 30) return "just now";
+          if (seconds < 90) return "1 min ago";
+          var minutes = Math.round(seconds / 60);
+          if (minutes < 60) return minutes + " mins ago";
+          var hours = Math.round(minutes / 60);
+          if (hours === 1) return "1 hour ago";
+          if (hours < 24) return hours + " hours ago";
+          var days = Math.round(hours / 24);
+          if (days === 1) return "1 day ago";
+          return days + " days ago";
+        }
+
+        function tick() {
+          document
+            .querySelectorAll(".last-updated-relative")
+            .forEach(function (el) {
+              var iso = el.getAttribute("data-iso");
+              if (!iso) return;
+              var then = new Date(iso);
+              if (isNaN(then.getTime())) return;
+              el.textContent = formatRelative(then);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", tick);
+        document.body.addEventListener("htmx:afterSwap", function (evt) {
+          if (evt.target && evt.target.id === "last-updated") tick();
+        });
+        setInterval(tick, 60_000);
+      })();
+
+      // Settings modal: open/close, fetch repos, render checkbox list,
+      // persist toggles to localStorage, re-distribute the board on change.
+      (function () {
+        var modal = document.getElementById("settings-modal");
+        var openBtn = document.getElementById("open-settings");
+        var closeBtn = document.getElementById("close-settings");
+        var list = document.getElementById("settings-repo-list");
+        if (!modal || !openBtn || !closeBtn || !list) return;
+
+        function escapeHtml(str) {
+          return String(str).replace(/[&<>"']/g, function (c) {
+            return {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c];
+          });
+        }
+
+        function renderRows(repos) {
+          var ignored = ignoreStore.get();
+          if (!repos.length) {
+            list.innerHTML =
+              '<li class="settings-empty">No open PRs in any repo.</li>';
+            return;
+          }
+          list.innerHTML = repos
+            .map(function (r) {
+              var isIgnored = ignored.has(r.repo);
+              return (
+                '<li class="settings-row">' +
+                '<label>' +
+                '<input type="checkbox" name="ignore" value="' +
+                escapeHtml(r.repo) +
+                '"' +
+                (isIgnored ? " checked" : "") +
+                ">" +
+                '<span class="settings-repo">' +
+                escapeHtml(r.repo) +
+                "</span>" +
+                '<span class="settings-count">' +
+                r.count +
+                "</span>" +
+                "</label>" +
+                "</li>"
+              );
+            })
+            .join("");
+        }
+
+        function loadAndRender() {
+          list.innerHTML =
+            '<li class="settings-empty">Loading repos...</li>';
+          fetch("/repos", { headers: { Accept: "application/json" } })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.json();
+            })
+            .then(renderRows)
+            .catch(function () {
+              list.innerHTML =
+                '<li class="settings-empty">Couldn\'t load repos. Try again.</li>';
+            });
+        }
+
+        function open() {
+          loadAndRender();
+          if (typeof modal.showModal === "function") {
+            modal.showModal();
+          } else {
+            modal.setAttribute("open", "");
+          }
+        }
+        function close() {
+          if (typeof modal.close === "function") {
+            modal.close();
+          } else {
+            modal.removeAttribute("open");
+          }
+        }
+
+        openBtn.addEventListener("click", open);
+        closeBtn.addEventListener("click", close);
+
+        // Backdrop click closes (clicks land on <dialog> itself, not its
+        // children, when they hit the ::backdrop area).
+        modal.addEventListener("click", function (evt) {
+          if (evt.target === modal) close();
+        });
+
+        list.addEventListener("change", function (evt) {
+          var t = evt.target;
+          if (
+            !t ||
+            t.tagName !== "INPUT" ||
+            t.type !== "checkbox" ||
+            t.name !== "ignore"
+          )
+            return;
+          ignoreStore.toggle(t.value, t.checked);
+          if (typeof window.__betterGhDistribute === "function") {
+            window.__betterGhDistribute();
+          }
+        });
+      })();
+
+      // Request-review button. POSTs to the backend, then optimistically
+      // flips the button into the "requested" chip; SSE will overwrite
+      // with authoritative state on the next poll.
+      (function () {
+        function flipToRequested(btn) {
+          var chip = document.createElement("span");
+          chip.className = "chip chip--review";
+          chip.setAttribute(
+            "title",
+            btn.getAttribute("title") || "Review requested"
+          );
+          chip.innerHTML =
+            '<span class="chip-key">R</span><span aria-hidden="true">&check;</span>';
+          btn.replaceWith(chip);
+        }
+
+        function flashError(btn, message) {
+          var prev = btn.getAttribute("title");
+          btn.classList.add("is-error");
+          btn.setAttribute("title", message || "Couldn't request review.");
+          setTimeout(function () {
+            btn.classList.remove("is-error");
+            if (prev) btn.setAttribute("title", prev);
+          }, 2400);
+        }
+
+        document.body.addEventListener("click", function (evt) {
+          var btn =
+            evt.target &&
+            evt.target.closest &&
+            evt.target.closest(".review-request");
+          if (!btn || btn.disabled) return;
+          evt.preventDefault();
+          var repo = btn.getAttribute("data-pr-repo") || "";
+          var number = btn.getAttribute("data-pr-number") || "";
+          var slash = repo.indexOf("/");
+          if (slash < 0 || !number) return;
+          var owner = repo.slice(0, slash);
+          var name = repo.slice(slash + 1);
+          btn.disabled = true;
+          fetch(
+            "/pulls/" +
+              encodeURIComponent(owner) +
+              "/" +
+              encodeURIComponent(name) +
+              "/" +
+              encodeURIComponent(number) +
+              "/request-review",
+            { method: "POST" }
+          )
+            .then(function (r) {
+              if (!r.ok) {
+                return r.text().then(function (t) {
+                  throw new Error(t || "HTTP " + r.status);
+                });
+              }
+              flipToRequested(btn);
+            })
+            .catch(function (err) {
+              btn.disabled = false;
+              flashError(btn, String(err && err.message ? err.message : err));
+            });
+        });
+      })();
+
+      // Copy-preview-URL button. Delegated on body so it survives every
+      // SSE swap of #pr-stream without re-binding listeners.
+      (function () {
+        function fallbackCopy(text) {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+          document.body.removeChild(ta);
+          return ok;
+        }
+
+        function flashCopied(btn) {
+          btn.classList.add("is-copied");
+          setTimeout(function () {
+            btn.classList.remove("is-copied");
+          }, 1200);
+        }
+
+        document.body.addEventListener("click", function (evt) {
+          var btn =
+            evt.target &&
+            evt.target.closest &&
+            evt.target.closest(".preview-copy");
+          if (!btn) return;
+          evt.preventDefault();
+          var url = btn.getAttribute("data-copy");
+          if (!url) return;
+          if (
+            navigator.clipboard &&
+            typeof navigator.clipboard.writeText === "function"
+          ) {
+            navigator.clipboard
+              .writeText(url)
+              .then(function () { flashCopied(btn); })
+              .catch(function () {
+                if (fallbackCopy(url)) flashCopied(btn);
+              });
+          } else if (fallbackCopy(url)) {
+            flashCopied(btn);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
