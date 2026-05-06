@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>BETTER//GH</title>
+  <!-- Yellow base (bottom-left half after the diagonal split) -->
+  <rect width="32" height="32" fill="#f5d600"/>
+  <!-- Black diagonal half (top-right triangle) -->
+  <polygon points="0,0 32,0 32,32" fill="#111111"/>
+  <!-- Red circle dead-centre, straddling both halves -->
+  <circle cx="16" cy="16" r="9" fill="#e63329"/>
+  <!-- Blue square accent in the bottom-left corner -->
+  <rect x="2.5" y="21.5" width="8" height="8" fill="#1c4ed8"/>
+</svg>

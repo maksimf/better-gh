@@ -29,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
 INDEX_HTML = FRONTEND_DIR / "index.html"
 STYLES_CSS = FRONTEND_DIR / "styles.css"
+FAVICON_SVG = FRONTEND_DIR / "favicon.svg"
 
 
 @asynccontextmanager
@@ -90,6 +91,21 @@ async def index() -> FileResponse:
 @app.get("/styles.css", include_in_schema=False)
 async def styles() -> FileResponse:
     return FileResponse(str(STYLES_CSS), media_type="text/css")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg() -> FileResponse:
+    return FileResponse(str(FAVICON_SVG), media_type="image/svg+xml")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico() -> FileResponse:
+    """Fallback for browsers that auto-fetch /favicon.ico.
+
+    We just hand them the SVG too -- modern browsers accept it, older
+    ones get a clean 200 instead of a 404 spamming the console.
+    """
+    return FileResponse(str(FAVICON_SVG), media_type="image/svg+xml")
 
 
 @app.get("/prs.html", response_class=HTMLResponse)

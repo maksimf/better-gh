@@ -13,54 +13,65 @@ from .preview import extract_preview_url
 log = logging.getLogger("better_gh.github")
 
 QUERY = """
-query MyOpenPRs($first: Int!) {
+query MyOpenPRs($first: Int!, $assignedQuery: String!) {
   viewer {
     login
-    pullRequests(first: $first, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      nodes {
-        number
-        title
-        url
-        isDraft
-        updatedAt
-        author { login }
-        baseRepository { nameWithOwner }
-        mergeable
-        commits(last: 1) {
-          nodes {
-            commit {
-              statusCheckRollup {
-                contexts(first: 100) {
-                  nodes {
-                    __typename
-                    ... on CheckRun     { name status conclusion }
-                    ... on StatusContext { context state }
-                  }
-                }
-              }
-            }
-          }
-        }
-        reviewThreads(first: 100) {
-          nodes {
-            isResolved
-            comments(first: 1) { nodes { author { login } body } }
-          }
-        }
-        reviewRequests(first: 50) {
-          nodes {
-            requestedReviewer {
+    pullRequests(
+      first: $first
+      states: OPEN
+      orderBy: {field: UPDATED_AT, direction: DESC}
+    ) {
+      nodes { ...prFields }
+    }
+  }
+  assignedToMe: search(first: $first, type: ISSUE, query: $assignedQuery) {
+    nodes { ... on PullRequest { ...prFields } }
+  }
+}
+
+fragment prFields on PullRequest {
+  number
+  title
+  url
+  isDraft
+  updatedAt
+  author { login }
+  baseRepository { nameWithOwner }
+  mergeable
+  commits(last: 1) {
+    nodes {
+      commit {
+        statusCheckRollup {
+          contexts(first: 100) {
+            nodes {
               __typename
-              ... on User { login }
+              ... on CheckRun     { name status conclusion }
+              ... on StatusContext { context state }
             }
           }
         }
-        comments(first: 100) { nodes { author { login } body } }
       }
     }
   }
+  reviewThreads(first: 100) {
+    nodes {
+      isResolved
+      comments(first: 1) { nodes { author { login } body } }
+    }
+  }
+  reviewRequests(first: 50) {
+    nodes {
+      requestedReviewer {
+        __typename
+        ... on User { login }
+      }
+    }
+  }
+  comments(first: 100) { nodes { author { login } body } }
 }
 """.strip()
+
+_ASSIGNED_QUERY = "is:pr is:open assignee:@me sort:updated-desc archived:false"
 
 
 _PASS_CHECK_CONCLUSIONS = {"SUCCESS", "NEUTRAL", "SKIPPED"}
@@ -131,6 +142,7 @@ class GitHubClient:
             )
 
     async def fetch_open_prs(self) -> list[PR]:
+        """Open PRs the viewer authored OR is assigned to (deduped, recent-first)."""
         if not self._token:
             raise RuntimeError(
                 "GITHUB_TOKEN is not set; cannot query the GitHub GraphQL API."
@@ -141,7 +153,13 @@ class GitHubClient:
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
         }
-        payload = {"query": QUERY, "variables": {"first": self._max_prs}}
+        payload = {
+            "query": QUERY,
+            "variables": {
+                "first": self._max_prs,
+                "assignedQuery": _ASSIGNED_QUERY,
+            },
+        }
         resp = await self._client.post(self._graphql_url, headers=headers, json=payload)
         resp.raise_for_status()
         body = resp.json()
@@ -149,9 +167,25 @@ class GitHubClient:
         if body.get("errors"):
             raise RuntimeError(f"GitHub GraphQL errors: {body['errors']}")
 
-        viewer = (body.get("data") or {}).get("viewer") or {}
-        nodes = (((viewer.get("pullRequests") or {}).get("nodes")) or [])
-        return [self._parse_pr(node) for node in nodes if node]
+        data = body.get("data") or {}
+        authored = (
+            (((data.get("viewer") or {}).get("pullRequests") or {}).get("nodes")) or []
+        )
+        assigned = ((data.get("assignedToMe") or {}).get("nodes")) or []
+
+        seen: set[str] = set()
+        prs: list[PR] = []
+        for node in (*authored, *assigned):
+            if not node or not node.get("number") or not node.get("url"):
+                continue
+            url = node["url"]
+            if url in seen:
+                continue
+            seen.add(url)
+            prs.append(self._parse_pr(node))
+
+        prs.sort(key=lambda p: p.updated_at, reverse=True)
+        return prs
 
     def _parse_pr(self, node: dict[str, Any]) -> PR:
         author = (node.get("author") or {}).get("login") or "unknown"
