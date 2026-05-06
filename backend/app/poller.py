@@ -30,9 +30,9 @@ async def poll_once(client: GitHubClient, render: RenderFn) -> bool:
     if changed:
         html = render(prs)
         await state.broadcast("prs", html)
-        log.info("snapshot changed (%d PRs); broadcast sent", len(prs))
+        log.info("poll: %d PRs (changed; broadcast sent)", len(prs))
     else:
-        log.debug("snapshot unchanged (%d PRs)", len(prs))
+        log.info("poll: %d PRs (unchanged)", len(prs))
     await state.broadcast("meta", render_meta(polled_at))
     return changed
 
