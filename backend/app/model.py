@@ -34,6 +34,7 @@ class PR(BaseModel):
     conflicts: int = Field(ge=0)
     updated_at: str
     review_requested: bool = False
+    approved_by_reviewer: bool = False
 
     @property
     def is_ready(self) -> bool:
@@ -49,7 +50,9 @@ class PR(BaseModel):
         )
 
     @property
-    def column(self) -> Literal["ready", "progress"]:
+    def column(self) -> Literal["approved", "ready", "progress"]:
+        if self.approved_by_reviewer:
+            return "approved"
         return "ready" if self.is_ready else "progress"
 
     def fingerprint(self) -> tuple:
@@ -73,4 +76,5 @@ class PR(BaseModel):
             self.preview_url,
             self.conflicts,
             self.review_requested,
+            self.approved_by_reviewer,
         )

@@ -34,6 +34,13 @@ class Settings(BaseSettings):
             "Empty string disables the feature."
         ),
     )
+    MERGE_METHOD: str = Field(
+        default="merge",
+        description=(
+            "GitHub merge method used by the per-card MERGE button. "
+            "One of 'merge', 'squash', or 'rebase'."
+        ),
+    )
     BOT_LOGINS: frozenset[str] = Field(
         default_factory=lambda: frozenset(
             {"cursor", "cursor[bot]", "coderabbitai", "coderabbitai[bot]"}

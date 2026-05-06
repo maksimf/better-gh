@@ -67,6 +67,12 @@ fragment prFields on PullRequest {
       }
     }
   }
+  latestReviews(first: 50) {
+    nodes {
+      state
+      author { login }
+    }
+  }
   comments(first: 100) { nodes { author { login } body } }
 }
 """.strip()
@@ -112,6 +118,37 @@ class GitHubClient:
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+    async def merge_pr(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        method: str = "merge",
+    ) -> dict[str, Any]:
+        """Merge a PR via ``PUT /repos/{owner}/{repo}/pulls/{n}/merge``.
+
+        ``method`` is one of ``merge`` / ``squash`` / ``rebase``. Raises on
+        HTTP error so the caller can surface 405 (not mergeable) etc.
+        Returns the parsed JSON body on success.
+        """
+        if not self._token:
+            raise RuntimeError("GITHUB_TOKEN is not set; cannot merge PRs.")
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/merge"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.put(
+            url, headers=headers, json={"merge_method": method}
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} when merging "
+                f"{owner}/{repo}#{pr_number} ({method}): {resp.text}"
+            )
+        return resp.json() if resp.content else {}
 
     async def request_reviewer(
         self, owner: str, repo: str, pr_number: int, reviewer_login: str
@@ -196,6 +233,7 @@ class GitHubClient:
         preview_url = self._find_preview(node)
         conflicts = self._extract_conflicts(node)
         review_requested = self._is_review_requested(node)
+        approved_by_reviewer = self._is_approved_by_reviewer(node)
 
         return PR(
             number=int(node.get("number") or 0),
@@ -211,6 +249,7 @@ class GitHubClient:
             conflicts=conflicts,
             updated_at=node.get("updatedAt") or "",
             review_requested=review_requested,
+            approved_by_reviewer=approved_by_reviewer,
         )
 
     def _extract_checks(self, node: dict[str, Any]) -> Checks:
@@ -302,6 +341,21 @@ class GitHubClient:
             for c in ((thread.get("comments") or {}).get("nodes")) or []:
                 if c and c.get("body"):
                     yield c["body"]
+
+    def _is_approved_by_reviewer(self, node: dict[str, Any]) -> bool:
+        """Whether ``settings.REVIEWER_LOGIN``'s most recent review is APPROVED."""
+        target = (settings.REVIEWER_LOGIN or "").lower()
+        if not target:
+            return False
+        nodes = ((node.get("latestReviews") or {}).get("nodes")) or []
+        for r in nodes:
+            if not r:
+                continue
+            login = ((r.get("author") or {}).get("login") or "").lower()
+            if login != target:
+                continue
+            return (r.get("state") or "").upper() == "APPROVED"
+        return False
 
     def _is_review_requested(self, node: dict[str, Any]) -> bool:
         """Whether ``settings.REVIEWER_LOGIN`` is on the requested-reviewers list."""

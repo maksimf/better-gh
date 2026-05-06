@@ -23,62 +23,87 @@
     {%- endif %}
   </header>
   <div class="pr-status">
-    <span class="checks" title="Checks: passed / pending / failed">
-      <span class="checks-label">Checks</span>
-      {{ checks_cell(pr.checks.passed, 'pass') }}
-      {{ checks_cell(pr.checks.pending, 'pending') }}
-      {{ checks_cell(pr.checks.failed, 'fail') }}
-    </span>
-    {{ comment_chip('H', pr.comments_human, 'human', 'Unresolved human comments') }}
-    {{ comment_chip('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
-    {%- if reviewer_login %}
-    {%- if pr.review_requested %}
-    <span class="chip chip--review" title="Review requested from @{{ reviewer_login }}">
-      <span class="chip-key">R</span><span aria-hidden="true">&check;</span>
-    </span>
-    {%- else %}
-    <button
-      type="button"
-      class="review-request"
-      data-pr-repo="{{ pr.repo }}"
-      data-pr-number="{{ pr.number }}"
-      title="Request review from @{{ reviewer_login }}"
-      aria-label="Request review from @{{ reviewer_login }}"
-    >
-      <span class="chip-key">R</span><span aria-hidden="true">+</span>
-    </button>
-    {%- endif %}
-    {%- endif %}
-    {%- if pr.preview_url %}
-    <span class="preview-group">
-      <a class="preview preview--live" href="{{ pr.preview_url }}" target="_blank" rel="noopener">
-        preview &uarr;
-      </a>
+    {#- Row 1: status indicators (checks + conflicts) -#}
+    <div class="pr-status-row">
+      <span class="checks" title="Checks: passed / pending / failed">
+        <span class="checks-label">Checks</span>
+        {{ checks_cell(pr.checks.passed, 'pass') }}
+        {{ checks_cell(pr.checks.pending, 'pending') }}
+        {{ checks_cell(pr.checks.failed, 'fail') }}
+      </span>
+      {%- if pr.conflicts > 0 %}
+      <span class="conflicts" title="Merge conflicts with target branch">
+        <span class="conflicts-bang">!</span><span>{{ pr.conflicts }} {{ 'conflict' if pr.conflicts == 1 else 'conflicts' }}</span>
+      </span>
+      {%- endif %}
+    </div>
+    {#- Row 2: engagement chips (H / B / R) -#}
+    <div class="pr-status-row">
+      {{ comment_chip('H', pr.comments_human, 'human', 'Unresolved human comments') }}
+      {{ comment_chip('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
+      {%- if reviewer_login %}
+      {%- if pr.approved_by_reviewer %}
+      <span class="chip chip--approved" title="Approved by @{{ reviewer_login }}">
+        <span class="chip-key">R</span><span aria-hidden="true">&check;&check;</span>
+      </span>
+      {%- elif pr.review_requested %}
+      <span class="chip chip--review" title="Review requested from @{{ reviewer_login }}">
+        <span class="chip-key">R</span><span aria-hidden="true">&check;</span>
+      </span>
+      {%- else %}
       <button
         type="button"
-        class="preview-copy"
-        data-copy="{{ pr.preview_url }}"
-        aria-label="Copy preview URL"
-        title="Copy preview URL"
+        class="review-request"
+        data-pr-repo="{{ pr.repo }}"
+        data-pr-number="{{ pr.number }}"
+        title="Request review from @{{ reviewer_login }}"
+        aria-label="Request review from @{{ reviewer_login }}"
       >
-        <svg class="icon icon--copy" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2"/>
-          <rect x="5.5" y="5.5" width="9" height="9" fill="currentColor" stroke="currentColor" stroke-width="2"/>
-          <rect x="6.5" y="6.5" width="7" height="7" fill="var(--white,#fafafa)"/>
-        </svg>
-        <svg class="icon icon--check" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
-        </svg>
+        <span class="chip-key">R</span><span aria-hidden="true">+</span>
       </button>
-    </span>
-    {%- else %}
-    <span class="preview preview--pending">preview is pending</span>
-    {%- endif %}
-    {%- if pr.conflicts > 0 %}
-    <span class="conflicts" title="Merge conflicts with target branch">
-      <span class="conflicts-bang">!</span><span>{{ pr.conflicts }} {{ 'conflict' if pr.conflicts == 1 else 'conflicts' }}</span>
-    </span>
-    {%- endif %}
+      {%- endif %}
+      {%- endif %}
+    </div>
+    {#- Row 3: actions (preview + copy, merge) -#}
+    <div class="pr-status-row pr-status-row--actions">
+      {%- if pr.preview_url %}
+      <span class="preview-group">
+        <a class="preview preview--live" href="{{ pr.preview_url }}" target="_blank" rel="noopener">
+          preview &uarr;
+        </a>
+        <button
+          type="button"
+          class="preview-copy"
+          data-copy="{{ pr.preview_url }}"
+          aria-label="Copy preview URL"
+          title="Copy preview URL"
+        >
+          <svg class="icon icon--copy" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="5.5" y="5.5" width="9" height="9" fill="currentColor" stroke="currentColor" stroke-width="2"/>
+            <rect x="6.5" y="6.5" width="7" height="7" fill="var(--white,#fafafa)"/>
+          </svg>
+          <svg class="icon icon--check" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          </svg>
+        </button>
+      </span>
+      {%- else %}
+      <span class="preview preview--pending">preview is pending</span>
+      {%- endif %}
+      {%- if pr.column == 'approved' %}
+      <button
+        type="button"
+        class="merge-button"
+        data-pr-repo="{{ pr.repo }}"
+        data-pr-number="{{ pr.number }}"
+        data-pr-title="{{ pr.title }}"
+        title="Merge this PR into the base branch"
+      >
+        MERGE &rarr;
+      </button>
+      {%- endif %}
+    </div>
   </div>
 </article>
 {%- endfor %}

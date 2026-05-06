@@ -142,7 +142,7 @@ button {
 /* ---------- Board ---------- */
 .board {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 28px;
   padding: 28px;
   align-items: start;
@@ -152,9 +152,13 @@ button {
   display: none;
 }
 
-.board--single {
+.board--cols-1 {
   grid-template-columns: minmax(0, 760px);
   justify-content: center;
+}
+
+.board--cols-2 {
+  grid-template-columns: 1fr 1fr;
 }
 
 /* ---------- Empty state ---------- */
@@ -221,6 +225,16 @@ button {
   border-left-color: var(--green);
 }
 
+.column--approved {
+  border-width: 4px;
+  border-color: var(--green);
+  background: #effaf1;
+}
+
+.column--approved .column-title {
+  color: var(--green);
+}
+
 .column-header {
   display: flex;
   align-items: baseline;
@@ -254,6 +268,16 @@ button {
   left: 0;
   bottom: 0;
   width: 96px;
+  height: 6px;
+  background: var(--green);
+}
+
+.column--approved .column-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
   height: 6px;
   background: var(--green);
 }
@@ -379,6 +403,13 @@ a.pr-number:hover {
   align-items: center;
 }
 
+/* On desktop the row wrappers vanish: their children flow into the
+   parent's flex line so visual layout is unchanged. On mobile (below)
+   they become real flex containers, giving us 3 stacked rows. */
+.pr-status-row {
+  display: contents;
+}
+
 .checks {
   display: inline-flex;
   align-items: stretch;
@@ -451,6 +482,12 @@ a.pr-number:hover {
   color: var(--white);
 }
 
+.chip--approved {
+  background: var(--green);
+  color: var(--white);
+  border-color: var(--green);
+}
+
 .review-request {
   display: inline-flex;
   align-items: center;
@@ -485,6 +522,50 @@ a.pr-number:hover {
 }
 
 .review-request:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.merge-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid var(--black);
+  padding: 6px 14px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--green);
+  color: var(--white);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.merge-button:hover:not(:disabled):not(.is-merged) {
+  background: var(--black);
+  color: var(--yellow);
+}
+
+.merge-button:disabled {
+  background: var(--grey);
+  color: var(--muted);
+  cursor: wait;
+}
+
+.merge-button.is-error {
+  background: var(--red);
+  color: var(--white);
+  border-color: var(--red);
+}
+
+.merge-button.is-merged {
+  background: var(--black);
+  color: var(--green);
+  cursor: default;
+}
+
+.merge-button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
@@ -805,8 +886,272 @@ a.pr-number:hover {
   padding-bottom: 64px;
 }
 
+/* iOS safe-area for the fixed footer tab on devices with home indicator. */
+@supports (padding: max(0px)) {
+  .footer-meta {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .board {
+    padding-bottom: max(64px, calc(48px + env(safe-area-inset-bottom)));
+  }
+}
+
+/* Reduce double-tap zoom delay on touch buttons. */
+.btn,
+.review-request,
+.preview-copy,
+.settings-modal-close,
+.settings-row input[type="checkbox"] {
+  touch-action: manipulation;
+}
+
+/* ---------- Tablet: collapse to single column ---------- */
 @media (max-width: 800px) {
   .board {
     grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px;
+  }
+  .column {
+    padding: 14px;
+  }
+}
+
+/* ---------- Mobile: tighten chrome and bump touch targets ---------- */
+@media (max-width: 640px) {
+  .topbar {
+    padding: 12px 14px;
+    gap: 10px;
+    border-bottom-width: 3px;
+  }
+  .brand {
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .brand-mark {
+    gap: 6px;
+  }
+  .shape {
+    width: 14px;
+    height: 14px;
+  }
+  .shape--triangle {
+    border-left-width: 8px;
+    border-right-width: 8px;
+    border-bottom-width: 14px;
+  }
+  .brand-title {
+    font-size: 17px;
+    letter-spacing: 0.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar-actions {
+    gap: 8px;
+  }
+  .me {
+    display: none;
+  }
+  .btn {
+    padding: 10px 12px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    min-height: 40px;
+  }
+
+  .board {
+    padding: 14px;
+    gap: 14px;
+  }
+  .column {
+    padding: 12px;
+    border-width: 2px;
+    min-height: 0;
+  }
+  .column--ready {
+    border-left-width: 8px;
+  }
+  .column-title {
+    font-size: 16px;
+  }
+  .column-header {
+    margin-bottom: 12px;
+  }
+
+  .pr-card {
+    padding: 12px;
+    border-width: 2px;
+  }
+  .pr-card.is-ready {
+    border-width: 3px;
+  }
+  .pr-title {
+    font-size: 14px;
+  }
+
+  /* 3 stacked rows on mobile: each .pr-status-row becomes its own
+     flex line. Order matches semantic grouping in the template:
+       row 1 = checks + conflicts
+       row 2 = comment chips + R chip/button
+       row 3 = preview link + copy, merge button. */
+  .pr-status {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .pr-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+    min-height: 40px;
+  }
+  .pr-status-row:empty {
+    display: none;
+  }
+  .pr-status-row--actions {
+    justify-content: flex-start;
+  }
+
+  /* Uniform 40px height for every interactive element in the strip. */
+  .checks,
+  .chip,
+  .conflicts,
+  .review-request,
+  .preview-copy,
+  .merge-button,
+  .preview {
+    height: 40px;
+    box-sizing: border-box;
+  }
+  /* For simple text chips, centre vertically. .checks is itself a flex
+     container of cells; it must KEEP align-items: stretch so the cells
+     fill the full pill height (otherwise their background colours only
+     paint the content's intrinsic height). */
+  .chip,
+  .conflicts,
+  .review-request,
+  .merge-button {
+    padding-top: 0;
+    padding-bottom: 0;
+    align-items: center;
+  }
+  .checks-cell,
+  .checks-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .preview-copy {
+    width: 40px;
+  }
+  .preview-copy .icon {
+    width: 18px;
+    height: 18px;
+  }
+  .preview-group {
+    height: 40px;
+    align-items: center;
+  }
+  .merge-button {
+    padding: 0 16px;
+    font-size: 13px;
+    margin-left: auto;
+  }
+
+  /* Settings modal: near-fullscreen sheet on phones. */
+  .settings-modal {
+    width: 96vw;
+    max-height: 88vh;
+    border-width: 3px;
+  }
+  .settings-modal-header {
+    padding: 12px 14px;
+    gap: 10px;
+    border-bottom-width: 3px;
+  }
+  .settings-modal-title {
+    font-size: 16px;
+  }
+  .settings-modal-body {
+    max-height: calc(88vh - 130px);
+  }
+  .settings-row label {
+    padding: 14px 14px;
+    font-size: 14px;
+    gap: 14px;
+  }
+  .settings-row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+  .settings-row input[type="checkbox"]:checked::after {
+    width: 10px;
+    height: 10px;
+  }
+  .settings-modal-close {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Compact "last updated" tab. */
+  .footer-meta {
+    padding: 6px 12px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    min-width: 0;
+    border-width: 2px;
+  }
+
+  /* Smaller empty-state on phones. */
+  .empty-state {
+    padding: 56px 20px 96px;
+    gap: 14px;
+  }
+  .empty-state-mark .shape {
+    width: 32px;
+    height: 32px;
+  }
+  .empty-state-mark .shape--triangle {
+    border-left-width: 18px;
+    border-right-width: 18px;
+    border-bottom-width: 32px;
+  }
+  .empty-state-title {
+    font-size: 36px;
+    border-bottom-width: 4px;
+  }
+  .empty-state-sub {
+    font-size: 12px;
+  }
+}
+
+/* ---------- Very narrow phones (<= 380px): drop button text to icon. */
+@media (max-width: 380px) {
+  .btn--settings {
+    font-size: 0;
+    padding: 10px;
+    min-width: 40px;
+  }
+  .btn--settings::before {
+    content: "\2699"; /* gear */
+    font-size: 18px;
+  }
+  .btn--refresh {
+    font-size: 0;
+    padding: 10px;
+    min-width: 40px;
+  }
+  .btn--refresh::before {
+    content: "\21BB"; /* clockwise arrow */
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .brand-title {
+    font-size: 15px;
   }
 }

@@ -68,6 +68,14 @@
           </header>
           <div id="col-ready" class="column-body"></div>
         </section>
+
+        <section class="column column--approved" aria-labelledby="col-approved-title">
+          <header class="column-header">
+            <h2 id="col-approved-title" class="column-title">APPROVED</h2>
+            <span class="column-count" data-count-for="approved">0</span>
+          </header>
+          <div id="col-approved" class="column-body"></div>
+        </section>
       </div>
 
       <section class="empty-state" hidden aria-live="polite">
@@ -190,49 +198,62 @@
           var stream = document.getElementById("pr-stream");
           var progress = document.getElementById("col-progress");
           var ready = document.getElementById("col-ready");
-          if (!stream || !progress || !ready) return;
+          var approved = document.getElementById("col-approved");
+          if (!stream || !progress || !ready || !approved) return;
 
+          var buckets = {
+            progress: progress,
+            ready: ready,
+            approved: approved,
+          };
           progress.innerHTML = "";
           ready.innerHTML = "";
+          approved.innerHTML = "";
 
           var cards = stream.querySelectorAll(".pr-card");
           cards.forEach(function (card) {
             var col = card.getAttribute("data-column");
-            (col === "ready" ? ready : progress).appendChild(card);
+            (buckets[col] || progress).appendChild(card);
           });
 
           applyIgnoreFilter();
 
-          var progressCount = visibleChildren(progress);
-          var readyCount = visibleChildren(ready);
+          var counts = {
+            progress: visibleChildren(progress),
+            ready: visibleChildren(ready),
+            approved: visibleChildren(approved),
+          };
 
           document
             .querySelectorAll("[data-count-for]")
             .forEach(function (el) {
               var key = el.getAttribute("data-count-for");
-              el.textContent = String(
-                key === "ready" ? readyCount : progressCount
-              );
+              el.textContent = String(counts[key] || 0);
             });
 
           var board = document.querySelector(".board");
-          var progressCol = document.querySelector(".column--progress");
-          var readyCol = document.querySelector(".column--ready");
           var emptyState = document.querySelector(".empty-state");
+          var cols = [
+            { key: "progress", el: document.querySelector(".column--progress") },
+            { key: "ready",    el: document.querySelector(".column--ready") },
+            { key: "approved", el: document.querySelector(".column--approved") },
+          ];
 
-          if (progressCol) progressCol.hidden = progressCount === 0;
-          if (readyCol) readyCol.hidden = readyCount === 0;
-
-          var bothEmpty = progressCount === 0 && readyCount === 0;
-          var onlyOne =
-            !bothEmpty &&
-            (progressCount === 0 || readyCount === 0);
+          var visibleCols = 0;
+          cols.forEach(function (c) {
+            if (!c.el) return;
+            var hide = counts[c.key] === 0;
+            c.el.hidden = hide;
+            if (!hide) visibleCols++;
+          });
 
           if (board) {
-            board.classList.toggle("board--single", onlyOne);
-            board.hidden = bothEmpty;
+            board.classList.toggle("board--cols-1", visibleCols === 1);
+            board.classList.toggle("board--cols-2", visibleCols === 2);
+            board.classList.toggle("board--cols-3", visibleCols === 3);
+            board.hidden = visibleCols === 0;
           }
-          if (emptyState) emptyState.hidden = !bothEmpty;
+          if (emptyState) emptyState.hidden = visibleCols !== 0;
         }
 
         window.__betterGhDistribute = distribute;
@@ -386,6 +407,77 @@
           if (typeof window.__betterGhDistribute === "function") {
             window.__betterGhDistribute();
           }
+        });
+      })();
+
+      // Merge button (per card in the APPROVED column). Destructive, so
+      // confirm() first; on success, swap the button for a "MERGED"
+      // pill and let the next SSE push remove the card from the board.
+      (function () {
+        function flashError(btn, message) {
+          var prev = btn.getAttribute("title");
+          btn.classList.add("is-error");
+          btn.disabled = false;
+          btn.setAttribute("title", message || "Couldn't merge.");
+          setTimeout(function () {
+            btn.classList.remove("is-error");
+            if (prev) btn.setAttribute("title", prev);
+          }, 4000);
+        }
+
+        function flipToMerged(btn) {
+          var pill = document.createElement("span");
+          pill.className = "merge-button is-merged";
+          pill.setAttribute("aria-disabled", "true");
+          pill.innerHTML = 'MERGED <span aria-hidden="true">&check;</span>';
+          btn.replaceWith(pill);
+        }
+
+        document.body.addEventListener("click", function (evt) {
+          var btn =
+            evt.target &&
+            evt.target.closest &&
+            evt.target.closest(".merge-button");
+          if (!btn || btn.disabled || btn.classList.contains("is-merged")) return;
+          evt.preventDefault();
+          var repo = btn.getAttribute("data-pr-repo") || "";
+          var number = btn.getAttribute("data-pr-number") || "";
+          var title = btn.getAttribute("data-pr-title") || ("#" + number);
+          var slash = repo.indexOf("/");
+          if (slash < 0 || !number) return;
+
+          if (
+            !window.confirm(
+              "Merge \"" + title + "\" (#" + number + ") into the base branch?"
+            )
+          ) {
+            return;
+          }
+
+          var owner = repo.slice(0, slash);
+          var name = repo.slice(slash + 1);
+          btn.disabled = true;
+          fetch(
+            "/pulls/" +
+              encodeURIComponent(owner) +
+              "/" +
+              encodeURIComponent(name) +
+              "/" +
+              encodeURIComponent(number) +
+              "/merge",
+            { method: "POST" }
+          )
+            .then(function (r) {
+              if (!r.ok) {
+                return r.text().then(function (t) {
+                  throw new Error(t || "HTTP " + r.status);
+                });
+              }
+              flipToMerged(btn);
+            })
+            .catch(function (err) {
+              flashError(btn, String(err && err.message ? err.message : err));
+            });
         });
       })();
 

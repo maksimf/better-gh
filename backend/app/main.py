@@ -175,6 +175,39 @@ async def refresh() -> HTMLResponse:
 
 
 @app.post(
+    "/pulls/{owner}/{repo}/{number}/merge",
+    status_code=204,
+)
+async def merge_pr_endpoint(
+    owner: str,
+    repo: str,
+    number: int,
+    background: BackgroundTasks,
+) -> Response:
+    """Merge a PR via the GitHub REST API.
+
+    Uses ``settings.MERGE_METHOD`` (merge|squash|rebase). Surfaces upstream
+    failures (e.g. PR not mergeable) as 502 with the GitHub error body.
+    Triggers a background poll on success so the card disappears fast.
+    """
+    gh: GitHubClient | None = getattr(app.state, "github", None)
+    if gh is None:
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub client is not initialised yet.",
+        )
+    method = settings.MERGE_METHOD or "merge"
+    try:
+        await gh.merge_pr(owner, repo, number, method=method)
+    except Exception as exc:
+        log.exception("merge failed for %s/%s#%s", owner, repo, number)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    background.add_task(_safe_poll_once)
+    return Response(status_code=204)
+
+
+@app.post(
     "/pulls/{owner}/{repo}/{number}/request-review",
     status_code=204,
 )
