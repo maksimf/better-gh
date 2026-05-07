@@ -523,14 +523,45 @@ a.pr-number:hover {
   background: var(--white);
 }
 
-.chip--human {
+/* Combined Comments pill — same shape as .checks: a label cap plus
+   per-kind cells for the H (human) and B (bot) counts. */
+.comments {
+  display: inline-flex;
+  align-items: stretch;
+  border: 2px solid var(--black);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.comments-label {
+  background: var(--black);
+  color: var(--white);
+  padding: 4px 6px;
+  text-transform: uppercase;
+}
+
+.comments-cell {
+  padding: 4px 8px;
+  border-left: 2px solid var(--black);
+  min-width: 26px;
+  text-align: center;
+  background: var(--white);
+}
+
+.comments-cell--human {
   background: var(--blue);
   color: var(--white);
 }
 
-.chip--bot {
+.comments-cell--bot {
   background: var(--black);
   color: var(--white);
+}
+
+.comments-cell--zero {
+  background: var(--white);
+  color: var(--muted);
 }
 
 .chip--review {
@@ -624,12 +655,6 @@ a.pr-number:hover {
 .merge-button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
-}
-
-.chip--zero {
-  background: var(--white);
-  color: var(--muted);
-  border-color: var(--muted);
 }
 
 .chip-key {
@@ -974,7 +999,8 @@ a.pr-number:hover {
 [data-theme="dark"] .settings-modal-header,
 [data-theme="dark"] .column-count,
 [data-theme="dark"] .checks-label,
-[data-theme="dark"] .chip--bot,
+[data-theme="dark"] .comments-label,
+[data-theme="dark"] .comments-cell--bot,
 [data-theme="dark"] .pr-tag--draft,
 [data-theme="dark"] .settings-count {
   background: #111111;
@@ -1019,7 +1045,7 @@ a.pr-number:hover {
 [data-theme="dark"] .btn--settings:hover,
 [data-theme="dark"] .checks-cell--pass,
 [data-theme="dark"] .checks-cell--fail,
-[data-theme="dark"] .chip--human,
+[data-theme="dark"] .comments-cell--human,
 [data-theme="dark"] .chip--review,
 [data-theme="dark"] .chip--approved,
 [data-theme="dark"] .review-request:hover:not(:disabled),
@@ -1136,8 +1162,19 @@ a.pr-number:hover {
   .pr-card.is-ready {
     border-width: 3px;
   }
-  .pr-title {
+
+  /* Mobile pr-head: title gets its own row, number + author justify
+     across the second row (draft tag, if present, sits after author). */
+  .pr-head {
+    row-gap: 4px;
+  }
+  .pr-head .pr-title {
+    order: -1;
+    flex: 1 0 100%;
     font-size: 14px;
+  }
+  .pr-head .pr-number {
+    margin-right: auto;
   }
 
   /* 3 stacked rows on mobile: each .pr-status-row becomes its own
@@ -1166,6 +1203,7 @@ a.pr-number:hover {
 
   /* Uniform 40px height for every interactive element in the strip. */
   .checks,
+  .comments,
   .chip,
   .conflicts,
   .review-request,
@@ -1188,7 +1226,9 @@ a.pr-number:hover {
     align-items: center;
   }
   .checks-cell,
-  .checks-label {
+  .checks-label,
+  .comments-cell,
+  .comments-label {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1210,6 +1250,14 @@ a.pr-number:hover {
     padding: 0 16px;
     font-size: 13px;
     margin-left: auto;
+  }
+
+  /* Push the "Request review" button (only its un-clicked, button form
+     -- not the post-click chip) onto its own wrapped line below the
+     Comments pill. The approved / requested chips stay inline. */
+  .review-request {
+    flex: 1 0 100%;
+    justify-content: center;
   }
 
   /* Settings modal: near-fullscreen sheet on phones. */

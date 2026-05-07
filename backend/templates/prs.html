@@ -3,11 +3,9 @@
 {%- set cls = 'checks-cell--zero' if value == 0 else 'checks-cell--' ~ modifier -%}
 <span class="checks-cell {{ cls }}">{{ value }}</span>
 {%- endmacro -%}
-{%- macro comment_chip(letter, count, kind, title) -%}
-{%- set cls = 'chip--zero' if count == 0 else 'chip--' ~ kind -%}
-<span class="chip {{ cls }}"{% if title %} title="{{ title }}"{% endif %}>
-      <span class="chip-key">{{ letter }}</span><span>{{ count }}</span>
-    </span>
+{%- macro comments_cell(letter, count, kind, title) -%}
+{%- set cls = 'comments-cell--zero' if count == 0 else 'comments-cell--' ~ kind -%}
+<span class="comments-cell {{ cls }}" title="{{ title }}">{{ letter }} {{ count }}</span>
 {%- endmacro -%}
 {%- if not prs -%}
 <!-- empty -->
@@ -37,10 +35,13 @@
       </span>
       {%- endif %}
     </div>
-    {#- Row 2: engagement chips (H / B / R) -#}
+    {#- Row 2: engagement (Comments pill + R) -#}
     <div class="pr-status-row">
-      {{ comment_chip('H', pr.comments_human, 'human', 'Unresolved human comments') }}
-      {{ comment_chip('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
+      <span class="comments" title="Unresolved comments: human / bot">
+        <span class="comments-label">Comments</span>
+        {{ comments_cell('H', pr.comments_human, 'human', 'Unresolved human comments') }}
+        {{ comments_cell('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
+      </span>
       {%- if reviewer_login %}
       {%- if pr.approved_by_reviewer %}
       <span class="chip chip--approved" title="Approved by @{{ reviewer_login }}">
@@ -59,7 +60,7 @@
         title="Request review from @{{ reviewer_login }}"
         aria-label="Request review from @{{ reviewer_login }}"
       >
-        <span class="chip-key">R</span><span aria-hidden="true">+</span>
+        Request review
       </button>
       {%- endif %}
       {%- endif %}
