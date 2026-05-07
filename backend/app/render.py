@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -43,8 +44,40 @@ def render_meta(when: datetime | None) -> str:
         return (
             'LAST UPDATED <span class="last-updated-relative">never</span>'
         )
-    iso = when.isoformat().replace("+00:00", "Z")
+    iso = _iso_z(when)
     return (
         'LAST UPDATED '
         f'<span class="last-updated-relative" data-iso="{iso}">just now</span>'
     )
+
+
+def render_error_banner(message: str, reset_at: datetime | None) -> str:
+    """Render the error-banner fragment shown above the board.
+
+    ``reset_at`` is optional: when set, the fragment carries it on
+    ``data-iso`` so the client-side ticker can render and refresh a
+    "try again in X mins" hint without another round-trip. When unknown,
+    we deliberately omit the time hint rather than guessing.
+    """
+    safe_message = escape(message)
+    if reset_at is None:
+        hint_html = ""
+    else:
+        iso = _iso_z(reset_at)
+        hint_html = (
+            ' <span class="error-banner-hint">'
+            f'Try again <span class="error-banner-relative" data-iso="{iso}">'
+            "soon</span>.</span>"
+        )
+    return (
+        '<div class="error-banner-inner" role="alert">'
+        '<span class="error-banner-icon" aria-hidden="true">!</span>'
+        '<span class="error-banner-text">'
+        f'<strong>{safe_message}</strong>{hint_html}'
+        "</span>"
+        "</div>"
+    )
+
+
+def _iso_z(when: datetime) -> str:
+    return when.isoformat().replace("+00:00", "Z")

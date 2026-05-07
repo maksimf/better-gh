@@ -15,9 +15,9 @@ from sse_starlette.sse import EventSourceResponse
 
 from . import state
 from .config import settings
-from .github import GitHubClient
+from .github import GitHubClient, GitHubRateLimitError
 from .poller import poll_forever, poll_once
-from .render import render_meta, render_prs
+from .render import render_error_banner, render_meta, render_prs
 
 log = logging.getLogger("better_gh.main")
 logging.basicConfig(
@@ -143,6 +143,7 @@ async def events() -> EventSourceResponse:
         yield {"event": "prs", "data": _flatten(initial_prs)}
         initial_meta = render_meta(state.last_polled_at())
         yield {"event": "meta", "data": _flatten(initial_meta)}
+        yield {"event": "error", "data": _flatten(state.current_error())}
         async for evt in state.subscribe():
             yield evt
 
@@ -158,6 +159,10 @@ async def refresh() -> HTMLResponse:
     body is identical to ``GET /prs.html`` so the frontend swaps it
     straight into ``#pr-stream``. The poller's normal SSE broadcast still
     fires (no-op if data is unchanged), keeping other tabs in sync.
+
+    On a rate-limit error we return 502 with the banner HTML in the body
+    plus ``HX-Retarget``/``HX-Reswap`` so the frontend swaps it into the
+    error banner without wiping the existing PR list.
     """
     gh: GitHubClient | None = getattr(app.state, "github", None)
     if gh is None:
@@ -167,6 +172,17 @@ async def refresh() -> HTMLResponse:
         )
     try:
         await poll_once(gh, render_prs)
+    except GitHubRateLimitError as exc:
+        log.warning("manual /refresh hit rate limit (reset_at=%s)", exc.reset_at)
+        banner = render_error_banner(str(exc), exc.reset_at)
+        return HTMLResponse(
+            content=banner,
+            status_code=502,
+            headers={
+                "HX-Retarget": "#error-banner",
+                "HX-Reswap": "innerHTML",
+            },
+        )
     except Exception as exc:
         log.exception("manual /refresh poll failed")
         raise HTTPException(status_code=502, detail=str(exc))

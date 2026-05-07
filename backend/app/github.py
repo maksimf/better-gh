@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Iterable, Mapping
 
 import httpx
 
@@ -11,6 +13,54 @@ from .model import PR, Checks
 from .preview import extract_preview_url
 
 log = logging.getLogger("better_gh.github")
+
+
+class GitHubRateLimitError(RuntimeError):
+    """Raised when GitHub returns a primary or secondary rate-limit error.
+
+    ``reset_at`` is parsed from response headers (``X-RateLimit-Reset`` for
+    primary limits, ``Retry-After`` for secondary limits). It may be
+    ``None`` if neither header is present or parseable; callers should only
+    surface a "try again at..." hint when this is set.
+    """
+
+    def __init__(self, message: str, *, reset_at: datetime | None = None) -> None:
+        super().__init__(message)
+        self.reset_at = reset_at
+
+
+def _parse_rate_limit_reset(headers: Mapping[str, str]) -> datetime | None:
+    """Pick the most authoritative reset timestamp out of GitHub's headers.
+
+    Prefers ``X-RateLimit-Reset`` (UNIX epoch seconds) since it's an absolute
+    instant. Falls back to ``Retry-After`` (delta-seconds or HTTP-date). All
+    parse failures are swallowed -- the banner just hides the time hint
+    rather than showing nonsense.
+    """
+    reset = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+    if reset:
+        try:
+            return datetime.fromtimestamp(int(reset), tz=timezone.utc)
+        except (TypeError, ValueError):
+            pass
+
+    retry_after = headers.get("retry-after") or headers.get("Retry-After")
+    if retry_after:
+        retry_after = retry_after.strip()
+        if retry_after.isdigit():
+            return datetime.now(timezone.utc) + timedelta(seconds=int(retry_after))
+        try:
+            parsed = parsedate_to_datetime(retry_after)
+        except (TypeError, ValueError):
+            return None
+        if parsed is None:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    return None
+
 
 QUERY = """
 query MyOpenPRs($first: Int!, $assignedQuery: String!) {
@@ -198,11 +248,26 @@ class GitHubClient:
             },
         }
         resp = await self._client.post(self._graphql_url, headers=headers, json=payload)
+
+        if resp.status_code == 429 or resp.status_code == 403:
+            reset_at = _parse_rate_limit_reset(resp.headers)
+            raise GitHubRateLimitError(
+                f"GitHub rate limit hit ({resp.status_code}).",
+                reset_at=reset_at,
+            )
+
         resp.raise_for_status()
         body = resp.json()
 
         if body.get("errors"):
-            raise RuntimeError(f"GitHub GraphQL errors: {body['errors']}")
+            errors = body["errors"]
+            if any((e or {}).get("type") == "RATE_LIMITED" for e in errors):
+                reset_at = _parse_rate_limit_reset(resp.headers)
+                raise GitHubRateLimitError(
+                    "GitHub API rate limit exceeded.",
+                    reset_at=reset_at,
+                )
+            raise RuntimeError(f"GitHub GraphQL errors: {errors}")
 
         data = body.get("data") or {}
         authored = (

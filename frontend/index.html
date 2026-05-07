@@ -112,6 +112,15 @@
       </div>
     </header>
 
+    <aside
+      id="error-banner"
+      class="error-banner"
+      hidden
+      role="alert"
+      aria-live="polite"
+      sse-swap="error"
+    ></aside>
+
     <main>
       <div class="board">
         <section class="column column--progress" aria-labelledby="col-progress-title">
@@ -414,6 +423,76 @@
           if (evt.target && evt.target.id === "last-updated") tick();
         });
         setInterval(tick, 60_000);
+      })();
+
+      // Error banner: surface backend failures (rate limit, etc) and tick
+      // the "try again ..." hint until the reset time, then swap the hint
+      // for "now". Banner contents come from the server -- this only owns
+      // visibility and the relative-time ticker.
+      (function () {
+        var banner = document.getElementById("error-banner");
+        if (!banner) return;
+
+        function pad(n) {
+          return n < 10 ? "0" + n : String(n);
+        }
+        function formatLocalTime(d) {
+          return pad(d.getHours()) + ":" + pad(d.getMinutes());
+        }
+        function formatUntil(then) {
+          var seconds = Math.round((then.getTime() - Date.now()) / 1000);
+          if (seconds <= 0) return "now (at " + formatLocalTime(then) + ")";
+          if (seconds < 60) return "in <1 min (at " + formatLocalTime(then) + ")";
+          var minutes = Math.round(seconds / 60);
+          if (minutes === 1) return "in 1 min (at " + formatLocalTime(then) + ")";
+          if (minutes < 60) {
+            return "in " + minutes + " mins (at " + formatLocalTime(then) + ")";
+          }
+          var hours = Math.round(minutes / 60);
+          if (hours === 1) return "in 1 hour (at " + formatLocalTime(then) + ")";
+          return "in " + hours + " hours (at " + formatLocalTime(then) + ")";
+        }
+
+        function tick() {
+          banner.querySelectorAll(".error-banner-relative").forEach(function (el) {
+            var iso = el.getAttribute("data-iso");
+            if (!iso) return;
+            var then = new Date(iso);
+            if (isNaN(then.getTime())) return;
+            el.textContent = formatUntil(then);
+          });
+        }
+
+        function syncVisibility() {
+          var hasContent = banner.innerHTML.trim().length > 0;
+          banner.hidden = !hasContent;
+          if (hasContent) tick();
+        }
+
+        // HTMX won't swap on 4xx/5xx by default; allow it ONLY when the
+        // server explicitly sends an HX-Retarget header. That's how
+        // /refresh lands the rate-limit banner in #error-banner without
+        // nuking #pr-stream, and it can't accidentally hijack any other
+        // error response that happens to have a body.
+        document.body.addEventListener("htmx:beforeSwap", function (evt) {
+          var xhr = evt.detail && evt.detail.xhr;
+          if (!xhr) return;
+          if (
+            xhr.status >= 400 &&
+            xhr.status < 600 &&
+            xhr.getResponseHeader("HX-Retarget")
+          ) {
+            evt.detail.shouldSwap = true;
+            evt.detail.isError = false;
+          }
+        });
+
+        document.body.addEventListener("htmx:afterSwap", function (evt) {
+          if (evt.target && evt.target.id === "error-banner") syncVisibility();
+        });
+
+        document.addEventListener("DOMContentLoaded", syncVisibility);
+        setInterval(tick, 30_000);
       })();
 
       // Settings modal: open/close, fetch repos, render checkbox list,

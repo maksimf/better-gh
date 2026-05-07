@@ -986,6 +986,75 @@ a.pr-number:hover {
   touch-action: manipulation;
 }
 
+/* ---------- Error banner ---------- */
+.error-banner {
+  margin: 18px 28px 0;
+  border: 3px solid var(--black);
+  background: var(--yellow);
+  color: var(--black);
+}
+
+.error-banner[hidden] {
+  display: none;
+}
+
+.error-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.error-banner-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  background: var(--black);
+  color: var(--yellow);
+  font-weight: 900;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.error-banner-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+
+.error-banner-text strong {
+  font-weight: 900;
+}
+
+.error-banner-hint {
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.error-banner-relative {
+  font-weight: 900;
+}
+
+@media (max-width: 640px) {
+  .error-banner {
+    margin: 12px 14px 0;
+    border-width: 2px;
+  }
+  .error-banner-inner {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .error-banner-text {
+    font-size: 12px;
+  }
+}
+
 /* ---------- Dark theme overrides ----------
    The variable swap above flips paper/surface/ink across the app. These
    rules pin contrast for the few spots where a naive swap would break:
@@ -1036,8 +1105,18 @@ a.pr-number:hover {
 [data-theme="dark"] .checks-cell--pending,
 [data-theme="dark"] .review-request,
 [data-theme="dark"] .settings-modal-close,
-[data-theme="dark"] .preview-copy:hover {
+[data-theme="dark"] .preview-copy:hover,
+[data-theme="dark"] .error-banner {
   color: #111111;
+}
+
+[data-theme="dark"] .error-banner {
+  border-color: #111111;
+}
+
+[data-theme="dark"] .error-banner-icon {
+  background: #111111;
+  color: var(--yellow);
 }
 
 /* Always-light text on red / blue / green */

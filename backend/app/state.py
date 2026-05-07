@@ -28,6 +28,7 @@ class Snapshot:
 
 _snapshot: Snapshot = Snapshot(prs=[])
 _last_polled_at: datetime | None = None
+_error_html: str = ""
 _subscribers: set[asyncio.Queue[dict[str, str]]] = set()
 _subscribers_lock = asyncio.Lock()
 
@@ -53,6 +54,20 @@ def set_snapshot(new: Snapshot) -> bool:
     global _snapshot
     changed = new.fingerprints != _snapshot.fingerprints
     _snapshot = new
+    return changed
+
+
+def current_error() -> str:
+    """The current error-banner HTML, or empty string if no active error."""
+    return _error_html
+
+
+def set_error(html: str) -> bool:
+    """Replace the current error-banner HTML. Returns ``True`` iff it changed
+    (subscribers should be notified)."""
+    global _error_html
+    changed = html != _error_html
+    _error_html = html
     return changed
 
 
