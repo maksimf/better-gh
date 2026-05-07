@@ -9,6 +9,30 @@
   --grey: #d9d9d9;
   --grey-2: #ececec;
   --muted: #7a7a7a;
+  --approved-bg: #effaf1;
+  --draft-text: #3a3a3a;
+  --backdrop: rgba(17, 17, 17, 0.55);
+  color-scheme: light;
+}
+
+/* Dark theme: invert paper / surface / ink, brighten accents for contrast,
+   keep yellow as-is. Specific selectors below restore the "always-dark"
+   topbar, footer, and label-style pills, plus dark text on yellow and
+   light text on red/blue/green. */
+[data-theme="dark"] {
+  --black: #ededed;
+  --white: #18181a;
+  --paper: #0e0e10;
+  --red: #ff5046;
+  --blue: #6b8eff;
+  --green: #34c759;
+  --grey: #2a2a2c;
+  --grey-2: #242426;
+  --muted: #8a8a8a;
+  --approved-bg: #102016;
+  --draft-text: #aaaaaa;
+  --backdrop: rgba(0, 0, 0, 0.75);
+  color-scheme: dark;
 }
 
 * {
@@ -139,6 +163,38 @@ button {
   color: var(--white);
 }
 
+.btn--theme {
+  background: var(--white);
+  color: var(--black);
+  padding: 8px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.btn--theme:hover {
+  background: var(--yellow);
+  color: var(--black);
+}
+
+.theme-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.theme-icon--sun {
+  display: none;
+}
+
+[data-theme="dark"] .theme-icon--moon {
+  display: none;
+}
+
+[data-theme="dark"] .theme-icon--sun {
+  display: block;
+}
+
 /* ---------- Board ---------- */
 .board {
   display: grid;
@@ -228,7 +284,7 @@ button {
 .column--approved {
   border-width: 4px;
   border-color: var(--green);
-  background: #effaf1;
+  background: var(--approved-bg);
 }
 
 .column--approved .column-title {
@@ -324,11 +380,11 @@ button {
 
 .pr-card.is-draft {
   background: var(--grey);
-  color: #3a3a3a;
+  color: var(--draft-text);
 }
 
 .pr-card.is-draft .pr-title {
-  color: #3a3a3a;
+  color: var(--draft-text);
 }
 
 .pr-head {
@@ -693,7 +749,7 @@ a.pr-number:hover {
 }
 
 .settings-modal::backdrop {
-  background: rgba(17, 17, 17, 0.55);
+  background: var(--backdrop);
 }
 
 .settings-modal-header {
@@ -905,6 +961,94 @@ a.pr-number:hover {
   touch-action: manipulation;
 }
 
+/* ---------- Dark theme overrides ----------
+   The variable swap above flips paper/surface/ink across the app. These
+   rules pin contrast for the few spots where a naive swap would break:
+   - The topbar, footer tab, and "label" pills stay dark with light text
+     in both modes (brand identity).
+   - Yellow accents always get dark text.
+   - Red / blue / green accents always get light text.
+*/
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .footer-meta,
+[data-theme="dark"] .settings-modal-header,
+[data-theme="dark"] .column-count,
+[data-theme="dark"] .checks-label,
+[data-theme="dark"] .chip--bot,
+[data-theme="dark"] .pr-tag--draft,
+[data-theme="dark"] .settings-count {
+  background: #111111;
+  color: #fafafa;
+}
+
+[data-theme="dark"] .footer-meta {
+  border-color: #111111;
+}
+
+[data-theme="dark"] .me {
+  color: #d9d9d9;
+}
+
+[data-theme="dark"] .btn--settings,
+[data-theme="dark"] .btn--theme {
+  background: #ededed;
+  color: #111111;
+  border-color: #111111;
+}
+
+[data-theme="dark"] .btn--theme:hover {
+  background: var(--yellow);
+  color: #111111;
+}
+
+[data-theme="dark"] .btn:hover {
+  background: #ededed;
+}
+
+/* Always-dark text on yellow */
+[data-theme="dark"] .btn,
+[data-theme="dark"] .checks-cell--pending,
+[data-theme="dark"] .review-request,
+[data-theme="dark"] .settings-modal-close,
+[data-theme="dark"] .preview-copy:hover {
+  color: #111111;
+}
+
+/* Always-light text on red / blue / green */
+[data-theme="dark"] .btn:active,
+[data-theme="dark"] .btn--settings:hover,
+[data-theme="dark"] .checks-cell--pass,
+[data-theme="dark"] .checks-cell--fail,
+[data-theme="dark"] .chip--human,
+[data-theme="dark"] .chip--review,
+[data-theme="dark"] .chip--approved,
+[data-theme="dark"] .review-request:hover:not(:disabled),
+[data-theme="dark"] .review-request.is-error,
+[data-theme="dark"] .merge-button,
+[data-theme="dark"] .merge-button.is-error,
+[data-theme="dark"] .preview-copy.is-copied,
+[data-theme="dark"] .conflicts,
+[data-theme="dark"] .settings-modal-close:hover {
+  color: #fafafa;
+}
+
+/* Merge button "ink" hover/merged states need a dark bg in dark mode
+   (since var(--black) inverts to light). */
+[data-theme="dark"] .merge-button:hover:not(:disabled):not(.is-merged) {
+  background: #111111;
+  color: var(--yellow);
+}
+
+[data-theme="dark"] .merge-button.is-merged {
+  background: #111111;
+  color: var(--green);
+}
+
+/* Inner check-mark dot on the settings checkbox stays light on red. */
+[data-theme="dark"] .settings-row input[type="checkbox"]:checked::after {
+  background: #fafafa;
+}
+
 /* ---------- Tablet: collapse to single column ---------- */
 @media (max-width: 800px) {
   .board {
@@ -959,6 +1103,11 @@ a.pr-number:hover {
     font-size: 12px;
     letter-spacing: 0.06em;
     min-height: 40px;
+  }
+  .btn--theme {
+    padding: 0;
+    width: 40px;
+    min-width: 40px;
   }
 
   .board {
