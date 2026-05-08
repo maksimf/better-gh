@@ -195,6 +195,124 @@ button {
   display: block;
 }
 
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 16px 28px 0;
+  border-bottom: 3px solid var(--black);
+  background: var(--paper);
+}
+
+.tab {
+  background: var(--grey-2);
+  color: var(--muted);
+  border: 3px solid var(--black);
+  border-bottom: none;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  bottom: -3px;
+  margin-right: -3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+/* Yellow accent stripe on top: invisible on inactive tabs, full-bleed
+   on the active tab. The 6px height matches the column-title underline
+   accents elsewhere, tying the active-tab marker into the same
+   Bauhaus stripe vocabulary. */
+.tab::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: -3px;
+  height: 0;
+  background: var(--yellow);
+  transition: height 80ms ease;
+}
+
+.tab:hover:not(.is-active) {
+  background: var(--white);
+  color: var(--black);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.tab.is-active {
+  background: var(--black);
+  color: var(--white);
+  z-index: 1;
+}
+
+.tab.is-active::before {
+  height: 6px;
+}
+
+.tab-count {
+  background: var(--black);
+  color: var(--white);
+  padding: 2px 8px;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  min-width: 22px;
+  text-align: center;
+  display: inline-block;
+  border: 1px solid currentColor;
+}
+
+.tab.is-active .tab-count {
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--yellow);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.is-active {
+  display: block;
+}
+
+/* ---------- Page title (active-tab heading) ----------
+   Sits between the tabs and the active panel. Mirrors the column-title
+   stripe vocabulary -- bold uppercase wordmark with a fixed-width yellow
+   accent stripe -- but at a "page" scale, anchoring whichever tab the
+   user is currently on. The horizontal padding tracks the .tabs / .board
+   pattern (28px desktop, 18px tablet, 14px mobile). */
+.page-title {
+  margin: 0;
+  padding: 28px 28px 0;
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.page-title::after {
+  content: "";
+  display: block;
+  width: 96px;
+  height: 6px;
+  background: var(--yellow);
+  margin-top: 12px;
+}
+
 /* ---------- Board ---------- */
 .board {
   display: grid;
@@ -757,8 +875,135 @@ a.pr-number:hover {
   font-weight: 900;
 }
 
+/* ---------- Reviewing tab ---------- */
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.reviews-list:empty::before {
+  content: "";
+}
+
+.review-row {
+  background: var(--white);
+  border: 3px solid var(--black);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.review-row.is-draft {
+  background: var(--grey);
+  color: var(--draft-text);
+}
+
+.review-row.is-draft .review-title {
+  color: var(--draft-text);
+}
+
+.review-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.review-number {
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.review-number:hover {
+  color: var(--blue);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.review-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 14px;
+  margin: 0;
+  flex: 1 1 200px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.review-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.review-title a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--blue);
+}
+
+.review-repo {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--grey-2);
+  padding: 2px 6px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.review-author {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.review-requested-at {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.review-requested-at::before {
+  content: "\00B7";
+  margin-right: 8px;
+  color: var(--grey);
+}
+
+.review-requested-relative {
+  color: var(--black);
+  font-weight: 800;
+}
+
+.review-row.is-draft .review-requested-relative {
+  color: var(--draft-text);
+}
+
+.review-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 /* ---------- Ignored cards ---------- */
-.pr-card.is-ignored {
+.pr-card.is-ignored,
+.review-row.is-ignored {
   display: none;
 }
 
@@ -1164,6 +1409,13 @@ a.pr-number:hover {
   .column {
     padding: 14px;
   }
+  .reviews-list {
+    padding: 18px;
+  }
+  .page-title {
+    padding: 22px 18px 0;
+    font-size: 28px;
+  }
 }
 
 /* ---------- Mobile: tighten chrome and bump touch targets ---------- */
@@ -1215,9 +1467,64 @@ a.pr-number:hover {
     min-width: 40px;
   }
 
+  .page-title {
+    padding: 18px 14px 0;
+    font-size: 22px;
+  }
+  .page-title::after {
+    width: 72px;
+    height: 4px;
+    margin-top: 8px;
+  }
+
+  .tabs {
+    padding: 12px 14px 0;
+    border-bottom-width: 2px;
+  }
+  .tab {
+    padding: 9px 12px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    border-width: 2px;
+    bottom: -2px;
+    margin-right: -2px;
+  }
+  .tab::before {
+    left: -2px;
+    right: -2px;
+    top: -2px;
+  }
+  .tab.is-active::before {
+    height: 5px;
+  }
+  .tab-count {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
   .board {
     padding: 14px;
     gap: 14px;
+  }
+  .reviews-list {
+    padding: 14px;
+    gap: 10px;
+  }
+  .review-row {
+    padding: 10px 12px;
+    gap: 10px;
+    border-width: 2px;
+  }
+  .review-title {
+    font-size: 13px;
+    flex: 1 1 100%;
+  }
+  .review-main {
+    gap: 8px;
+  }
+  .review-meta {
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .column {
     padding: 12px;

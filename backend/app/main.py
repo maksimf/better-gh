@@ -17,7 +17,7 @@ from . import state
 from .config import settings
 from .github import GitHubClient, GitHubRateLimitError
 from .poller import poll_forever, poll_once
-from .render import render_error_banner, render_meta, render_prs
+from .render import render_error_banner, render_meta, render_prs, render_reviews
 
 log = logging.getLogger("better_gh.main")
 logging.basicConfig(
@@ -114,6 +114,13 @@ async def prs_fragment() -> HTMLResponse:
     return HTMLResponse(content=html)
 
 
+@app.get("/reviews.html", response_class=HTMLResponse)
+async def reviews_fragment() -> HTMLResponse:
+    """Slim PR rows for the "Reviewing" tab (review-requested from viewer)."""
+    html = render_reviews(state.current_snapshot().incoming_reviews)
+    return HTMLResponse(content=html)
+
+
 @app.get("/status", response_class=HTMLResponse)
 async def status_fragment() -> HTMLResponse:
     html = render_meta(state.last_polled_at())
@@ -122,13 +129,17 @@ async def status_fragment() -> HTMLResponse:
 
 @app.get("/repos")
 async def repos_summary() -> list[dict[str, object]]:
-    """Distinct repos in the current snapshot, sorted by PR count desc, name asc.
+    """Distinct repos across the user's PRs + their incoming reviews.
 
-    Used by the settings modal to populate the "ignore repos" list. Stays in
-    JSON shape (rather than HTML) so the frontend can iterate cleanly.
+    Used by the settings modal to populate the "ignore repos" list. The
+    same ignore filter applies to both tabs, so the union of repos is
+    what the user needs to see here. Sorted by total count desc, name asc.
     """
     counts: dict[str, int] = {}
-    for pr in state.current_snapshot().prs:
+    snapshot = state.current_snapshot()
+    for pr in snapshot.prs:
+        counts[pr.repo] = counts.get(pr.repo, 0) + 1
+    for pr in snapshot.incoming_reviews:
         counts[pr.repo] = counts.get(pr.repo, 0) + 1
     return [
         {"repo": repo, "count": count}
@@ -139,13 +150,38 @@ async def repos_summary() -> list[dict[str, object]]:
 @app.get("/events")
 async def events() -> EventSourceResponse:
     async def event_stream() -> AsyncIterator[dict[str, str]]:
-        initial_prs = render_prs(state.current_snapshot().prs)
-        yield {"event": "prs", "data": _flatten(initial_prs)}
-        initial_meta = render_meta(state.last_polled_at())
-        yield {"event": "meta", "data": _flatten(initial_meta)}
-        yield {"event": "error", "data": _flatten(state.current_error())}
-        async for evt in state.subscribe():
-            yield evt
+        # IMPORTANT: register the subscriber queue *before* yielding any
+        # bootstrap events. Otherwise a broadcast that fires during the
+        # bootstrap window (e.g. the poller hits a rate limit just as a
+        # client connects) would go to zero subscribers and be lost --
+        # the user would then never see the banner until the *next*
+        # poll, which can be 5 minutes away.
+        async with state.subscriber() as queue:
+            snapshot = state.current_snapshot()
+            yield {"event": "prs", "data": _flatten(render_prs(snapshot.prs))}
+            yield {
+                "event": "reviews",
+                "data": _flatten(render_reviews(snapshot.incoming_reviews)),
+            }
+            initial_meta = render_meta(state.last_polled_at())
+            yield {"event": "meta", "data": _flatten(initial_meta)}
+            # Use ``gh-error`` (not ``error``) because EventSource has a
+            # native ``error`` event for connection issues, which makes
+            # ``addEventListener("error", ...)`` fire for *both* the
+            # custom message and connection failures. The htmx SSE
+            # extension's listener crashes on the latter (no ``data``),
+            # so the banner never reaches the DOM.
+            yield {"event": "gh-error", "data": _flatten(state.current_error())}
+            while True:
+                try:
+                    payload = await asyncio.wait_for(
+                        queue.get(),
+                        timeout=state.HEARTBEAT_INTERVAL_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    yield {"event": "ping", "data": ""}
+                    continue
+                yield payload
 
     return EventSourceResponse(event_stream(), ping=15)
 

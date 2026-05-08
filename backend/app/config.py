@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = Field(default="", description="GitHub PAT used for the GraphQL API.")
     GITHUB_GRAPHQL_URL: str = Field(default="https://api.github.com/graphql")
     GITHUB_API_URL: str = Field(default="https://api.github.com")
-    POLL_INTERVAL_SECONDS: int = Field(default=60, ge=1)
+    POLL_INTERVAL_SECONDS: int = Field(default=300, ge=1)
     MAX_PRS: int = Field(default=50, ge=1, le=100)
     PREVIEW_COMMENT_PREFIX: str = Field(default="Preview Environment URL:")
     REVIEWER_LOGIN: str = Field(

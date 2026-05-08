@@ -8,7 +8,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .config import settings
-from .model import PR
+from .model import PR, ReviewPR
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -31,6 +31,16 @@ def render_prs(prs: list[PR]) -> str:
         prs=prs,
         reviewer_login=settings.REVIEWER_LOGIN,
     )
+
+
+def render_reviews(prs: list[ReviewPR]) -> str:
+    """Render the slim review-row fragment that goes into ``#reviews-stream``.
+
+    Used by the "Reviewing" tab; one row per PR with title + checks +
+    conflicts. Filtering by repo happens client-side via the same
+    ignore-list as the main board.
+    """
+    return env.get_template("reviews.html").render(prs=prs)
 
 
 def render_meta(when: datetime | None) -> str:

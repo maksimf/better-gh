@@ -1,0 +1,42 @@
+{# Flat sequence of slim review rows. Slots straight into #reviews-stream. #}
+{%- macro checks_cell(value, modifier) -%}
+{%- set cls = 'checks-cell--zero' if value == 0 else 'checks-cell--' ~ modifier -%}
+<span class="checks-cell {{ cls }}">{{ value }}</span>
+{%- endmacro -%}
+{%- if not prs -%}
+<!-- empty -->
+{%- endif -%}
+{%- for pr in prs %}
+<article class="review-row{% if pr.is_draft %} is-draft{% endif %}" data-repo="{{ pr.repo }}">
+  <div class="review-main">
+    <a class="review-number" href="{{ pr.url }}" target="_blank" rel="noopener">#{{ pr.number }}</a>
+    <h3 class="review-title">
+      <a href="{{ pr.url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
+    </h3>
+    <span class="review-repo">{{ pr.repo }}</span>
+    <span class="review-author">@{{ pr.author }}</span>
+    {%- if pr.is_draft %}
+    <span class="pr-tag pr-tag--draft">Draft</span>
+    {%- endif %}
+    {%- if pr.requested_at %}
+    <span class="review-requested-at" title="Review requested at {{ pr.requested_at }}">
+      requested
+      <span class="review-requested-relative" data-iso="{{ pr.requested_at }}">recently</span>
+    </span>
+    {%- endif %}
+  </div>
+  <div class="review-meta">
+    <span class="checks" title="Checks: passed / pending / failed">
+      <span class="checks-label">Checks</span>
+      {{ checks_cell(pr.checks.passed, 'pass') }}
+      {{ checks_cell(pr.checks.pending, 'pending') }}
+      {{ checks_cell(pr.checks.failed, 'fail') }}
+    </span>
+    {%- if pr.conflicts > 0 %}
+    <span class="conflicts" title="Merge conflicts with target branch">
+      <span class="conflicts-bang">!</span><span>{{ pr.conflicts }} {{ 'conflict' if pr.conflicts == 1 else 'conflicts' }}</span>
+    </span>
+    {%- endif %}
+  </div>
+</article>
+{%- endfor %}

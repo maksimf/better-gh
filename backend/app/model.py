@@ -78,3 +78,46 @@ class PR(BaseModel):
             self.review_requested,
             self.approved_by_reviewer,
         )
+
+
+class ReviewPR(BaseModel):
+    """A PR where the viewer has been requested as a reviewer.
+
+    Slim sibling of ``PR`` -- the "Reviewing" tab only needs enough to
+    show a clickable title, a checks pill, a conflicts badge, and "when
+    was the review requested" hint, so we deliberately don't carry
+    comments / preview / approval state here.
+
+    ``requested_at`` is the ISO-8601 timestamp of the most recent
+    ReviewRequestedEvent that targets the viewer; empty when GitHub's
+    timeline doesn't surface one (e.g. the request is older than the
+    timeline window we fetched).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    number: int
+    title: str
+    url: str
+    repo: str
+    author: str
+    is_draft: bool
+    checks: Checks
+    conflicts: int = Field(ge=0)
+    updated_at: str
+    requested_at: str = ""
+
+    def fingerprint(self) -> tuple:
+        return (
+            self.number,
+            self.title,
+            self.url,
+            self.repo,
+            self.author,
+            self.is_draft,
+            self.checks.passed,
+            self.checks.pending,
+            self.checks.failed,
+            self.conflicts,
+            self.requested_at,
+        )

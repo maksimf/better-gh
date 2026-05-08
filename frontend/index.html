@@ -118,44 +118,97 @@
       hidden
       role="alert"
       aria-live="polite"
-      sse-swap="error"
+      sse-swap="gh-error"
     ></aside>
 
+    <nav class="tabs" role="tablist" aria-label="Dashboard tabs">
+      <button
+        type="button"
+        class="tab is-active"
+        id="tab-mine"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-mine"
+        data-tab="mine"
+      >
+        MY PRs
+      </button>
+      <button
+        type="button"
+        class="tab"
+        id="tab-reviews"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-reviews"
+        data-tab="reviews"
+      >
+        REVIEWING <span class="tab-count" data-count-for="reviews">0</span>
+      </button>
+    </nav>
+
+    <h2 class="page-title" id="page-title">MY PRs</h2>
+
     <main>
-      <div class="board">
-        <section class="column column--progress" aria-labelledby="col-progress-title">
-          <header class="column-header">
-            <h2 id="col-progress-title" class="column-title">IN PROGRESS</h2>
-            <span class="column-count" data-count-for="progress">0</span>
-          </header>
-          <div id="col-progress" class="column-body"></div>
-        </section>
+      <section
+        id="panel-mine"
+        class="tab-panel is-active"
+        role="tabpanel"
+        aria-labelledby="tab-mine"
+      >
+        <div class="board">
+          <section class="column column--progress" aria-labelledby="col-progress-title">
+            <header class="column-header">
+              <h2 id="col-progress-title" class="column-title">IN PROGRESS</h2>
+              <span class="column-count" data-count-for="progress">0</span>
+            </header>
+            <div id="col-progress" class="column-body"></div>
+          </section>
 
-        <section class="column column--ready" aria-labelledby="col-ready-title">
-          <header class="column-header">
-            <h2 id="col-ready-title" class="column-title">READY FOR REVIEW</h2>
-            <span class="column-count" data-count-for="ready">0</span>
-          </header>
-          <div id="col-ready" class="column-body"></div>
-        </section>
+          <section class="column column--ready" aria-labelledby="col-ready-title">
+            <header class="column-header">
+              <h2 id="col-ready-title" class="column-title">READY FOR REVIEW</h2>
+              <span class="column-count" data-count-for="ready">0</span>
+            </header>
+            <div id="col-ready" class="column-body"></div>
+          </section>
 
-        <section class="column column--approved" aria-labelledby="col-approved-title">
-          <header class="column-header">
-            <h2 id="col-approved-title" class="column-title">APPROVED</h2>
-            <span class="column-count" data-count-for="approved">0</span>
-          </header>
-          <div id="col-approved" class="column-body"></div>
-        </section>
-      </div>
-
-      <section class="empty-state" hidden aria-live="polite">
-        <div class="empty-state-mark" aria-hidden="true">
-          <span class="shape shape--circle"></span>
-          <span class="shape shape--square"></span>
-          <span class="shape shape--triangle"></span>
+          <section class="column column--approved" aria-labelledby="col-approved-title">
+            <header class="column-header">
+              <h2 id="col-approved-title" class="column-title">APPROVED</h2>
+              <span class="column-count" data-count-for="approved">0</span>
+            </header>
+            <div id="col-approved" class="column-body"></div>
+          </section>
         </div>
-        <h2 class="empty-state-title">INBOX ZERO</h2>
-        <p class="empty-state-sub">No open pull requests. Go touch grass.</p>
+
+        <section class="empty-state" hidden aria-live="polite">
+          <div class="empty-state-mark" aria-hidden="true">
+            <span class="shape shape--circle"></span>
+            <span class="shape shape--square"></span>
+            <span class="shape shape--triangle"></span>
+          </div>
+          <h2 class="empty-state-title">INBOX ZERO</h2>
+          <p class="empty-state-sub">No open pull requests. Go touch grass.</p>
+        </section>
+      </section>
+
+      <section
+        id="panel-reviews"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-reviews"
+        hidden
+      >
+        <div class="reviews-list" id="reviews-list" aria-live="polite"></div>
+        <section class="empty-state empty-state--reviews" hidden aria-live="polite">
+          <div class="empty-state-mark" aria-hidden="true">
+            <span class="shape shape--circle"></span>
+            <span class="shape shape--square"></span>
+            <span class="shape shape--triangle"></span>
+          </div>
+          <h2 class="empty-state-title">ALL CLEAR</h2>
+          <p class="empty-state-sub">No PRs are waiting for your review.</p>
+        </section>
       </section>
     </main>
 
@@ -164,7 +217,16 @@
       hidden
       sse-swap="prs"
       hx-get="/prs.html"
-      hx-trigger="load, every 90s"
+      hx-trigger="load, every 300s"
+      hx-swap="innerHTML"
+    ></div>
+
+    <div
+      id="reviews-stream"
+      hidden
+      sse-swap="reviews"
+      hx-get="/reviews.html"
+      hx-trigger="load, every 300s"
       hx-swap="innerHTML"
     ></div>
 
@@ -298,7 +360,7 @@
       function applyIgnoreFilter() {
         var ignored = ignoreStore.get();
         document
-          .querySelectorAll(".pr-card[data-repo]")
+          .querySelectorAll(".pr-card[data-repo], .review-row[data-repo]")
           .forEach(function (card) {
             var repo = card.getAttribute("data-repo");
             card.classList.toggle("is-ignored", ignored.has(repo));
@@ -355,7 +417,9 @@
             });
 
           var board = document.querySelector(".board");
-          var emptyState = document.querySelector(".empty-state");
+          var emptyState = document.querySelector(
+            "#panel-mine .empty-state:not(.empty-state--reviews)"
+          );
           var cols = [
             { key: "progress", el: document.querySelector(".column--progress") },
             { key: "ready",    el: document.querySelector(".column--ready") },
@@ -385,9 +449,110 @@
         });
       })();
 
-      // "Last updated X ago" ticker. Server emits a <span data-iso="...">,
-      // and we recompute the relative text on load, on every SSE meta swap,
-      // and once a minute thereafter.
+      // Move review rows from the hidden #reviews-stream into the visible
+      // list, applying the same ignore filter so a repo unchecked in the
+      // settings popup hides reviews from that repo too. Updates the
+      // REVIEWING tab count and toggles the empty state.
+      (function () {
+        function visibleChildren(el) {
+          var n = 0;
+          for (var i = 0; i < el.children.length; i++) {
+            if (!el.children[i].classList.contains("is-ignored")) n++;
+          }
+          return n;
+        }
+
+        function distribute() {
+          var stream = document.getElementById("reviews-stream");
+          var list = document.getElementById("reviews-list");
+          if (!stream || !list) return;
+
+          list.innerHTML = "";
+          var rows = stream.querySelectorAll(".review-row");
+          rows.forEach(function (row) {
+            list.appendChild(row);
+          });
+
+          applyIgnoreFilter();
+
+          var visible = visibleChildren(list);
+          document
+            .querySelectorAll('[data-count-for="reviews"]')
+            .forEach(function (el) {
+              el.textContent = String(visible);
+            });
+
+          var panel = document.getElementById("panel-reviews");
+          var emptyState = panel
+            ? panel.querySelector(".empty-state--reviews")
+            : null;
+          if (emptyState) emptyState.hidden = visible !== 0;
+          if (list) list.hidden = visible === 0;
+        }
+
+        window.__betterGhDistributeReviews = distribute;
+        document.body.addEventListener("htmx:afterSwap", function (evt) {
+          if (evt.target && evt.target.id === "reviews-stream") distribute();
+        });
+      })();
+
+      // Tab switcher (MY PRs / REVIEWING). Persists choice in
+      // localStorage so a refresh keeps you on the same tab. ARIA
+      // attributes update so screen readers stay in sync. Also reflects
+      // the active tab in document.title and the visible page heading.
+      (function () {
+        var KEY = "better-gh.active-tab";
+        var TITLE_SUFFIX = " \u00B7 BETTER//GH";
+        var LABELS = { mine: "MY PRs", reviews: "REVIEWING" };
+        var tabs = document.querySelectorAll(".tab[data-tab]");
+        var panels = {
+          mine: document.getElementById("panel-mine"),
+          reviews: document.getElementById("panel-reviews"),
+        };
+        var heading = document.getElementById("page-title");
+        if (!tabs.length || !panels.mine || !panels.reviews) return;
+
+        function activate(name) {
+          if (!panels[name]) name = "mine";
+          tabs.forEach(function (t) {
+            var match = t.getAttribute("data-tab") === name;
+            t.classList.toggle("is-active", match);
+            t.setAttribute("aria-selected", match ? "true" : "false");
+          });
+          Object.keys(panels).forEach(function (k) {
+            var match = k === name;
+            panels[k].classList.toggle("is-active", match);
+            panels[k].hidden = !match;
+          });
+          var label = LABELS[name] || LABELS.mine;
+          document.title = label + TITLE_SUFFIX;
+          if (heading) heading.textContent = label;
+          try {
+            localStorage.setItem(KEY, name);
+          } catch (e) {
+            /* private mode -- the choice just won't persist */
+          }
+        }
+
+        tabs.forEach(function (t) {
+          t.addEventListener("click", function () {
+            activate(t.getAttribute("data-tab") || "mine");
+          });
+        });
+
+        var saved = "mine";
+        try {
+          saved = localStorage.getItem(KEY) || "mine";
+        } catch (e) {
+          /* private mode -- default to MY PRs */
+        }
+        activate(saved);
+      })();
+
+      // Relative-time ticker. Server emits <span data-iso="..."> on the
+      // "last updated" footer and on every review row's "requested ..."
+      // hint; we recompute the human text on load, after each relevant
+      // SSE swap, and once a minute thereafter so nothing goes stale.
       (function () {
         function formatRelative(then) {
           var seconds = Math.max(
@@ -408,7 +573,9 @@
 
         function tick() {
           document
-            .querySelectorAll(".last-updated-relative")
+            .querySelectorAll(
+              ".last-updated-relative, .review-requested-relative"
+            )
             .forEach(function (el) {
               var iso = el.getAttribute("data-iso");
               if (!iso) return;
@@ -420,7 +587,13 @@
 
         document.addEventListener("DOMContentLoaded", tick);
         document.body.addEventListener("htmx:afterSwap", function (evt) {
-          if (evt.target && evt.target.id === "last-updated") tick();
+          if (!evt.target) return;
+          if (
+            evt.target.id === "last-updated" ||
+            evt.target.id === "reviews-stream"
+          ) {
+            tick();
+          }
         });
         setInterval(tick, 60_000);
       })();
@@ -487,9 +660,16 @@
           }
         });
 
-        document.body.addEventListener("htmx:afterSwap", function (evt) {
+        // The htmx SSE extension's swap() does NOT fire htmx:afterSwap
+        // (that event is only emitted on the XHR path) -- it only fires
+        // htmx:afterSettle. Listen for both so the banner becomes visible
+        // whether the HTML arrived via SSE (poller broadcast) or XHR
+        // (e.g. /refresh's HX-Retarget header).
+        function maybeSync(evt) {
           if (evt.target && evt.target.id === "error-banner") syncVisibility();
-        });
+        }
+        document.body.addEventListener("htmx:afterSwap", maybeSync);
+        document.body.addEventListener("htmx:afterSettle", maybeSync);
 
         document.addEventListener("DOMContentLoaded", syncVisibility);
         setInterval(tick, 30_000);
@@ -599,6 +779,9 @@
           ignoreStore.toggle(t.value, t.checked);
           if (typeof window.__betterGhDistribute === "function") {
             window.__betterGhDistribute();
+          }
+          if (typeof window.__betterGhDistributeReviews === "function") {
+            window.__betterGhDistributeReviews();
           }
         });
       })();

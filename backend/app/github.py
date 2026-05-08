@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping
 import httpx
 
 from .config import settings
-from .model import PR, Checks
+from .model import PR, Checks, ReviewPR
 from .preview import extract_preview_url
 
 log = logging.getLogger("better_gh.github")
@@ -63,7 +63,11 @@ def _parse_rate_limit_reset(headers: Mapping[str, str]) -> datetime | None:
 
 
 QUERY = """
-query MyOpenPRs($first: Int!, $assignedQuery: String!) {
+query DashboardSnapshot(
+  $first: Int!,
+  $assignedQuery: String!,
+  $reviewRequestedQuery: String!
+) {
   viewer {
     login
     pullRequests(
@@ -77,6 +81,10 @@ query MyOpenPRs($first: Int!, $assignedQuery: String!) {
   assignedToMe: search(first: $first, type: ISSUE, query: $assignedQuery) {
     nodes { ... on PullRequest { ...prFields } }
   }
+  reviewRequested: search(first: $first, type: ISSUE, query: $reviewRequestedQuery) {
+    nodes { ... on PullRequest { ...slimReviewFields } }
+  }
+  rateLimit { cost limit remaining resetAt }
 }
 
 fragment prFields on PullRequest {
@@ -125,9 +133,64 @@ fragment prFields on PullRequest {
   }
   comments(first: 100) { nodes { author { login } body } }
 }
+
+fragment slimReviewFields on PullRequest {
+  number
+  title
+  url
+  isDraft
+  updatedAt
+  author { login }
+  baseRepository { nameWithOwner }
+  mergeable
+  commits(last: 1) {
+    nodes {
+      commit {
+        statusCheckRollup {
+          contexts(first: 100) {
+            nodes {
+              __typename
+              ... on CheckRun     { name status conclusion }
+              ... on StatusContext { context state }
+            }
+          }
+        }
+      }
+    }
+  }
+  timelineItems(itemTypes: [REVIEW_REQUESTED_EVENT], last: 50) {
+    nodes {
+      ... on ReviewRequestedEvent {
+        createdAt
+        requestedReviewer {
+          __typename
+          ... on User { login }
+        }
+      }
+    }
+  }
+  reviews(first: 50) {
+    nodes {
+      state
+      submittedAt
+      author { login }
+    }
+  }
+}
 """.strip()
 
 _ASSIGNED_QUERY = "is:pr is:open assignee:@me sort:updated-desc archived:false"
+# We deliberately don't add ``-reviewed-by:@me`` here. GitHub's
+# ``review-requested:USER`` qualifier already matches the *current*
+# requested-reviewers list, and submitting an APPROVED/CHANGES_REQUESTED
+# review removes you from it -- so "PRs I've already reviewed" naturally
+# fall off until the author re-requests you. ``-reviewed-by:@me`` is
+# permanent ("ever submitted any review on this PR") and was over-eager:
+# any re-requested PR you'd previously commented on disappeared, even
+# though the author wants another look.
+_REVIEW_REQUESTED_QUERY = (
+    "is:pr is:open review-requested:@me sort:updated-desc archived:false"
+)
 
 
 _PASS_CHECK_CONCLUSIONS = {"SUCCESS", "NEUTRAL", "SKIPPED"}
@@ -228,8 +291,19 @@ class GitHubClient:
                 f"@{reviewer_login} on {owner}/{repo}#{pr_number}: {resp.text}"
             )
 
-    async def fetch_open_prs(self) -> list[PR]:
-        """Open PRs the viewer authored OR is assigned to (deduped, recent-first)."""
+    async def fetch_dashboard_snapshot(
+        self,
+    ) -> tuple[list[PR], list[ReviewPR], dict[str, Any] | None]:
+        """One GraphQL POST that returns everything the dashboard needs.
+
+        Combines the viewer's authored + assigned PRs (rich fields for the
+        main board) with the review-requested search (slim fields for the
+        "Reviewing" tab) and the ``rateLimit`` block, so a single round
+        trip costs ~one query's worth of GraphQL points instead of two.
+        Returns ``(my_prs, review_prs, rate_limit)`` -- ``rate_limit`` is
+        the raw dict (``cost``/``limit``/``remaining``/``resetAt``) or
+        ``None`` if GitHub omitted it.
+        """
         if not self._token:
             raise RuntimeError(
                 "GITHUB_TOKEN is not set; cannot query the GitHub GraphQL API."
@@ -245,9 +319,12 @@ class GitHubClient:
             "variables": {
                 "first": self._max_prs,
                 "assignedQuery": _ASSIGNED_QUERY,
+                "reviewRequestedQuery": _REVIEW_REQUESTED_QUERY,
             },
         }
-        resp = await self._client.post(self._graphql_url, headers=headers, json=payload)
+        resp = await self._client.post(
+            self._graphql_url, headers=headers, json=payload
+        )
 
         if resp.status_code == 429 or resp.status_code == 403:
             reset_at = _parse_rate_limit_reset(resp.headers)
@@ -270,10 +347,11 @@ class GitHubClient:
             raise RuntimeError(f"GitHub GraphQL errors: {errors}")
 
         data = body.get("data") or {}
-        authored = (
-            (((data.get("viewer") or {}).get("pullRequests") or {}).get("nodes")) or []
-        )
+        viewer = data.get("viewer") or {}
+        viewer_login = (viewer.get("login") or "").lower()
+        authored = ((viewer.get("pullRequests") or {}).get("nodes")) or []
         assigned = ((data.get("assignedToMe") or {}).get("nodes")) or []
+        review_nodes = ((data.get("reviewRequested") or {}).get("nodes")) or []
 
         seen: set[str] = set()
         prs: list[PR] = []
@@ -285,9 +363,118 @@ class GitHubClient:
                 continue
             seen.add(url)
             prs.append(self._parse_pr(node))
-
         prs.sort(key=lambda p: p.updated_at, reverse=True)
-        return prs
+
+        review_prs: list[ReviewPR] = []
+        review_seen: set[str] = set()
+        for node in review_nodes:
+            if not node or not node.get("number") or not node.get("url"):
+                continue
+            url = node["url"]
+            if url in review_seen:
+                continue
+            review_seen.add(url)
+            if self._viewer_review_resolved(node, viewer_login):
+                # Viewer already submitted APPROVED/CHANGES_REQUESTED and
+                # hasn't been re-requested since -- treat as "done with
+                # this one" even though GitHub still surfaces it via
+                # ``review-requested:@me`` (e.g. team-level requests or
+                # CODEOWNERS rules can keep the entry alive).
+                continue
+            review_prs.append(self._parse_review_pr(node, viewer_login))
+        # Sort by request time (most recent first); fall back to updated_at
+        # so PRs missing a request timestamp don't sort to the very top.
+        review_prs.sort(
+            key=lambda p: (p.requested_at or p.updated_at), reverse=True
+        )
+
+        rate_limit = data.get("rateLimit")
+        return prs, review_prs, rate_limit
+
+    def _parse_review_pr(
+        self, node: dict[str, Any], viewer_login: str
+    ) -> ReviewPR:
+        repo = (node.get("baseRepository") or {}).get(
+            "nameWithOwner"
+        ) or "unknown/unknown"
+        author = (node.get("author") or {}).get("login") or "unknown"
+        requested_at = self._latest_request_for_viewer(node, viewer_login)
+        return ReviewPR(
+            number=int(node.get("number") or 0),
+            title=node.get("title") or "",
+            url=node.get("url") or "",
+            repo=repo,
+            author=author,
+            is_draft=bool(node.get("isDraft")),
+            checks=self._extract_checks(node),
+            conflicts=self._extract_conflicts(node),
+            updated_at=node.get("updatedAt") or "",
+            requested_at=requested_at,
+        )
+
+    @staticmethod
+    def _latest_request_for_viewer(
+        node: dict[str, Any], viewer_login: str
+    ) -> str:
+        """ISO timestamp of the most recent ReviewRequestedEvent for viewer.
+
+        Returns an empty string when the timeline window we fetched
+        doesn't include a request targeting the viewer (e.g. they were
+        added so long ago that the last 50 review-request events have
+        scrolled past it). The caller should treat empty as "unknown".
+        """
+        if not viewer_login:
+            return ""
+        events = (
+            (node.get("timelineItems") or {}).get("nodes")
+        ) or []
+        latest = ""
+        for evt in events:
+            if not evt:
+                continue
+            reviewer = evt.get("requestedReviewer") or {}
+            if reviewer.get("__typename") != "User":
+                continue
+            login = (reviewer.get("login") or "").lower()
+            if login != viewer_login:
+                continue
+            created = evt.get("createdAt") or ""
+            if created > latest:
+                latest = created
+        return latest
+
+    @classmethod
+    def _viewer_review_resolved(
+        cls, node: dict[str, Any], viewer_login: str
+    ) -> bool:
+        """Has the viewer ever delivered a substantive verdict on this PR?
+
+        "Substantive" means at least one submitted review by the viewer
+        with state APPROVED or CHANGES_REQUESTED. Plain COMMENTED
+        reviews don't count (those are drive-by notes; the author still
+        expects a real verdict).
+
+        We deliberately ignore re-request events here. GitHub's
+        ``latestReviews`` flips your old review back to "pending" when
+        the author hits "Re-request review", so we'd never see your
+        prior verdict; and even when we *can* see a re-request after
+        your verdict, the user has told us they consider their job
+        done. The re-request will still surface that PR in this query
+        result -- the filter below is what hides it.
+        """
+        if not viewer_login:
+            return False
+        reviews = ((node.get("reviews") or {}).get("nodes")) or []
+        for r in reviews:
+            if not r:
+                continue
+            login = ((r.get("author") or {}).get("login") or "").lower()
+            if login != viewer_login:
+                continue
+            state = (r.get("state") or "").upper()
+            if state in ("APPROVED", "CHANGES_REQUESTED"):
+                return True
+        return False
 
     def _parse_pr(self, node: dict[str, Any]) -> PR:
         author = (node.get("author") or {}).get("login") or "unknown"
