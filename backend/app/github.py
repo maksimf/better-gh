@@ -94,6 +94,7 @@ fragment prFields on PullRequest {
   isDraft
   updatedAt
   author { login }
+  assignees(first: 10) { nodes { login } }
   baseRepository { nameWithOwner }
   mergeable
   commits(last: 1) {
@@ -362,6 +363,11 @@ class GitHubClient:
             if url in seen:
                 continue
             seen.add(url)
+            if self._is_delegated_authored_pr(node, viewer_login):
+                # Viewer opened the PR but explicitly handed it off via
+                # assignees -- someone else owns driving it forward, so
+                # it shouldn't clutter the viewer's personal queue.
+                continue
             prs.append(self._parse_pr(node))
         prs.sort(key=lambda p: p.updated_at, reverse=True)
 
@@ -411,6 +417,36 @@ class GitHubClient:
             updated_at=node.get("updatedAt") or "",
             requested_at=requested_at,
         )
+
+    @staticmethod
+    def _is_delegated_authored_pr(
+        node: dict[str, Any], viewer_login: str
+    ) -> bool:
+        """Did the viewer open this PR and then delegate it via assignees?
+
+        Returns ``True`` when the viewer is the author *and* the PR has
+        at least one assignee but the viewer isn't among them -- i.e.
+        someone else is the named owner now. PRs with no assignees are
+        kept (viewer is still implicitly on the hook), and PRs where the
+        viewer is one of several assignees are kept (they're still
+        on the hook explicitly).
+        """
+        if not viewer_login:
+            return False
+        author = ((node.get("author") or {}).get("login") or "").lower()
+        if author != viewer_login:
+            return False
+        assignee_nodes = ((node.get("assignees") or {}).get("nodes")) or []
+        assignee_logins: list[str] = []
+        for a in assignee_nodes:
+            if not a:
+                continue
+            login = (a.get("login") or "").lower()
+            if login:
+                assignee_logins.append(login)
+        if not assignee_logins:
+            return False
+        return viewer_login not in assignee_logins
 
     @staticmethod
     def _latest_request_for_viewer(
