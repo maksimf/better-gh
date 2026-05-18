@@ -368,6 +368,12 @@ class GitHubClient:
                 # assignees -- someone else owns driving it forward, so
                 # it shouldn't clutter the viewer's personal queue.
                 continue
+            if self._viewer_already_approved(node, viewer_login):
+                # Viewer has already signed off (APPROVED) on this PR --
+                # hide it regardless of who authored it. Typically catches
+                # PRs the viewer is assigned to but has already approved;
+                # GitHub blocks self-approval so authored PRs are unaffected.
+                continue
             prs.append(self._parse_pr(node))
         prs.sort(key=lambda p: p.updated_at, reverse=True)
 
@@ -417,6 +423,30 @@ class GitHubClient:
             updated_at=node.get("updatedAt") or "",
             requested_at=requested_at,
         )
+
+    @staticmethod
+    def _viewer_already_approved(
+        node: dict[str, Any], viewer_login: str
+    ) -> bool:
+        """Has the viewer's most recent review on this PR been APPROVED?
+
+        Reads ``latestReviews`` (one entry per reviewer, the freshest
+        each has submitted), so this naturally goes false if the viewer
+        later switched to CHANGES_REQUESTED. Used to hide PRs from the
+        main board that the viewer has already signed off on -- typically
+        PRs they're assigned to but have approved.
+        """
+        if not viewer_login:
+            return False
+        nodes = ((node.get("latestReviews") or {}).get("nodes")) or []
+        for r in nodes:
+            if not r:
+                continue
+            login = ((r.get("author") or {}).get("login") or "").lower()
+            if login != viewer_login:
+                continue
+            return (r.get("state") or "").upper() == "APPROVED"
+        return False
 
     @staticmethod
     def _is_delegated_authored_pr(
