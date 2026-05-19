@@ -30,6 +30,7 @@ FRONTEND_DIR = REPO_ROOT / "frontend"
 INDEX_HTML = FRONTEND_DIR / "index.html"
 STYLES_CSS = FRONTEND_DIR / "styles.css"
 FAVICON_SVG = FRONTEND_DIR / "favicon.svg"
+APPLE_TOUCH_ICON = FRONTEND_DIR / "apple-touch-icon.png"
 
 
 @asynccontextmanager
@@ -106,6 +107,18 @@ async def favicon_ico() -> FileResponse:
     ones get a clean 200 instead of a 404 spamming the console.
     """
     return FileResponse(str(FAVICON_SVG), media_type="image/svg+xml")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon() -> FileResponse:
+    """180x180 PNG used by iOS for the "Add to Home Screen" icon.
+
+    iOS Safari ignores SVG icons for the home-screen tile, so we ship a
+    rasterised copy of ``favicon.svg`` alongside it. Re-render with:
+    ``magick -background none -density 720 frontend/favicon.svg \
+        -resize 180x180 frontend/apple-touch-icon.png``
+    """
+    return FileResponse(str(APPLE_TOUCH_ICON), media_type="image/png")
 
 
 @app.get("/prs.html", response_class=HTMLResponse)
