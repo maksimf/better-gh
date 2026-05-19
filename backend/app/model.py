@@ -35,6 +35,7 @@ class PR(BaseModel):
     updated_at: str
     review_requested: bool = False
     approved_by_reviewer: bool = False
+    linear_url: str | None = None
 
     @property
     def is_ready(self) -> bool:
@@ -77,6 +78,7 @@ class PR(BaseModel):
             self.conflicts,
             self.review_requested,
             self.approved_by_reviewer,
+            self.linear_url,
         )
 
 

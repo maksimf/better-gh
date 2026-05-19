@@ -260,6 +260,40 @@ async def merge_pr_endpoint(
 
 
 @app.post(
+    "/pulls/{owner}/{repo}/{number}/ready-for-review",
+    status_code=204,
+)
+async def mark_ready_for_review(
+    owner: str,
+    repo: str,
+    number: int,
+    background: BackgroundTasks,
+) -> Response:
+    """Flip a draft PR to "Ready for review" via GitHub GraphQL.
+
+    Best-effort: returns 204 on success, surfaces upstream failures as 502.
+    Triggers a background poll on success so the card reflects its new
+    non-draft state quickly.
+    """
+    gh: GitHubClient | None = getattr(app.state, "github", None)
+    if gh is None:
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub client is not initialised yet.",
+        )
+    try:
+        await gh.mark_pr_ready_for_review(owner, repo, number)
+    except Exception as exc:
+        log.exception(
+            "mark-ready-for-review failed for %s/%s#%s", owner, repo, number
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    background.add_task(_safe_poll_once)
+    return Response(status_code=204)
+
+
+@app.post(
     "/pulls/{owner}/{repo}/{number}/request-review",
     status_code=204,
 )

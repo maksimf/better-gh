@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Iterable, Mapping
@@ -91,6 +92,7 @@ fragment prFields on PullRequest {
   number
   title
   url
+  body
   isDraft
   updatedAt
   author { login }
@@ -210,6 +212,17 @@ _PENDING_STATUS_STATES = {"PENDING"}
 _FAIL_STATUS_STATES = {"FAILURE", "ERROR"}
 
 
+def _compile_linear_pattern(prefix: str) -> re.Pattern[str] | None:
+    """Compile ``\\b<prefix>\\d{3,}\\b`` for the configured ticket prefix.
+
+    Returns ``None`` when the prefix is empty -- callers should treat that
+    as "Linear linking disabled" rather than guessing a default.
+    """
+    if not prefix:
+        return None
+    return re.compile(rf"\b{re.escape(prefix)}(\d{{3,}})\b")
+
+
 class GitHubClient:
     """Async GitHub GraphQL client tuned for our single-query use case."""
 
@@ -263,6 +276,66 @@ class GitHubClient:
                 f"{owner}/{repo}#{pr_number} ({method}): {resp.text}"
             )
         return resp.json() if resp.content else {}
+
+    async def mark_pr_ready_for_review(
+        self, owner: str, repo: str, pr_number: int
+    ) -> None:
+        """Flip a draft PR to "Ready for review".
+
+        GitHub doesn't expose this via REST -- the only path is the
+        ``markPullRequestReadyForReview`` GraphQL mutation, which needs
+        the PR's global node id. We grab that id via the REST pulls
+        endpoint (cheap, single GET) and then fire the mutation, instead
+        of caching the node id on every PR in the snapshot.
+        """
+        if not self._token:
+            raise RuntimeError(
+                "GITHUB_TOKEN is not set; cannot mark PRs ready for review."
+            )
+        rest_url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        get_resp = await self._client.get(rest_url, headers=headers)
+        if get_resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {get_resp.status_code} when looking up "
+                f"{owner}/{repo}#{pr_number}: {get_resp.text}"
+            )
+        node_id = (get_resp.json() or {}).get("node_id")
+        if not node_id:
+            raise RuntimeError(
+                f"GitHub didn't return a node_id for {owner}/{repo}#{pr_number}"
+            )
+
+        mutation = (
+            "mutation MarkReady($id: ID!) {"
+            " markPullRequestReadyForReview(input: {pullRequestId: $id}) {"
+            " pullRequest { id isDraft } } }"
+        )
+        gql_headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        }
+        gql_resp = await self._client.post(
+            self._graphql_url,
+            headers=gql_headers,
+            json={"query": mutation, "variables": {"id": node_id}},
+        )
+        if gql_resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {gql_resp.status_code} when marking "
+                f"{owner}/{repo}#{pr_number} ready for review: {gql_resp.text}"
+            )
+        body = gql_resp.json() or {}
+        if body.get("errors"):
+            raise RuntimeError(
+                f"GitHub GraphQL errors marking {owner}/{repo}#{pr_number} "
+                f"ready for review: {body['errors']}"
+            )
 
     async def request_reviewer(
         self, owner: str, repo: str, pr_number: int, reviewer_login: str
@@ -387,11 +460,10 @@ class GitHubClient:
                 continue
             review_seen.add(url)
             if self._viewer_review_resolved(node, viewer_login):
-                # Viewer already submitted APPROVED/CHANGES_REQUESTED and
-                # hasn't been re-requested since -- treat as "done with
-                # this one" even though GitHub still surfaces it via
-                # ``review-requested:@me`` (e.g. team-level requests or
-                # CODEOWNERS rules can keep the entry alive).
+                # Viewer already submitted APPROVED/CHANGES_REQUESTED after
+                # the latest visible request, so treat this one as handled.
+                # If the author re-requests review later, it should show up
+                # again.
                 continue
             review_prs.append(self._parse_review_pr(node, viewer_login))
         # Sort by request time (most recent first); fall back to updated_at
@@ -423,30 +495,6 @@ class GitHubClient:
             updated_at=node.get("updatedAt") or "",
             requested_at=requested_at,
         )
-
-    @staticmethod
-    def _viewer_already_approved(
-        node: dict[str, Any], viewer_login: str
-    ) -> bool:
-        """Has the viewer's most recent review on this PR been APPROVED?
-
-        Reads ``latestReviews`` (one entry per reviewer, the freshest
-        each has submitted), so this naturally goes false if the viewer
-        later switched to CHANGES_REQUESTED. Used to hide PRs from the
-        main board that the viewer has already signed off on -- typically
-        PRs they're assigned to but have approved.
-        """
-        if not viewer_login:
-            return False
-        nodes = ((node.get("latestReviews") or {}).get("nodes")) or []
-        for r in nodes:
-            if not r:
-                continue
-            login = ((r.get("author") or {}).get("login") or "").lower()
-            if login != viewer_login:
-                continue
-            return (r.get("state") or "").upper() == "APPROVED"
-        return False
 
     @staticmethod
     def _is_delegated_authored_pr(
@@ -513,24 +561,53 @@ class GitHubClient:
     def _viewer_review_resolved(
         cls, node: dict[str, Any], viewer_login: str
     ) -> bool:
-        """Has the viewer ever delivered a substantive verdict on this PR?
+        """Has the viewer handled the latest visible request for this PR?
 
         "Substantive" means at least one submitted review by the viewer
         with state APPROVED or CHANGES_REQUESTED. Plain COMMENTED
         reviews don't count (those are drive-by notes; the author still
         expects a real verdict).
 
-        We deliberately ignore re-request events here. GitHub's
-        ``latestReviews`` flips your old review back to "pending" when
-        the author hits "Re-request review", so we'd never see your
-        prior verdict; and even when we *can* see a re-request after
-        your verdict, the user has told us they consider their job
-        done. The re-request will still surface that PR in this query
-        result -- the filter below is what hides it.
+        APPROVED is treated as a permanent dismiss: once the viewer has
+        signed off, the PR stays hidden even if the author re-requests
+        review later -- the user's stance is "I'm done with this".
+
+        For CHANGES_REQUESTED a later review request is genuine new work
+        (the author likely addressed feedback and wants another look),
+        so we only treat the PR as resolved while no fresher request has
+        landed. When the timeline window doesn't include the request
+        timestamp, stay conservative and keep showing the PR rather than
+        silently dropping a requested review.
         """
         if not viewer_login:
             return False
+        review_at, review_state = cls._latest_substantive_review_for_viewer(
+            node, viewer_login
+        )
+        if not review_at:
+            return False
+        if review_state == "APPROVED":
+            return True
+        latest_request = cls._latest_request_for_viewer(node, viewer_login)
+        if not latest_request:
+            return False
+        return review_at >= latest_request
+
+    @staticmethod
+    def _latest_substantive_review_for_viewer(
+        node: dict[str, Any], viewer_login: str
+    ) -> tuple[str, str]:
+        """ISO timestamp + state of viewer's latest APPROVED/CHANGES_REQUESTED review.
+
+        Returns ``("", "")`` when the viewer has no substantive review.
+        The state lets callers distinguish "approved" from "asked for
+        changes" without re-walking the reviews list.
+        """
+        if not viewer_login:
+            return "", ""
         reviews = ((node.get("reviews") or {}).get("nodes")) or []
+        latest_at = ""
+        latest_state = ""
         for r in reviews:
             if not r:
                 continue
@@ -538,8 +615,36 @@ class GitHubClient:
             if login != viewer_login:
                 continue
             state = (r.get("state") or "").upper()
-            if state in ("APPROVED", "CHANGES_REQUESTED"):
-                return True
+            if state not in ("APPROVED", "CHANGES_REQUESTED"):
+                continue
+            submitted = r.get("submittedAt") or ""
+            if submitted > latest_at:
+                latest_at = submitted
+                latest_state = state
+        return latest_at, latest_state
+
+    @staticmethod
+    def _viewer_already_approved(
+        node: dict[str, Any], viewer_login: str
+    ) -> bool:
+        """Has the viewer's most recent review on this PR been APPROVED?
+
+        Reads ``latestReviews`` (one entry per reviewer, the freshest
+        each has submitted), so this naturally goes false if the viewer
+        later switched to CHANGES_REQUESTED. Used to hide PRs from the
+        main board that the viewer has already signed off on -- typically
+        PRs they're assigned to but have approved.
+        """
+        if not viewer_login:
+            return False
+        nodes = ((node.get("latestReviews") or {}).get("nodes")) or []
+        for r in nodes:
+            if not r:
+                continue
+            login = ((r.get("author") or {}).get("login") or "").lower()
+            if login != viewer_login:
+                continue
+            return (r.get("state") or "").upper() == "APPROVED"
         return False
 
     def _parse_pr(self, node: dict[str, Any]) -> PR:
@@ -552,6 +657,7 @@ class GitHubClient:
         conflicts = self._extract_conflicts(node)
         review_requested = self._is_review_requested(node)
         approved_by_reviewer = self._is_approved_by_reviewer(node)
+        linear_url = self._find_linear_url(node)
 
         return PR(
             number=int(node.get("number") or 0),
@@ -568,7 +674,30 @@ class GitHubClient:
             updated_at=node.get("updatedAt") or "",
             review_requested=review_requested,
             approved_by_reviewer=approved_by_reviewer,
+            linear_url=linear_url,
         )
+
+    @staticmethod
+    def _find_linear_url(node: dict[str, Any]) -> str | None:
+        """Extract the first ``<PREFIX><digits>`` ticket ref from title/body.
+
+        Title wins over body so authors can override what shows up by
+        editing the title -- typical convention is to lead with the
+        ticket id anyway. Returns ``None`` when the prefix is unset or
+        no ticket reference is found.
+        """
+        prefix = settings.LINEAR_TICKET_PREFIX
+        pattern = _compile_linear_pattern(prefix)
+        if pattern is None:
+            return None
+        base = (settings.LINEAR_WORKSPACE_URL or "").rstrip("/")
+        if not base:
+            return None
+        for text in (node.get("title") or "", node.get("body") or ""):
+            match = pattern.search(text)
+            if match:
+                return f"{base}/issue/{prefix}{match.group(1)}"
+        return None
 
     def _extract_checks(self, node: dict[str, Any]) -> Checks:
         commit_nodes = ((node.get("commits") or {}).get("nodes")) or []

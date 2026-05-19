@@ -131,7 +131,7 @@
         aria-controls="panel-mine"
         data-tab="mine"
       >
-        MY PRs
+        MY PRs <span class="tab-count" data-count-for="mine">0</span>
       </button>
       <button
         type="button"
@@ -408,11 +408,13 @@
             ready: visibleChildren(ready),
             approved: visibleChildren(approved),
           };
+          counts.mine = counts.progress + counts.ready + counts.approved;
 
           document
             .querySelectorAll("[data-count-for]")
             .forEach(function (el) {
               var key = el.getAttribute("data-count-for");
+              if (key === "reviews") return;
               el.textContent = String(counts[key] || 0);
             });
 
@@ -850,6 +852,69 @@
                 });
               }
               flipToMerged(btn);
+            })
+            .catch(function (err) {
+              flashError(btn, String(err && err.message ? err.message : err));
+            });
+        });
+      })();
+
+      // Draft -> Ready button. Confirms first (flipping to ready
+      // notifies reviewers), POSTs to the backend, and on success
+      // removes the button optimistically -- the next SSE push will
+      // refresh the rest of the card (column placement, etc).
+      (function () {
+        function flashError(btn, message) {
+          var prev = btn.getAttribute("title");
+          btn.classList.add("is-error");
+          btn.disabled = false;
+          btn.setAttribute("title", message || "Couldn't mark as ready.");
+          setTimeout(function () {
+            btn.classList.remove("is-error");
+            if (prev) btn.setAttribute("title", prev);
+          }, 4000);
+        }
+
+        document.body.addEventListener("click", function (evt) {
+          var btn =
+            evt.target &&
+            evt.target.closest &&
+            evt.target.closest(".draft-button");
+          if (!btn || btn.disabled) return;
+          evt.preventDefault();
+          var repo = btn.getAttribute("data-pr-repo") || "";
+          var number = btn.getAttribute("data-pr-number") || "";
+          var slash = repo.indexOf("/");
+          if (slash < 0 || !number) return;
+
+          if (
+            !window.confirm(
+              "Mark #" + number + " as ready for review?"
+            )
+          ) {
+            return;
+          }
+
+          var owner = repo.slice(0, slash);
+          var name = repo.slice(slash + 1);
+          btn.disabled = true;
+          fetch(
+            "/pulls/" +
+              encodeURIComponent(owner) +
+              "/" +
+              encodeURIComponent(name) +
+              "/" +
+              encodeURIComponent(number) +
+              "/ready-for-review",
+            { method: "POST" }
+          )
+            .then(function (r) {
+              if (!r.ok) {
+                return r.text().then(function (t) {
+                  throw new Error(t || "HTTP " + r.status);
+                });
+              }
+              btn.remove();
             })
             .catch(function (err) {
               flashError(btn, String(err && err.message ? err.message : err));

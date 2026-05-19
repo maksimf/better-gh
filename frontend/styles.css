@@ -205,8 +205,8 @@ button {
 }
 
 .tab {
-  background: var(--grey-2);
-  color: var(--muted);
+  background: var(--black);
+  color: var(--white);
   border: 3px solid var(--black);
   border-bottom: none;
   padding: 10px 18px;
@@ -226,17 +226,18 @@ button {
   transition: background-color 80ms ease, color 80ms ease;
 }
 
-/* Yellow accent stripe on top: invisible on inactive tabs, full-bleed
-   on the active tab. The 6px height matches the column-title underline
-   accents elsewhere, tying the active-tab marker into the same
-   Bauhaus stripe vocabulary. */
+/* Yellow accent stripe on top: full-bleed on inactive tabs (the loud
+   "click me to switch" state), collapsed on the active tab (the
+   muted "you are here" state). The 6px height matches the column-title
+   underline accents elsewhere, tying the inactive-tab marker into the
+   same Bauhaus stripe vocabulary. */
 .tab::before {
   content: "";
   position: absolute;
   left: -3px;
   right: -3px;
   top: -3px;
-  height: 0;
+  height: 6px;
   background: var(--yellow);
   transition: height 80ms ease;
 }
@@ -252,18 +253,18 @@ button {
 }
 
 .tab.is-active {
-  background: var(--black);
-  color: var(--white);
+  background: var(--grey-2);
+  color: var(--black);
   z-index: 1;
 }
 
 .tab.is-active::before {
-  height: 6px;
+  height: 0;
 }
 
 .tab-count {
-  background: var(--black);
-  color: var(--white);
+  background: var(--yellow);
+  color: var(--black);
   padding: 2px 8px;
   font-weight: 900;
   font-size: 11px;
@@ -271,13 +272,13 @@ button {
   min-width: 22px;
   text-align: center;
   display: inline-block;
-  border: 1px solid currentColor;
+  border: 1px solid var(--yellow);
 }
 
 .tab.is-active .tab-count {
-  background: var(--yellow);
-  color: var(--black);
-  border-color: var(--yellow);
+  background: var(--black);
+  color: var(--white);
+  border-color: currentColor;
 }
 
 .tab-panel {
@@ -569,6 +570,48 @@ a.pr-number:hover {
   color: var(--white);
 }
 
+/* The "Draft" pill is a button: clicking it flips the PR to
+   "Ready for review". Visually matches .pr-tag--draft at rest so the
+   tag's familiar shape is preserved; hover paints it green to telegraph
+   the upcoming state change. */
+.draft-button {
+  display: inline-block;
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+  cursor: pointer;
+}
+
+.draft-button:hover:not(:disabled) {
+  background: var(--green);
+  color: var(--white);
+  border-color: var(--green);
+}
+
+.draft-button:disabled {
+  background: var(--grey);
+  color: var(--muted);
+  border-color: var(--grey);
+  cursor: wait;
+}
+
+.draft-button.is-error {
+  background: var(--red);
+  color: var(--white);
+  border-color: var(--red);
+}
+
+.draft-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 /* status strip */
 .pr-status {
   display: flex;
@@ -578,10 +621,23 @@ a.pr-number:hover {
 }
 
 /* On desktop the row wrappers vanish: their children flow into the
-   parent's flex line so visual layout is unchanged. On mobile (below)
-   they become real flex containers, giving us 3 stacked rows. */
+   parent's flex line so visual layout is unchanged. The actions row
+   (preview + merge) and the Linear row are deliberate exceptions:
+   they each break onto their own line so the call-to-action strip
+   and the ticket link never get crammed in next to the status pills.
+   On mobile (below) all rows become real flex containers, giving us
+   stacked rows. */
 .pr-status-row {
   display: contents;
+}
+
+.pr-status-row--actions,
+.pr-status-row--linear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
 }
 
 .checks {
@@ -849,6 +905,25 @@ a.pr-number:hover {
 
 .preview--pending {
   color: var(--muted);
+}
+
+.linear-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.linear-link:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 
 .conflicts {
@@ -1225,6 +1300,7 @@ a.pr-number:hover {
 /* Reduce double-tap zoom delay on touch buttons. */
 .btn,
 .review-request,
+.draft-button,
 .preview-copy,
 .settings-modal-close,
 .settings-row input[type="checkbox"] {
@@ -1316,8 +1392,25 @@ a.pr-number:hover {
 [data-theme="dark"] .comments-label,
 [data-theme="dark"] .comments-cell--bot,
 [data-theme="dark"] .pr-tag--draft,
+[data-theme="dark"] .draft-button,
 [data-theme="dark"] .settings-count {
   background: #111111;
+  color: #fafafa;
+}
+
+[data-theme="dark"] .draft-button {
+  border-color: #111111;
+}
+
+[data-theme="dark"] .draft-button:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fafafa;
+}
+
+[data-theme="dark"] .draft-button.is-error {
+  background: var(--red);
+  border-color: var(--red);
   color: #fafafa;
 }
 
@@ -1493,9 +1586,10 @@ a.pr-number:hover {
     left: -2px;
     right: -2px;
     top: -2px;
+    height: 5px;
   }
   .tab.is-active::before {
-    height: 5px;
+    height: 0;
   }
   .tab-count {
     font-size: 10px;
@@ -1563,11 +1657,12 @@ a.pr-number:hover {
     margin-right: auto;
   }
 
-  /* 3 stacked rows on mobile: each .pr-status-row becomes its own
-     flex line. Order matches semantic grouping in the template:
+  /* Stacked rows on mobile: each .pr-status-row becomes its own flex
+     line. Order matches semantic grouping in the template:
        row 1 = checks + conflicts
        row 2 = comment chips + R chip/button
-       row 3 = preview link + copy, merge button. */
+       row 3 = preview link + copy, merge button
+       row 4 = Linear ticket link (only when one is detected). */
   .pr-status {
     flex-direction: column;
     align-items: stretch;
@@ -1583,8 +1678,14 @@ a.pr-number:hover {
   .pr-status-row:empty {
     display: none;
   }
-  .pr-status-row--actions {
+  .pr-status-row--actions,
+  .pr-status-row--linear {
     justify-content: flex-start;
+    /* Reset the desktop "force own line" basis -- on mobile each row
+       is its own stacked line via flex-direction: column already, and a
+       percentage main-axis basis in a column flex with indefinite
+       height is poorly specified across browsers. */
+    flex-basis: auto;
   }
 
   /* Uniform 40px height for every interactive element in the strip. */
@@ -1595,7 +1696,8 @@ a.pr-number:hover {
   .review-request,
   .preview-copy,
   .merge-button,
-  .preview {
+  .preview,
+  .linear-link {
     height: 40px;
     box-sizing: border-box;
   }

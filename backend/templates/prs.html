@@ -17,7 +17,14 @@
     <h3 class="pr-title"><a href="{{ pr.url }}" target="_blank" rel="noopener">{{ pr.title }}</a></h3>
     <span class="pr-author">@{{ pr.author }}</span>
     {%- if pr.is_draft %}
-    <span class="pr-tag pr-tag--draft">Draft</span>
+    <button
+      type="button"
+      class="draft-button"
+      data-pr-repo="{{ pr.repo }}"
+      data-pr-number="{{ pr.number }}"
+      title="Mark this PR as ready for review"
+      aria-label="Mark this PR as ready for review"
+    >Draft</button>
     {%- endif %}
   </header>
   <div class="pr-status">
@@ -105,6 +112,18 @@
       </button>
       {%- endif %}
     </div>
+    {#- Row 4: Linear ticket link (its own line so the actions row stays clean) -#}
+    {%- if pr.linear_url %}
+    <div class="pr-status-row pr-status-row--linear">
+      <a
+        class="linear-link"
+        href="{{ pr.linear_url }}"
+        target="_blank"
+        rel="noopener"
+        title="Open Linear ticket"
+      >Linear &uarr;</a>
+    </div>
+    {%- endif %}
   </div>
 </article>
 {%- endfor %}

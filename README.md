@@ -90,6 +90,8 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 | `MAX_PRS` | `50` | Top-N most recently updated open PRs. |
 | `BOT_LOGINS` | `cursor,cursor[bot],coderabbitai,coderabbitai[bot]` | Comma-separated. |
 | `PREVIEW_COMMENT_PREFIX` | `Preview Environment URL:` | Marker for the preview comment. |
+| `LINEAR_TICKET_PREFIX` | `ENG-` | Ticket prefix scanned in PR title/body (`<PREFIX>` + 3+ digits). Empty disables the Linear button. |
+| `LINEAR_WORKSPACE_URL` | `https://linear.app/clearest` | Base URL; the Linear button links to `{base}/issue/{TICKET}`. |
 
 ## Routes
 

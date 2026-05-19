@@ -41,6 +41,21 @@ class Settings(BaseSettings):
             "One of 'merge', 'squash', or 'rebase'."
         ),
     )
+    LINEAR_TICKET_PREFIX: str = Field(
+        default="ENG-",
+        description=(
+            "Prefix used when scanning PR titles/bodies for Linear ticket "
+            "references (e.g. 'ENG-' matches 'ENG-1234'). Leave empty to "
+            "disable the per-card Linear button."
+        ),
+    )
+    LINEAR_WORKSPACE_URL: str = Field(
+        default="https://linear.app/clearest",
+        description=(
+            "Base URL of your Linear workspace. The per-card Linear button "
+            "links to '{LINEAR_WORKSPACE_URL}/issue/{TICKET}'."
+        ),
+    )
     BOT_LOGINS: frozenset[str] = Field(
         default_factory=lambda: frozenset(
             {"cursor", "cursor[bot]", "coderabbitai", "coderabbitai[bot]"}
