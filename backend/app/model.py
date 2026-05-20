@@ -72,6 +72,17 @@ class PR(BaseModel):
     base_ref: str = ""
     head_ref: str = ""
     stack: Stack | None = None
+    # Derived stack-layout fields populated by ``app.stack.attach_stacks``.
+    # ``stack_depth`` mirrors ``StackNode.depth`` for this PR's node;
+    # ``stack_order`` is its position (0-based) inside ``stack.nodes`` so
+    # the frontend can re-sort co-column cards into pre-order even when
+    # the parent list came in by ``updated_at``. ``stack_co_column`` is
+    # ``True`` iff every node in the stack lands in the same column as
+    # this PR -- the frontend uses that to hide the inline tree and
+    # collapse the cards into a single indented group instead.
+    stack_depth: int | None = None
+    stack_order: int | None = None
+    stack_co_column: bool = False
 
     @property
     def is_ready(self) -> bool:

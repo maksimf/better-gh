@@ -13,7 +13,7 @@
 <!-- empty -->
 {%- endif -%}
 {%- for pr in prs %}
-<article class="pr-card{% if pr.is_ready %} is-ready{% endif %}{% if pr.is_draft %} is-draft{% endif %}{% if pr.stack %} is-stacked{% endif %}" data-column="{{ pr.column }}" data-repo="{{ pr.repo }}"{% if pr.stack %} data-stack-id="{{ pr.repo }}#{{ pr.stack.nodes[0].number }}"{% endif %}>
+<article class="pr-card{% if pr.is_ready %} is-ready{% endif %}{% if pr.is_draft %} is-draft{% endif %}{% if pr.stack %} is-stacked{% endif %}{% if pr.stack_co_column %} is-stack-co-column{% endif %}" data-column="{{ pr.column }}" data-repo="{{ pr.repo }}"{% if pr.stack %} data-stack-id="{{ pr.repo }}#{{ pr.stack.nodes[0].number }}" data-stack-order="{{ pr.stack_order }}" data-stack-depth="{{ pr.stack_depth }}"{% endif %}{% if pr.stack_co_column %} style="--stack-depth: {{ pr.stack_depth }};"{% endif %}>
   <header class="pr-head">
     <a class="pr-number" href="{{ pr.url }}" target="_blank" rel="noopener">#{{ pr.number }}</a>
     <h3 class="pr-title"><a href="{{ pr.url }}" target="_blank" rel="noopener">{{ pr.title }}</a></h3>
@@ -29,7 +29,10 @@
     >Draft</button>
     {%- endif %}
   </header>
-  {%- if pr.stack %}
+  {#- The inline tree is only worth rendering when the stack is split
+      across columns -- otherwise the cards themselves sit adjacent in
+      the same column, so showing the tree on every card is just noise. #}
+  {%- if pr.stack and not pr.stack_co_column %}
   <aside class="pr-stack" aria-label="Stack of {{ pr.stack.nodes|length }} pull requests">
     <span class="pr-stack-label">STACK</span>
     <ol class="pr-stack-tree">

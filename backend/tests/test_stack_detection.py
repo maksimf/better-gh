@@ -186,6 +186,49 @@ class CycleTests(unittest.TestCase):
         self.assertTrue(all(p.stack is None for p in result))
 
 
+class StackLayoutHintsTests(unittest.TestCase):
+    """``attach_stacks`` populates the layout fields the template needs.
+
+    The frontend collapses same-column stacks into a single indented
+    group instead of repeating the inline tree on each card. The hints
+    we put on each ``PR`` are what makes that pass possible without the
+    frontend having to re-derive the stack on every SSE swap.
+    """
+
+    def test_same_column_stack_is_marked_co_column(self) -> None:
+        root = _pr(300, head="feat/a", base="main")
+        child = _pr(301, head="feat/b", base="feat/a")
+        result = attach_stacks([root, child])
+        by_number = {p.number: p for p in result}
+        self.assertTrue(by_number[300].stack_co_column)
+        self.assertTrue(by_number[301].stack_co_column)
+        self.assertEqual(by_number[300].stack_depth, 0)
+        self.assertEqual(by_number[301].stack_depth, 1)
+        self.assertEqual(by_number[300].stack_order, 0)
+        self.assertEqual(by_number[301].stack_order, 1)
+
+    def test_split_column_stack_is_not_co_column(self) -> None:
+        # Root is approved, child still in progress -> different columns.
+        root = _pr(300, head="feat/a", base="main", approved=True)
+        child = _pr(
+            301,
+            head="feat/b",
+            base="feat/a",
+            checks=Checks(passed=0, pending=1, failed=0),
+        )
+        result = attach_stacks([root, child])
+        by_number = {p.number: p for p in result}
+        self.assertFalse(by_number[300].stack_co_column)
+        self.assertFalse(by_number[301].stack_co_column)
+
+    def test_solo_prs_have_default_hints(self) -> None:
+        solo = _pr(900, head="feat/x", base="main")
+        result = attach_stacks([solo])
+        self.assertFalse(result[0].stack_co_column)
+        self.assertIsNone(result[0].stack_depth)
+        self.assertIsNone(result[0].stack_order)
+
+
 class StackNodeShapeTests(unittest.TestCase):
     def test_node_column_reflects_pr_column(self) -> None:
         # Mixed columns: root is approved, child is in progress.

@@ -373,12 +373,64 @@
       // based on each card's data-column attribute. Keeps prs.html a flat
       // list (clean swap target) while the shell owns the two-column layout.
       (function () {
+        // Counts cards regardless of whether they sit directly in the
+        // column body or inside a .pr-stack-group wrapper -- after the
+        // co-column grouping pass, the column-body's direct children are
+        // a mix of bare cards and wrappers, so a simple children-length
+        // walk would under-count any column that contains a stack.
         function visibleChildren(el) {
-          var n = 0;
-          for (var i = 0; i < el.children.length; i++) {
-            if (!el.children[i].classList.contains("is-ignored")) n++;
+          return el.querySelectorAll(".pr-card:not(.is-ignored)").length;
+        }
+
+        // Re-arrange a column so co-column stack cards sit next to each
+        // other (root first, then children in pre-order) inside a
+        // .pr-stack-group wrapper. Bare cards keep their existing
+        // position relative to whichever stack-group appeared first.
+        // A no-op if the column has no co-column stack cards.
+        function groupStacks(col) {
+          var groups = {};
+          var ordered = [];
+          var children = Array.prototype.slice.call(col.children);
+          children.forEach(function (card) {
+            var id = card.getAttribute("data-stack-id");
+            var coCol = card.classList.contains("is-stack-co-column");
+            if (id && coCol) {
+              if (!groups[id]) {
+                groups[id] = [];
+                ordered.push({ kind: "group", id: id });
+              }
+              groups[id].push(card);
+            } else {
+              ordered.push({ kind: "card", card: card });
+            }
+          });
+          if (
+            !ordered.some(function (item) {
+              return item.kind === "group";
+            })
+          ) {
+            return;
           }
-          return n;
+          col.innerHTML = "";
+          ordered.forEach(function (item) {
+            if (item.kind === "card") {
+              col.appendChild(item.card);
+              return;
+            }
+            var cards = groups[item.id].sort(function (a, b) {
+              return (
+                parseInt(a.getAttribute("data-stack-order") || "0", 10) -
+                parseInt(b.getAttribute("data-stack-order") || "0", 10)
+              );
+            });
+            var wrapper = document.createElement("div");
+            wrapper.className = "pr-stack-group";
+            wrapper.setAttribute("data-stack-id", item.id);
+            cards.forEach(function (c) {
+              wrapper.appendChild(c);
+            });
+            col.appendChild(wrapper);
+          });
         }
 
         function distribute() {
@@ -402,6 +454,10 @@
             var col = card.getAttribute("data-column");
             (buckets[col] || progress).appendChild(card);
           });
+
+          groupStacks(progress);
+          groupStacks(ready);
+          groupStacks(approved);
 
           applyIgnoreFilter();
 

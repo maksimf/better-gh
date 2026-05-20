@@ -37,18 +37,28 @@ def attach_stacks(prs: list[PR]) -> list[PR]:
     for pr in prs:
         by_repo[pr.repo].append(pr)
 
-    stacks_by_pr_number: dict[tuple[str, int], Stack] = {}
+    # Keyed by ``(repo, pr_number)``: the ``Stack`` plus the layout hints
+    # the frontend needs to render same-column stacks as a single indented
+    # group instead of N independent cards each carrying the inline tree.
+    info_by_pr: dict[tuple[str, int], dict[str, object]] = {}
     for repo, repo_prs in by_repo.items():
         for stack in _stacks_for_repo(repo_prs):
-            for node in stack.nodes:
-                stacks_by_pr_number[(repo, node.number)] = stack
+            columns = {node.column for node in stack.nodes}
+            co_column = len(columns) == 1
+            for order, node in enumerate(stack.nodes):
+                info_by_pr[(repo, node.number)] = {
+                    "stack": stack,
+                    "stack_depth": node.depth,
+                    "stack_order": order,
+                    "stack_co_column": co_column,
+                }
 
-    if not stacks_by_pr_number:
+    if not info_by_pr:
         return list(prs)
 
     return [
-        pr.model_copy(update={"stack": stacks_by_pr_number.get((pr.repo, pr.number))})
-        if (pr.repo, pr.number) in stacks_by_pr_number
+        pr.model_copy(update=info_by_pr[(pr.repo, pr.number)])
+        if (pr.repo, pr.number) in info_by_pr
         else pr
         for pr in prs
     ]

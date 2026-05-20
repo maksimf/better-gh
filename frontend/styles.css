@@ -1198,6 +1198,31 @@ a.pr-number:hover {
   color: var(--white);
 }
 
+/* When every PR in a stack lands in the same column, the inline tree
+   on each card is redundant -- the relationship is obvious if we just
+   stack the cards literally. JS wraps those cards in a .pr-stack-group
+   (root first, children in pre-order), and each child gets a left
+   indent proportional to its --stack-depth so the chain reads at a
+   glance. The wrapper's gap is tighter than the column's gap so the
+   cards feel attached instead of merely adjacent. */
+.pr-stack-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pr-card.is-stack-co-column {
+  margin-left: calc(var(--stack-depth, 0) * 28px);
+}
+
+@media (max-width: 640px) {
+  /* Phones don't have the horizontal room to spare 28px per level --
+     halve it so a depth-2 child still leaves a usable card width. */
+  .pr-card.is-stack-co-column {
+    margin-left: calc(var(--stack-depth, 0) * 14px);
+  }
+}
+
 /* ---------- Settings modal ---------- */
 .settings-modal {
   padding: 0;
