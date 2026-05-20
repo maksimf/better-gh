@@ -1,0 +1,56 @@
+"""``GitHubClient._parse_pr`` lifts ``baseRefName`` / ``headRefName``
+straight onto ``PR.base_ref`` / ``PR.head_ref`` so the stack detector
+can group PRs by head/base pairing.
+"""
+from __future__ import annotations
+
+import unittest
+
+from app.github import GitHubClient
+
+
+def _node(**overrides: object) -> dict:
+    """Minimal GraphQL ``PullRequest`` shape required by ``_parse_pr``."""
+    node: dict = {
+        "number": 42,
+        "title": "Test PR",
+        "url": "https://github.com/acme/web/pull/42",
+        "body": "",
+        "isDraft": False,
+        "updatedAt": "2026-05-20T10:00:00Z",
+        "author": {"login": "me"},
+        "baseRepository": {"nameWithOwner": "acme/web"},
+        "mergeable": "MERGEABLE",
+        "commits": {"nodes": []},
+        "reviewThreads": {"nodes": []},
+        "reviewRequests": {"nodes": []},
+        "latestReviews": {"nodes": []},
+        "comments": {"nodes": []},
+    }
+    node.update(overrides)
+    return node
+
+
+class ParseRefsTests(unittest.TestCase):
+    def _client(self) -> GitHubClient:
+        return GitHubClient(
+            token="t", graphql_url="https://example/graphql", max_prs=10
+        )
+
+    def test_parses_base_and_head_ref_names(self) -> None:
+        pr = self._client()._parse_pr(
+            _node(baseRefName="main", headRefName="feat/a")
+        )
+        self.assertEqual(pr.base_ref, "main")
+        self.assertEqual(pr.head_ref, "feat/a")
+
+    def test_missing_refs_default_to_empty_string(self) -> None:
+        # Belt-and-braces: GitHub may occasionally omit fields on archived
+        # branches; the PR model should still construct cleanly.
+        pr = self._client()._parse_pr(_node())
+        self.assertEqual(pr.base_ref, "")
+        self.assertEqual(pr.head_ref, "")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -95,6 +95,8 @@ fragment prFields on PullRequest {
   body
   isDraft
   updatedAt
+  baseRefName
+  headRefName
   author { login }
   assignees(first: 10) { nodes { login } }
   baseRepository { nameWithOwner }
@@ -683,6 +685,8 @@ class GitHubClient:
             review_requested=review_requested,
             approved_by_reviewer=approved_by_reviewer,
             linear_url=linear_url,
+            base_ref=node.get("baseRefName") or "",
+            head_ref=node.get("headRefName") or "",
         )
 
     @staticmethod

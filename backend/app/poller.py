@@ -10,6 +10,7 @@ from . import state
 from .github import GitHubClient, GitHubRateLimitError
 from .model import PR
 from .render import render_error_banner, render_meta, render_reviews
+from .stack import attach_stacks
 
 log = logging.getLogger("better_gh.poller")
 
@@ -44,6 +45,7 @@ async def poll_once(client: GitHubClient, render: RenderFn) -> bool:
         log.warning("poll: rate limited (reset_at=%s)", exc.reset_at)
         raise
 
+    prs = attach_stacks(prs)
     new_snapshot = state.Snapshot(prs=prs, incoming_reviews=reviews)
     prs_changed, reviews_changed = state.set_snapshot(new_snapshot)
     polled_at = state.mark_polled()

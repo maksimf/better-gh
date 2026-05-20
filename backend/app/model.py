@@ -16,6 +16,39 @@ class Checks(BaseModel):
     failed: int = Field(default=0, ge=0)
 
 
+class StackNode(BaseModel):
+    """One PR's position inside a detected stack.
+
+    Stacks are forests rooted at PRs whose base branch isn't another
+    dashboard PR's head. ``depth`` is 0 for the root and increments by
+    one per generation; ``parent_number`` is ``None`` only for the root.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    number: int
+    title: str
+    url: str
+    repo: str
+    depth: int = Field(ge=0)
+    parent_number: int | None
+    column: Literal["approved", "ready", "progress"]
+
+
+class Stack(BaseModel):
+    """A connected chain of 2+ PRs where each non-root merges into a parent.
+
+    ``nodes`` is in pre-order traversal: the root comes first, then each
+    subtree in turn. Every PR that belongs to the stack carries the same
+    ``Stack`` instance on ``PR.stack`` so the template can render the
+    same tree from any card's perspective.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    nodes: tuple[StackNode, ...]
+
+
 class PR(BaseModel):
     """A pull request as displayed on the dashboard."""
 
@@ -36,6 +69,9 @@ class PR(BaseModel):
     review_requested: bool = False
     approved_by_reviewer: bool = False
     linear_url: str | None = None
+    base_ref: str = ""
+    head_ref: str = ""
+    stack: Stack | None = None
 
     @property
     def is_ready(self) -> bool:
@@ -79,6 +115,8 @@ class PR(BaseModel):
             self.review_requested,
             self.approved_by_reviewer,
             self.linear_url,
+            self.base_ref,
+            self.head_ref,
         )
 
 
