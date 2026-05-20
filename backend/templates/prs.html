@@ -46,7 +46,7 @@
     <div class="pr-status-row">
       <span class="comments" title="Unresolved comments: human / bot">
         <span class="comments-label">Comments</span>
-        {{ comments_cell('H', pr.comments_human, 'human', 'Unresolved human comments') }}
+        {{ comments_cell('H', pr.comments_human, 'human', 'Unresolved human review-thread comments + un-acked generic comments (react with any emoji to ack)') }}
         {{ comments_cell('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
       </span>
       {%- if reviewer_login %}

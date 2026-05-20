@@ -15,8 +15,13 @@ A PR is considered ready for human review when **all** of the following hold:
 
 - All checks have finished, none are pending, none are failing (skipped checks
   are fine).
-- There are no unresolved comments from humans or bots (bots = `cursor` and
-  `coderabbit`; everyone else is a human).
+- There are no unresolved comments from humans or bots (bots are detected
+  via GitHub's GraphQL `__typename: "Bot"` — `cursor`, `coderabbitai`,
+  `github-actions`, `vercel`, etc. all qualify; everyone else is a human).
+  Unresolved comments include unresolved review-thread comments **and** any
+  generic PR conversation comment from a human that you haven't reacted to
+  with any emoji — drop any reaction (👀, 👍, ❤️, 🚀, …) on a comment and
+  it stops counting.
 - The PR is not a draft.
 - The PR's preview is deployed.
 - There are zero merge conflicts with the target branch.

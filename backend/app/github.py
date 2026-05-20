@@ -117,7 +117,7 @@ fragment prFields on PullRequest {
   reviewThreads(first: 100) {
     nodes {
       isResolved
-      comments(first: 1) { nodes { author { login } body } }
+      comments(first: 1) { nodes { author { __typename login } body } }
     }
   }
   reviewRequests(first: 50) {
@@ -134,7 +134,13 @@ fragment prFields on PullRequest {
       author { login }
     }
   }
-  comments(first: 100) { nodes { author { login } body } }
+  comments(first: 100) {
+    nodes {
+      author { __typename login }
+      body
+      reactionGroups { content viewerHasReacted }
+    }
+  }
 }
 
 fragment slimReviewFields on PullRequest {
@@ -447,7 +453,7 @@ class GitHubClient:
                 # PRs the viewer is assigned to but has already approved;
                 # GitHub blocks self-approval so authored PRs are unaffected.
                 continue
-            prs.append(self._parse_pr(node))
+            prs.append(self._parse_pr(node, viewer_login))
         prs.sort(key=lambda p: p.updated_at, reverse=True)
 
         review_prs: list[ReviewPR] = []
@@ -647,12 +653,14 @@ class GitHubClient:
             return (r.get("state") or "").upper() == "APPROVED"
         return False
 
-    def _parse_pr(self, node: dict[str, Any]) -> PR:
+    def _parse_pr(self, node: dict[str, Any], viewer_login: str = "") -> PR:
         author = (node.get("author") or {}).get("login") or "unknown"
         repo = (node.get("baseRepository") or {}).get("nameWithOwner") or "unknown/unknown"
 
         checks = self._extract_checks(node)
-        comments_human, comments_bot = self._count_unresolved_comments(node)
+        comments_human, comments_bot = self._count_unresolved_comments(
+            node, viewer_login, settings.BOT_LOGINS
+        )
         preview_url = self._find_preview(node)
         conflicts = self._extract_conflicts(node)
         review_requested = self._is_review_requested(node)
@@ -747,24 +755,82 @@ class GitHubClient:
             return "failed"
         return "passed"
 
+    @staticmethod
     def _count_unresolved_comments(
-        self, node: dict[str, Any]
+        node: dict[str, Any],
+        viewer_login: str = "",
+        bot_logins: frozenset[str] | set[str] | None = None,
     ) -> tuple[int, int]:
-        threads = ((node.get("reviewThreads") or {}).get("nodes")) or []
-        bot_logins = settings.BOT_LOGINS
+        """Count unresolved review threads + un-acked generic human comments.
+
+        Review-thread counts work like before: each unresolved thread
+        becomes one tally, bucketed by the thread-opener's login --
+        except threads opened by the viewer themselves are skipped
+        (you shouldn't have to clear notes you left for yourself).
+
+        Generic (issue-style) PR conversation comments add to the human
+        count when *all* of these hold: the author is a real human (not
+        a bot, not the viewer themselves), and the viewer hasn't left
+        *any* emoji reaction on it. Any reaction works -- thumbs up,
+        eyes, rocket, heart, whatever -- because the only thing we care
+        about is "did the viewer click *something*". We rely on
+        GitHub's ``reactionGroups.viewerHasReacted`` for the ack check
+        (cheap, server-side) instead of pulling every reactor list,
+        which kept the GraphQL response under GitHub's node-count
+        limit. Bot conversation comments are intentionally not folded
+        in here so the bot chip keeps its existing meaning (unresolved
+        review-thread bot comments only).
+
+        "Bot" means either ``author.__typename == "Bot"`` (which covers
+        every GitHub App -- ``github-actions``, ``vercel``,
+        ``dependabot``, etc. -- without us having to enumerate them) or
+        a login explicitly listed in ``bot_logins`` (escape hatch for
+        regular User accounts the user wants treated as bots).
+        """
+        bots = bot_logins if bot_logins is not None else frozenset()
+        viewer = (viewer_login or "").lower()
+
+        def _is_bot(author: dict[str, Any] | None) -> bool:
+            if not author:
+                return False
+            if (author.get("__typename") or "") == "Bot":
+                return True
+            login = (author.get("login") or "").lower()
+            return bool(login and login in bots)
+
         human = bot = 0
+
+        threads = ((node.get("reviewThreads") or {}).get("nodes")) or []
         for thread in threads:
             if not thread or thread.get("isResolved"):
                 continue
             comments = ((thread.get("comments") or {}).get("nodes")) or []
-            login = ""
-            if comments and comments[0]:
-                author = comments[0].get("author") or {}
-                login = (author.get("login") or "").lower()
-            if login and login in bot_logins:
+            author = (comments[0].get("author") if comments and comments[0] else None)
+            login = ((author or {}).get("login") or "").lower()
+            if viewer and login == viewer:
+                continue
+            if _is_bot(author):
                 bot += 1
             else:
                 human += 1
+
+        generic = ((node.get("comments") or {}).get("nodes")) or []
+        for c in generic:
+            if not c:
+                continue
+            author = c.get("author") or {}
+            login = (author.get("login") or "").lower()
+            if not login:
+                continue
+            if _is_bot(author):
+                continue
+            if viewer and login == viewer:
+                continue
+            groups = c.get("reactionGroups") or []
+            acked = any(g and g.get("viewerHasReacted") for g in groups)
+            if not acked:
+                human += 1
+
         return human, bot
 
     def _find_preview(self, node: dict[str, Any]) -> str | None:
