@@ -36,12 +36,36 @@ class Checks(BaseModel):
     failed_names: tuple[FailedCheck, ...] = ()
 
 
+Column = Literal["approved", "ready", "progress"]
+
+
+def _column_for(
+    *, is_ready: bool, approver_logins: tuple[str, ...], reviewer: str | None
+) -> Column:
+    """Compute which Trello column a PR belongs in for a given viewer.
+
+    Lives at module scope (not on the model) so both :class:`PR` and
+    :class:`StackNode` can share the same definition without duplicating
+    the rule -- and so the rule shows up exactly once in tests.
+    """
+    rl = (reviewer or "").lower().strip()
+    if rl:
+        for approver in approver_logins:
+            if approver.lower() == rl:
+                return "approved"
+    return "ready" if is_ready else "progress"
+
+
 class StackNode(BaseModel):
     """One PR's position inside a detected stack.
 
     Stacks are forests rooted at PRs whose base branch isn't another
     dashboard PR's head. ``depth`` is 0 for the root and increments by
     one per generation; ``parent_number`` is ``None`` only for the root.
+
+    ``approver_logins`` + ``is_ready`` carry just enough of the source
+    PR's state to recompute the per-viewer column for the badge shown
+    next to each non-self node in the inline stack tree.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -52,7 +76,15 @@ class StackNode(BaseModel):
     repo: str
     depth: int = Field(ge=0)
     parent_number: int | None
-    column: Literal["approved", "ready", "progress"]
+    is_ready: bool = False
+    approver_logins: tuple[str, ...] = ()
+
+    def column_for(self, reviewer: str | None) -> Column:
+        return _column_for(
+            is_ready=self.is_ready,
+            approver_logins=self.approver_logins,
+            reviewer=reviewer,
+        )
 
 
 class Stack(BaseModel):
@@ -70,7 +102,16 @@ class Stack(BaseModel):
 
 
 class PR(BaseModel):
-    """A pull request as displayed on the dashboard."""
+    """A pull request as displayed on the dashboard.
+
+    Reviewer-dependent UI (the per-card R chip / "Request review"
+    button, and the APPROVED column placement) is computed from raw
+    reviewer state at *render* time via :meth:`is_approved_by`,
+    :meth:`is_review_requested_from`, and :meth:`column_for`. The model
+    itself stays reviewer-agnostic so one cached snapshot can serve
+    every viewer regardless of which login they've configured to
+    track.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -86,8 +127,14 @@ class PR(BaseModel):
     preview_url: str | None
     conflicts: int = Field(ge=0)
     updated_at: str
-    review_requested: bool = False
-    approved_by_reviewer: bool = False
+    # Raw reviewer state from GitHub. ``requested_reviewers`` is the
+    # current "Reviewers" list on the PR (non-team users only).
+    # ``approver_logins`` is the set of users whose most recent review
+    # is APPROVED -- a viewer-agnostic source of truth that
+    # :meth:`is_approved_by` filters down to whichever login the
+    # current viewer is tracking.
+    requested_reviewers: tuple[str, ...] = ()
+    approver_logins: tuple[str, ...] = ()
     linear_url: str | None = None
     base_ref: str = ""
     head_ref: str = ""
@@ -99,7 +146,10 @@ class PR(BaseModel):
     # the parent list came in by ``updated_at``. ``stack_co_column`` is
     # ``True`` iff every node in the stack lands in the same column as
     # this PR -- the frontend uses that to hide the inline tree and
-    # collapse the cards into a single indented group instead.
+    # collapse the cards into a single indented group instead. Like the
+    # column itself, ``stack_co_column`` is reviewer-dependent (an
+    # approval can split a previously co-column stack), so these get
+    # re-populated per render by ``attach_stacks``.
     stack_depth: int | None = None
     stack_order: int | None = None
     stack_co_column: bool = False
@@ -117,17 +167,35 @@ class PR(BaseModel):
             and self.conflicts == 0
         )
 
-    @property
-    def column(self) -> Literal["approved", "ready", "progress"]:
-        if self.approved_by_reviewer:
-            return "approved"
-        return "ready" if self.is_ready else "progress"
+    def is_approved_by(self, reviewer: str | None) -> bool:
+        """Has ``reviewer``'s most recent review been APPROVED?"""
+        rl = (reviewer or "").lower().strip()
+        if not rl:
+            return False
+        return any(a.lower() == rl for a in self.approver_logins)
+
+    def is_review_requested_from(self, reviewer: str | None) -> bool:
+        """Is ``reviewer`` currently on the requested-reviewers list?"""
+        rl = (reviewer or "").lower().strip()
+        if not rl:
+            return False
+        return any(r.lower() == rl for r in self.requested_reviewers)
+
+    def column_for(self, reviewer: str | None) -> Column:
+        return _column_for(
+            is_ready=self.is_ready,
+            approver_logins=self.approver_logins,
+            reviewer=reviewer,
+        )
 
     def fingerprint(self) -> tuple:
         """Stable hashable tuple of every field that affects rendering.
 
         The poller uses this to detect "did anything visible change?"
-        without diffing rendered HTML.
+        without diffing rendered HTML. We hash the raw reviewer state
+        (not any per-viewer derived booleans) so a snapshot can be
+        shared across viewers without spurious diffs when only the
+        configured reviewer differs.
         """
         return (
             self.number,
@@ -144,8 +212,8 @@ class PR(BaseModel):
             self.comments_bot,
             self.preview_url,
             self.conflicts,
-            self.review_requested,
-            self.approved_by_reviewer,
+            self.requested_reviewers,
+            self.approver_logins,
             self.linear_url,
             self.base_ref,
             self.head_ref,

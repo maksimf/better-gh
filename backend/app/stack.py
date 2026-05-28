@@ -20,12 +20,19 @@ from typing import Iterable
 from .model import PR, Stack, StackNode
 
 
-def attach_stacks(prs: list[PR]) -> list[PR]:
+def attach_stacks(prs: list[PR], reviewer: str | None = None) -> list[PR]:
     """Return PRs with ``.stack`` populated for every PR in a 2+ stack.
 
     Preserves input ordering. PRs that end up in a stack of size 1 (or
     that hit a cycle, see below) get ``stack=None`` so the template
     treats them as standalone cards.
+
+    ``reviewer`` is the GitHub login the viewer has configured to
+    track approvals from. It only affects ``stack_co_column``: an
+    approval by ``reviewer`` flips one node into the APPROVED column,
+    which can split a previously co-column stack. The stack
+    *structure* (parent/child links, depth, pre-order) is
+    reviewer-agnostic.
 
     Cycle handling: a real branch can't be the base of itself, but two
     PRs could theoretically reference each other's heads if someone
@@ -43,7 +50,7 @@ def attach_stacks(prs: list[PR]) -> list[PR]:
     info_by_pr: dict[tuple[str, int], dict[str, object]] = {}
     for repo, repo_prs in by_repo.items():
         for stack in _stacks_for_repo(repo_prs):
-            columns = {node.column for node in stack.nodes}
+            columns = {node.column_for(reviewer) for node in stack.nodes}
             co_column = len(columns) == 1
             for order, node in enumerate(stack.nodes):
                 info_by_pr[(repo, node.number)] = {
@@ -127,7 +134,8 @@ def _walk_tree(
                 repo=pr.repo,
                 depth=depth,
                 parent_number=parent_number,
-                column=pr.column,
+                is_ready=pr.is_ready,
+                approver_logins=pr.approver_logins,
             )
         )
         for child in sorted(

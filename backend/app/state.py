@@ -58,6 +58,13 @@ class UserState:
     place. The fields are public-ish for ergonomics (read access from
     routes), but writes from outside this module will skip the
     bookkeeping.
+
+    ``reviewer_login`` is the GitHub login this viewer chose to track
+    in the per-card "R" chip / "Request review" button / APPROVED
+    column rule. Cached here so the SSE broadcast path (which has no
+    Request) can read it without re-parsing the cookie. ``None`` means
+    "fall back to ``settings.REVIEWER_LOGIN``"; empty string means "no
+    reviewer, hide the chip entirely".
     """
 
     snapshot: Snapshot = field(default_factory=Snapshot)
@@ -66,6 +73,7 @@ class UserState:
     error_reset_at: datetime | None = None
     subscribers: set[asyncio.Queue[dict[str, str]]] = field(default_factory=set)
     poll_task: asyncio.Task | None = None
+    reviewer_login: str | None = None
 
 
 _states: dict[str, UserState] = {}
@@ -171,6 +179,33 @@ async def broadcast(login: str, event: str, data: str) -> None:
             queue.put_nowait(payload)
         except asyncio.QueueFull:
             log.warning("SSE subscriber queue full; dropping update for %s", login)
+
+
+async def set_reviewer(login: str, reviewer: str | None) -> tuple[bool, str | None]:
+    """Update the viewer's tracked reviewer login.
+
+    ``reviewer`` may be ``None`` (revert to global default) or a
+    non-empty trimmed string (track that login). Empty strings are
+    normalised to ``""`` -- meaning "explicitly no reviewer" -- so the
+    chip stays hidden even when ``settings.REVIEWER_LOGIN`` is set.
+
+    Returns ``(changed, normalised_value)``: callers should
+    re-render + re-broadcast only when ``changed`` is ``True``.
+    """
+    if reviewer is None:
+        normalised: str | None = None
+    else:
+        normalised = reviewer.strip()
+    state = await get_or_create(login)
+    changed = state.reviewer_login != normalised
+    state.reviewer_login = normalised
+    return changed, normalised
+
+
+def get_reviewer(login: str) -> str | None:
+    """Read the viewer's cached reviewer login. ``None`` if unset."""
+    state = get(login)
+    return state.reviewer_login if state is not None else None
 
 
 def set_poll_task(login: str, task: asyncio.Task | None) -> None:

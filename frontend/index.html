@@ -172,6 +172,29 @@
 
     <main>
       <section
+        id="repo-picker-empty"
+        class="empty-state empty-state--picker"
+        hidden
+        aria-live="polite"
+      >
+        <div class="empty-state-mark" aria-hidden="true">
+          <span class="shape shape--circle"></span>
+          <span class="shape shape--square"></span>
+          <span class="shape shape--triangle"></span>
+        </div>
+        <h2 class="empty-state-title">PICK YOUR REPOS</h2>
+        <p class="empty-state-sub">
+          Select the repositories you want this board to track. Your
+          choice stays in this browser.
+        </p>
+        <div class="empty-state-picker-card">
+          <ul id="picker-repo-list" class="settings-repo-list" aria-live="polite">
+            <li class="settings-empty">Loading repos...</li>
+          </ul>
+        </div>
+      </section>
+
+      <section
         id="panel-mine"
         class="tab-panel is-active"
         role="tabpanel"
@@ -271,7 +294,6 @@
         </span>
         <div class="settings-modal-titles">
           <h2 id="settings-modal-title" class="settings-modal-title">SETTINGS</h2>
-          <p class="settings-modal-subtitle">IGNORE REPOS</p>
         </div>
         <button
           type="button"
@@ -281,9 +303,40 @@
         >&times;</button>
       </header>
       <div class="settings-modal-body">
-        <ul id="settings-repo-list" class="settings-repo-list" aria-live="polite">
-          <li class="settings-empty">Loading...</li>
-        </ul>
+        <section class="settings-section" aria-labelledby="settings-reviewer-label">
+          <h3 id="settings-reviewer-label" class="settings-section-title">REVIEWER TO TRACK</h3>
+          <p class="settings-section-hint">
+            GitHub login of the reviewer whose approval moves a PR into
+            the <strong>APPROVED</strong> column and unlocks the per-card
+            <em>Request review</em> button. Leave empty to hide the chip
+            entirely.
+          </p>
+          <label class="settings-reviewer-input">
+            <span class="settings-reviewer-at" aria-hidden="true">@</span>
+            <input
+              type="text"
+              id="settings-reviewer"
+              name="reviewer"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="off"
+              maxlength="39"
+              placeholder="github-login"
+            />
+            <span class="settings-reviewer-status" id="settings-reviewer-status" aria-live="polite"></span>
+          </label>
+        </section>
+        <section class="settings-section" aria-labelledby="settings-repos-label">
+          <h3 id="settings-repos-label" class="settings-section-title">SHOW REPOS</h3>
+          <p class="settings-section-hint">
+            Check the repositories you want this board to track.
+            Unchecked repos are hidden from both <strong>MY PRs</strong>
+            and <strong>REVIEWING</strong>.
+          </p>
+          <ul id="settings-repo-list" class="settings-repo-list" aria-live="polite">
+            <li class="settings-empty">Loading...</li>
+          </ul>
+        </section>
       </div>
       <footer class="settings-modal-footer">
         Stored in your browser. No server-side state.
@@ -385,19 +438,23 @@
         }
       })();
 
-      // Ignore-repos store + filter. Persists a Set of "owner/repo" strings
-      // in localStorage; falls back to in-memory for private-mode tabs.
-      var ignoreStore = (function () {
-        var KEY = "better-gh.ignored-repos";
-        var memory = new Set();
+      // Selected-repos store + filter. Persists a Set of "owner/repo"
+      // strings the viewer wants to track. Distinguishes "never set up"
+      // (key absent) from "set up with empty selection" (key present
+      // but []). The legacy ignore-list key is consulted for a one-shot
+      // soft migration so users upgrading don't see an empty board.
+      var selectedStore = (function () {
+        var KEY = "better-gh.selected-repos";
+        var LEGACY_KEY = "better-gh.ignored-repos";
+        var memory = null;
         function read() {
           try {
             var raw = localStorage.getItem(KEY);
-            if (!raw) return new Set();
+            if (raw === null) return null;
             var arr = JSON.parse(raw);
             return new Set(Array.isArray(arr) ? arr : []);
           } catch (e) {
-            return new Set(memory);
+            return memory ? new Set(memory) : null;
           }
         }
         function write(set) {
@@ -408,32 +465,83 @@
             /* private mode -- keep in-memory copy only */
           }
         }
+        function readLegacyIgnored() {
+          try {
+            var raw = localStorage.getItem(LEGACY_KEY);
+            if (!raw) return null;
+            var arr = JSON.parse(raw);
+            return new Set(Array.isArray(arr) ? arr : []);
+          } catch (e) {
+            return null;
+          }
+        }
+        function clearLegacy() {
+          try {
+            localStorage.removeItem(LEGACY_KEY);
+          } catch (e) {
+            /* private mode -- nothing to clear */
+          }
+        }
         return {
-          get: read,
-          has: function (repo) { return read().has(repo); },
-          toggle: function (repo, ignored) {
-            var set = read();
-            if (ignored) set.add(repo); else set.delete(repo);
+          isInitialized: function () { return read() !== null; },
+          get: function () { return read() || new Set(); },
+          has: function (repo) {
+            var s = read();
+            return s !== null && s.has(repo);
+          },
+          toggle: function (repo, selected) {
+            var set = read() || new Set();
+            if (selected) set.add(repo); else set.delete(repo);
             write(set);
             return set;
           },
+          setAll: function (repos) { write(new Set(repos)); },
+          readLegacyIgnored: readLegacyIgnored,
+          clearLegacy: clearLegacy,
         };
       })();
 
-      function applyIgnoreFilter() {
-        var ignored = ignoreStore.get();
+      // True when we should show the "PICK YOUR REPOS" empty state in
+      // place of the board. While a legacy ignored-list still exists,
+      // we treat it as a transient pre-migration window and keep the
+      // legacy behaviour (show everything except the ignored repos),
+      // so upgrading users don't see a flash of the picker before the
+      // /repos migration completes.
+      function isSelectionEmpty() {
+        if (selectedStore.isInitialized()) {
+          return selectedStore.get().size === 0;
+        }
+        if (selectedStore.readLegacyIgnored() !== null) {
+          return false;
+        }
+        return true;
+      }
+
+      function applyRepoFilter() {
+        var isInit = selectedStore.isInitialized();
+        var selected = isInit ? selectedStore.get() : null;
+        var legacy = !isInit ? selectedStore.readLegacyIgnored() : null;
         document
           .querySelectorAll(".pr-card[data-repo], .review-row[data-repo]")
           .forEach(function (card) {
             var repo = card.getAttribute("data-repo");
-            card.classList.toggle("is-ignored", ignored.has(repo));
+            var visible;
+            if (isInit) {
+              visible = selected.has(repo);
+            } else if (legacy !== null) {
+              visible = !legacy.has(repo);
+            } else {
+              visible = false;
+            }
+            card.classList.toggle("is-ignored", !visible);
           });
       }
+
 
       // Manually-reviewed marker. Keyed by "owner/repo#number" so the
       // same PR is consistently marked across MY PRs and REVIEWING tabs
       // (a PR you reviewed for someone else stays reviewed even if it
-      // moves between columns). Same private-mode fallback as ignoreStore.
+      // moves between columns). Same private-mode fallback as selectedStore.
       var reviewedStore = (function () {
         var KEY = "better-gh.manually-reviewed";
         var memory = new Set();
@@ -581,8 +689,9 @@
           groupStacks(ready);
           groupStacks(approved);
 
-          applyIgnoreFilter();
+          applyRepoFilter();
           applyReviewedMarks();
+          applyPickerEmptyState();
 
           var counts = {
             progress: visibleChildren(progress),
@@ -617,13 +726,21 @@
             if (!hide) visibleCols++;
           });
 
+          var pickerEmpty = isSelectionEmpty();
           if (board) {
             board.classList.toggle("board--cols-1", visibleCols === 1);
             board.classList.toggle("board--cols-2", visibleCols === 2);
             board.classList.toggle("board--cols-3", visibleCols === 3);
             board.hidden = visibleCols === 0;
           }
-          if (emptyState) emptyState.hidden = visibleCols !== 0;
+          // The "INBOX ZERO" state only shows when the viewer HAS
+          // selected repos but no PRs landed in any column -- when
+          // the selection is empty, the global picker empty-state
+          // (driven by applyPickerEmptyState) replaces the whole
+          // panel instead.
+          if (emptyState) {
+            emptyState.hidden = visibleCols !== 0 || pickerEmpty;
+          }
         }
 
         window.__betterGhDistribute = distribute;
@@ -633,7 +750,7 @@
       })();
 
       // Move review rows from the hidden #reviews-stream into the visible
-      // list, applying the same ignore filter so a repo unchecked in the
+      // list, applying the same repo filter so a repo unchecked in the
       // settings popup hides reviews from that repo too. Updates the
       // REVIEWING tab count and toggles the empty state.
       (function () {
@@ -656,8 +773,9 @@
             list.appendChild(row);
           });
 
-          applyIgnoreFilter();
+          applyRepoFilter();
           applyReviewedMarks();
+          applyPickerEmptyState();
 
           var visible = visibleChildren(list);
           document
@@ -670,7 +788,11 @@
           var emptyState = panel
             ? panel.querySelector(".empty-state--reviews")
             : null;
-          if (emptyState) emptyState.hidden = visible !== 0;
+          var pickerEmpty = isSelectionEmpty();
+          // "ALL CLEAR" only shows when the viewer has selected repos
+          // but nothing is awaiting their review. With no selection,
+          // the global picker empty-state takes over the whole page.
+          if (emptyState) emptyState.hidden = visible !== 0 || pickerEmpty;
           if (list) list.hidden = visible === 0;
         }
 
@@ -859,14 +981,125 @@
         setInterval(tick, 30_000);
       })();
 
-      // Settings modal: open/close, fetch repos, render checkbox list,
-      // persist toggles to localStorage, re-distribute the board on change.
+      // Reviewer-to-track config. Mirrors the value to localStorage
+      // (persistence across reloads), a non-HttpOnly cookie (rides on
+      // htmx/SSE requests automatically so the backend can render with
+      // it before SSE has had a chance to populate UserState), and
+      // POSTs to /settings/reviewer so any other open tab of the same
+      // signed-in user gets a fresh prs broadcast immediately.
+      var reviewerStore = (function () {
+        var KEY = "better-gh.reviewer-login";
+        var COOKIE = "reviewer_pref";
+        var memory = "";
+        function read() {
+          try {
+            var v = localStorage.getItem(KEY);
+            if (v !== null) return v;
+          } catch (e) {
+            return memory;
+          }
+          return "";
+        }
+        function writeCookie(value) {
+          // 1 year, lax samesite so cross-site nav into the app still
+          // sends it; secure flag set only when we're on https so dev
+          // over http://localhost still gets the cookie.
+          var attrs =
+            "path=/; max-age=" + 365 * 24 * 3600 + "; samesite=lax";
+          if (window.location.protocol === "https:") attrs += "; secure";
+          document.cookie =
+            COOKIE + "=" + encodeURIComponent(value || "") + "; " + attrs;
+        }
+        function write(value) {
+          memory = value || "";
+          try {
+            localStorage.setItem(KEY, memory);
+          } catch (e) {
+            /* private mode -- keep in-memory copy only */
+          }
+          writeCookie(memory);
+        }
+        return { get: read, set: write };
+      })();
+
+      // Seed the cookie from localStorage on every load so the first
+      // htmx GET /prs.html already carries it (otherwise the cold
+      // render falls back to the deploy-wide REVIEWER_LOGIN default
+      // until SSE connects).
+      reviewerStore.set(reviewerStore.get());
+
+      // Reviewer settings form. Debounced input + POST to the
+      // backend; the backend re-broadcasts a fresh prs event so
+      // every open tab updates without waiting for the next poll.
+      (function () {
+        var input = document.getElementById("settings-reviewer");
+        var status = document.getElementById("settings-reviewer-status");
+        if (!input) return;
+
+        input.value = reviewerStore.get();
+
+        var timer = null;
+        var lastSent = input.value;
+
+        function setStatus(msg, cls) {
+          if (!status) return;
+          status.textContent = msg || "";
+          status.className =
+            "settings-reviewer-status" + (cls ? " " + cls : "");
+        }
+
+        function commit() {
+          var value = (input.value || "").trim();
+          if (value === lastSent) return;
+          lastSent = value;
+          reviewerStore.set(value);
+          setStatus("Saving...", "is-saving");
+          fetch("/settings/reviewer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviewer: value === "" ? null : value }),
+          })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              setStatus("Saved", "is-saved");
+              setTimeout(function () { setStatus("", ""); }, 1500);
+            })
+            .catch(function (err) {
+              setStatus("Save failed", "is-error");
+            });
+        }
+
+        input.addEventListener("input", function () {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(commit, 600);
+        });
+        input.addEventListener("blur", function () {
+          if (timer) {
+            clearTimeout(timer);
+            timer = null;
+          }
+          commit();
+        });
+      })();
+
+      // Repo picker shared between the settings modal and the
+      // "PICK YOUR REPOS" empty-state on the main page. Both surfaces
+      // render the same `/repos` checklist; toggling a checkbox writes
+      // straight into selectedStore and re-runs the distribute
+      // functions so the board / reviews update without a round-trip.
+      // A one-shot migration consumes any legacy ignored-repos list so
+      // upgrading users don't suddenly see the picker.
       (function () {
         var modal = document.getElementById("settings-modal");
         var openBtn = document.getElementById("open-settings");
         var closeBtn = document.getElementById("close-settings");
-        var list = document.getElementById("settings-repo-list");
-        if (!modal || !openBtn || !closeBtn || !list) return;
+        var settingsList = document.getElementById("settings-repo-list");
+        var pickerList = document.getElementById("picker-repo-list");
+        var pickerEmpty = document.getElementById("repo-picker-empty");
+        var tabsEl = document.querySelector(".tabs");
+        var pageTitleEl = document.getElementById("page-title");
+        var panelMine = document.getElementById("panel-mine");
+        var panelReviews = document.getElementById("panel-reviews");
 
         function escapeHtml(str) {
           return String(str).replace(/[&<>"']/g, function (c) {
@@ -880,23 +1113,23 @@
           });
         }
 
-        function renderRows(repos) {
-          var ignored = ignoreStore.get();
+        function renderRows(target, repos) {
+          if (!target) return;
           if (!repos.length) {
-            list.innerHTML =
+            target.innerHTML =
               '<li class="settings-empty">No open PRs in any repo.</li>';
             return;
           }
-          list.innerHTML = repos
+          target.innerHTML = repos
             .map(function (r) {
-              var isIgnored = ignored.has(r.repo);
+              var isSelected = selectedStore.has(r.repo);
               return (
                 '<li class="settings-row">' +
                 '<label>' +
-                '<input type="checkbox" name="ignore" value="' +
+                '<input type="checkbox" name="repo" value="' +
                 escapeHtml(r.repo) +
                 '"' +
-                (isIgnored ? " checked" : "") +
+                (isSelected ? " checked" : "") +
                 ">" +
                 '<span class="settings-repo">' +
                 escapeHtml(r.repo) +
@@ -911,23 +1144,91 @@
             .join("");
         }
 
-        function loadAndRender() {
-          list.innerHTML =
-            '<li class="settings-empty">Loading repos...</li>';
-          fetch("/repos", { headers: { Accept: "application/json" } })
+        function loadRepos() {
+          return fetch("/repos", { headers: { Accept: "application/json" } })
             .then(function (r) {
               if (!r.ok) throw new Error("HTTP " + r.status);
               return r.json();
+            });
+        }
+
+        function loadAndRender(target) {
+          if (!target) return;
+          target.innerHTML =
+            '<li class="settings-empty">Loading repos...</li>';
+          loadRepos()
+            .then(function (repos) {
+              maybeMigrate(repos);
+              renderRows(target, repos);
+              // Migration may have flipped isSelectionEmpty -> false;
+              // sync the rest of the UI so the picker hides and the
+              // board reappears without a page reload.
+              applyPickerEmptyState();
+              if (typeof window.__betterGhDistribute === "function") {
+                window.__betterGhDistribute();
+              }
+              if (typeof window.__betterGhDistributeReviews === "function") {
+                window.__betterGhDistributeReviews();
+              }
             })
-            .then(renderRows)
             .catch(function () {
-              list.innerHTML =
+              target.innerHTML =
                 '<li class="settings-empty">Couldn\'t load repos. Try again.</li>';
             });
         }
 
+        // One-shot soft migration: existing users with a legacy
+        // ignored-repos list keep the same effective visibility by
+        // mapping selected = (currently visible) \ ignored. After
+        // migration the legacy key is cleared.
+        function maybeMigrate(repos) {
+          if (selectedStore.isInitialized()) return;
+          var legacy = selectedStore.readLegacyIgnored();
+          if (legacy === null) return;
+          var selected = [];
+          repos.forEach(function (r) {
+            if (!legacy.has(r.repo)) selected.push(r.repo);
+          });
+          selectedStore.setAll(selected);
+          selectedStore.clearLegacy();
+        }
+
+        // Decide whether the picker empty-state should replace the
+        // board. When the selection is empty (and we're not mid-
+        // migration), hide the tabs / page-title / panels and reveal
+        // the picker. Otherwise restore them based on which tab the
+        // tab switcher currently has active. `pickerHydrated` makes
+        // the /repos fetch one-shot per visibility window so SSE
+        // swaps don't trigger a flurry of refetches.
+        var pickerHydrated = false;
+        function applyPickerEmptyState() {
+          var empty = isSelectionEmpty();
+          if (pickerEmpty) pickerEmpty.hidden = !empty;
+          if (tabsEl) tabsEl.hidden = empty;
+          if (pageTitleEl) pageTitleEl.hidden = empty;
+          if (empty) {
+            if (panelMine) panelMine.hidden = true;
+            if (panelReviews) panelReviews.hidden = true;
+            if (!pickerHydrated) {
+              pickerHydrated = true;
+              loadAndRender(pickerList);
+            }
+          } else {
+            pickerHydrated = false;
+            if (panelMine) {
+              panelMine.hidden = !panelMine.classList.contains("is-active");
+            }
+            if (panelReviews) {
+              panelReviews.hidden =
+                !panelReviews.classList.contains("is-active");
+            }
+          }
+        }
+        window.__betterGhApplyPickerEmptyState = applyPickerEmptyState;
+
         function open() {
-          loadAndRender();
+          loadAndRender(settingsList);
+          if (!modal) return;
           if (typeof modal.showModal === "function") {
             modal.showModal();
           } else {
@@ -935,6 +1236,7 @@
           }
         }
         function close() {
+          if (!modal) return;
           if (typeof modal.close === "function") {
             modal.close();
           } else {
@@ -942,33 +1244,95 @@
           }
         }
 
-        openBtn.addEventListener("click", open);
-        closeBtn.addEventListener("click", close);
+        if (openBtn) openBtn.addEventListener("click", open);
+        if (closeBtn) closeBtn.addEventListener("click", close);
 
-        // Backdrop click closes (clicks land on <dialog> itself, not its
-        // children, when they hit the ::backdrop area).
-        modal.addEventListener("click", function (evt) {
-          if (evt.target === modal) close();
-        });
+        // Backdrop click closes (clicks land on <dialog> itself, not
+        // its children, when they hit the ::backdrop area).
+        if (modal) {
+          modal.addEventListener("click", function (evt) {
+            if (evt.target === modal) close();
+          });
+        }
 
-        list.addEventListener("change", function (evt) {
+        function onCheckboxChange(evt) {
           var t = evt.target;
           if (
             !t ||
             t.tagName !== "INPUT" ||
             t.type !== "checkbox" ||
-            t.name !== "ignore"
+            t.name !== "repo"
           )
             return;
-          ignoreStore.toggle(t.value, t.checked);
+          selectedStore.toggle(t.value, t.checked);
+          // Keep both lists in sync if both are mounted, so toggling
+          // a repo from the picker is reflected the next time the
+          // settings modal opens (and vice versa).
+          syncCheckboxState(t.value, t.checked);
           if (typeof window.__betterGhDistribute === "function") {
             window.__betterGhDistribute();
           }
           if (typeof window.__betterGhDistributeReviews === "function") {
             window.__betterGhDistributeReviews();
           }
-        });
+          applyPickerEmptyState();
+        }
+
+        function syncCheckboxState(repo, checked) {
+          [settingsList, pickerList].forEach(function (root) {
+            if (!root) return;
+            var input = root.querySelector(
+              'input[name="repo"][value="' + cssEscapeAttr(repo) + '"]'
+            );
+            if (input && input.checked !== checked) input.checked = checked;
+          });
+        }
+
+        function cssEscapeAttr(value) {
+          return String(value).replace(/(["\\])/g, "\\$1");
+        }
+
+        if (settingsList) settingsList.addEventListener("change", onCheckboxChange);
+        if (pickerList) pickerList.addEventListener("change", onCheckboxChange);
+
+        // Initial paint: if the selection is empty we need to show
+        // the picker right away. distribute() also calls
+        // applyPickerEmptyState after each SSE swap, but the first
+        // call happens before any swap fires.
+        applyPickerEmptyState();
+
+        // Soft-migration kick: when a legacy ignored-list exists but
+        // the new selected-repos key doesn't, applyPickerEmptyState
+        // above kept the board visible via the legacy filter. Fire a
+        // background /repos fetch now to write the new key so the next
+        // page load doesn't depend on the legacy data. Silent on
+        // failure -- opening the settings modal will retry.
+        if (
+          !selectedStore.isInitialized() &&
+          selectedStore.readLegacyIgnored() !== null
+        ) {
+          loadRepos()
+            .then(function (repos) {
+              maybeMigrate(repos);
+              applyPickerEmptyState();
+              if (typeof window.__betterGhDistribute === "function") {
+                window.__betterGhDistribute();
+              }
+              if (typeof window.__betterGhDistributeReviews === "function") {
+                window.__betterGhDistributeReviews();
+              }
+            })
+            .catch(function () { /* retry on settings open */ });
+        }
       })();
+
+      // Tiny shim so distribute() / distributeReviews() can call this
+      // without caring whether the picker IIFE has run yet.
+      function applyPickerEmptyState() {
+        if (typeof window.__betterGhApplyPickerEmptyState === "function") {
+          window.__betterGhApplyPickerEmptyState();
+        }
+      }
 
       // Manually-reviewed toggle (per PR card + review row). Pure
       // client-side marker stored in localStorage -- the server never

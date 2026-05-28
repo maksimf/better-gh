@@ -667,8 +667,8 @@ class GitHubClient:
         )
         preview_url = self._find_preview(node)
         conflicts = self._extract_conflicts(node)
-        review_requested = self._is_review_requested(node)
-        approved_by_reviewer = self._is_approved_by_reviewer(node)
+        requested_reviewers = self._extract_requested_reviewers(node)
+        approver_logins = self._extract_approver_logins(node)
         linear_url = self._find_linear_url(node)
 
         return PR(
@@ -684,8 +684,8 @@ class GitHubClient:
             preview_url=preview_url,
             conflicts=conflicts,
             updated_at=node.get("updatedAt") or "",
-            review_requested=review_requested,
-            approved_by_reviewer=approved_by_reviewer,
+            requested_reviewers=requested_reviewers,
+            approver_logins=approver_logins,
             linear_url=linear_url,
             base_ref=node.get("baseRefName") or "",
             head_ref=node.get("headRefName") or "",
@@ -897,37 +897,59 @@ class GitHubClient:
                 if c and c.get("body"):
                     yield c["body"]
 
-    def _is_approved_by_reviewer(self, node: dict[str, Any]) -> bool:
-        """Whether ``settings.REVIEWER_LOGIN``'s most recent review is APPROVED."""
-        target = (settings.REVIEWER_LOGIN or "").lower()
-        if not target:
-            return False
+    @staticmethod
+    def _extract_approver_logins(node: dict[str, Any]) -> tuple[str, ...]:
+        """Logins whose most recent review on this PR is APPROVED.
+
+        Reviewer-agnostic on purpose: the per-viewer "is *my* tracked
+        reviewer in here" check lives in
+        :meth:`app.model.PR.is_approved_by` so the same parsed PR can
+        be cached once and rendered for any viewer.
+        """
         nodes = ((node.get("latestReviews") or {}).get("nodes")) or []
+        out: list[str] = []
+        seen: set[str] = set()
         for r in nodes:
             if not r:
                 continue
-            login = ((r.get("author") or {}).get("login") or "").lower()
-            if login != target:
+            login = ((r.get("author") or {}).get("login") or "").strip()
+            if not login:
                 continue
-            return (r.get("state") or "").upper() == "APPROVED"
-        return False
+            if (r.get("state") or "").upper() != "APPROVED":
+                continue
+            key = login.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(login)
+        return tuple(out)
 
-    def _is_review_requested(self, node: dict[str, Any]) -> bool:
-        """Whether ``settings.REVIEWER_LOGIN`` is on the requested-reviewers list."""
-        target = (settings.REVIEWER_LOGIN or "").lower()
-        if not target:
-            return False
+    @staticmethod
+    def _extract_requested_reviewers(node: dict[str, Any]) -> tuple[str, ...]:
+        """Logins currently on the PR's requested-reviewers list (Users only).
+
+        Teams are intentionally skipped: the per-card "Request review"
+        button + the R chip both speak in terms of a specific user
+        login.
+        """
         nodes = ((node.get("reviewRequests") or {}).get("nodes")) or []
+        out: list[str] = []
+        seen: set[str] = set()
         for r in nodes:
             if not r:
                 continue
             reviewer = r.get("requestedReviewer") or {}
             if reviewer.get("__typename") != "User":
                 continue
-            login = (reviewer.get("login") or "").lower()
-            if login == target:
-                return True
-        return False
+            login = (reviewer.get("login") or "").strip()
+            if not login:
+                continue
+            key = login.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(login)
+        return tuple(out)
 
     def _extract_conflicts(self, node: dict[str, Any]) -> int:
         mergeable = (node.get("mergeable") or "").upper()

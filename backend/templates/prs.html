@@ -17,7 +17,10 @@
 <!-- empty -->
 {%- endif -%}
 {%- for pr in prs %}
-<article class="pr-card{% if pr.is_ready %} is-ready{% endif %}{% if pr.is_draft %} is-draft{% endif %}{% if pr.stack %} is-stacked{% endif %}{% if pr.stack_co_column %} is-stack-co-column{% endif %}" data-column="{{ pr.column }}" data-repo="{{ pr.repo }}"{% if pr.stack %} data-stack-id="{{ pr.repo }}#{{ pr.stack.nodes[0].number }}" data-stack-order="{{ pr.stack_order }}" data-stack-depth="{{ pr.stack_depth }}"{% endif %}{% if pr.stack_co_column %} style="--stack-depth: {{ pr.stack_depth }};"{% endif %}>
+{%- set pr_column = pr.column_for(reviewer_login) -%}
+{%- set pr_approved = pr.is_approved_by(reviewer_login) -%}
+{%- set pr_review_requested = pr.is_review_requested_from(reviewer_login) -%}
+<article class="pr-card{% if pr.is_ready %} is-ready{% endif %}{% if pr.is_draft %} is-draft{% endif %}{% if pr.stack %} is-stacked{% endif %}{% if pr.stack_co_column %} is-stack-co-column{% endif %}" data-column="{{ pr_column }}" data-repo="{{ pr.repo }}"{% if pr.stack %} data-stack-id="{{ pr.repo }}#{{ pr.stack.nodes[0].number }}" data-stack-order="{{ pr.stack_order }}" data-stack-depth="{{ pr.stack_depth }}"{% endif %}{% if pr.stack_co_column %} style="--stack-depth: {{ pr.stack_depth }};"{% endif %}>
   <header class="pr-head">
     <a class="pr-number" href="{{ pr.url }}" target="_blank" rel="noopener">#{{ pr.number }}</a>
     <h3 class="pr-title"><a href="{{ pr.url }}" target="_blank" rel="noopener">{{ pr.title }}</a></h3>
@@ -53,12 +56,13 @@
     <span class="pr-stack-label">STACK</span>
     <ol class="pr-stack-tree">
       {%- for node in pr.stack.nodes %}
+      {%- set node_column = node.column_for(reviewer_login) %}
       <li class="pr-stack-node{% if node.number == pr.number %} is-self{% endif %}" data-depth="{{ node.depth }}">
         <span class="pr-stack-prefix" aria-hidden="true">{% if node.depth == 0 %}&bull;{% else %}{{ '\u00a0\u00a0' * (node.depth - 1) }}&#x2514;&#x2500;{% endif %}</span>
         <a class="pr-stack-link" href="{{ node.url }}" target="_blank" rel="noopener">#{{ node.number }}</a>
         <span class="pr-stack-title">{{ node.title }}</span>
         {%- if node.number != pr.number %}
-        <span class="pr-stack-col pr-stack-col--{{ node.column }}" title="In {{ column_labels[node.column] }}">{{ column_badges[node.column] }}</span>
+        <span class="pr-stack-col pr-stack-col--{{ node_column }}" title="In {{ column_labels[node_column] }}">{{ column_badges[node_column] }}</span>
         {%- endif %}
       </li>
       {%- endfor %}
@@ -88,11 +92,11 @@
         {{ comments_cell('B', pr.comments_bot, 'bot', 'Unresolved bot comments (cursor + coderabbit)') }}
       </span>
       {%- if reviewer_login %}
-      {%- if pr.approved_by_reviewer %}
+      {%- if pr_approved %}
       <span class="chip chip--approved" title="Approved by @{{ reviewer_login }}">
         <span class="chip-key">R</span><span aria-hidden="true">&check;&check;</span>
       </span>
-      {%- elif pr.review_requested %}
+      {%- elif pr_review_requested %}
       <span class="chip chip--review" title="Review requested from @{{ reviewer_login }}">
         <span class="chip-key">R</span><span aria-hidden="true">&check;</span>
       </span>
@@ -137,7 +141,7 @@
       {%- else %}
       <span class="preview preview--pending">preview is pending</span>
       {%- endif %}
-      {%- if pr.column == 'approved' %}
+      {%- if pr_column == 'approved' %}
       <button
         type="button"
         class="merge-button"

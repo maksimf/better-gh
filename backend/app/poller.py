@@ -20,11 +20,13 @@ from .config import settings
 from .github import GitHubClient, GitHubRateLimitError
 from .model import PR
 from .render import render_error_banner, render_meta, render_reviews
-from .stack import attach_stacks
 
 log = logging.getLogger("better_gh.poller")
 
-RenderFn = Callable[[list[PR]], str]
+# render(prs, reviewer_login) -> html. Reviewer is supplied per-user so
+# the per-card "R" chip, "Request review" button, and APPROVED-column
+# placement all line up with that viewer's tracked reviewer.
+RenderFn = Callable[[list[PR], str | None], str]
 
 
 async def poll_once(client: GitHubClient, render: RenderFn, *, login: str) -> bool:
@@ -58,10 +60,15 @@ async def poll_once(client: GitHubClient, render: RenderFn, *, login: str) -> bo
         )
         raise
 
-    prs = attach_stacks(prs)
+    # NOTE: we intentionally *don't* attach_stacks here -- the
+    # co-column layout depends on the viewer's tracked reviewer, so
+    # stack attachment lives in ``render_prs`` (called below + on each
+    # request). The snapshot stays reviewer-agnostic so it can be
+    # cached once per viewer regardless of their reviewer choice.
     new_snapshot = state.Snapshot(prs=prs, incoming_reviews=reviews)
     prs_changed, reviews_changed = await state.set_snapshot(login, new_snapshot)
     polled_at = await state.mark_polled(login)
+    reviewer_login = state.get_reviewer(login)
 
     # Only clear the error banner once the previous reset window has
     # actually expired. Mid-window successes (typical of GitHub's
@@ -74,7 +81,7 @@ async def poll_once(client: GitHubClient, render: RenderFn, *, login: str) -> bo
             await state.broadcast(login, "gh-error", "")
 
     if prs_changed:
-        await state.broadcast(login, "prs", render(prs))
+        await state.broadcast(login, "prs", render(prs, reviewer_login))
     if reviews_changed:
         await state.broadcast(login, "reviews", render_reviews(reviews))
     log.info(

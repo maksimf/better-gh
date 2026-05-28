@@ -26,6 +26,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from . import auth, state
@@ -52,6 +53,30 @@ LOGIN_HTML = FRONTEND_DIR / "login.html"
 STYLES_CSS = FRONTEND_DIR / "styles.css"
 FAVICON_SVG = FRONTEND_DIR / "favicon.svg"
 APPLE_TOUCH_ICON = FRONTEND_DIR / "apple-touch-icon.png"
+
+REVIEWER_PREF_COOKIE = "reviewer_pref"
+
+
+def _resolve_reviewer(request: Request, login: str) -> str | None:
+    """Three-tier lookup for the viewer's tracked reviewer.
+
+    1. ``UserState.reviewer_login`` if set (populated on SSE connect
+       or by ``POST /settings/reviewer``).
+    2. ``reviewer_pref`` cookie (rides on htmx XHR fetches before SSE
+       has had a chance to populate UserState on a fresh page load).
+    3. ``None`` -- ``render.effective_reviewer`` then falls back to
+       ``settings.REVIEWER_LOGIN`` (the deploy-wide default).
+
+    Returns the raw value (``None`` / ``""`` / login). The render
+    helper normalises further.
+    """
+    cached = state.get_reviewer(login)
+    if cached is not None:
+        return cached
+    raw_cookie = request.cookies.get(REVIEWER_PREF_COOKIE)
+    if raw_cookie is None:
+        return None
+    return raw_cookie
 
 
 @asynccontextmanager
@@ -201,6 +226,44 @@ async def logout(
     return response
 
 
+class ReviewerSetting(BaseModel):
+    """Body for ``POST /settings/reviewer``.
+
+    ``reviewer`` may be a GitHub login (string) or ``null`` to revert
+    to the deploy-wide default. We accept a length cap matching
+    GitHub's own login limit (39 chars) plus a permissive character
+    set so we reject obvious garbage early without hand-rolling a
+    validation regex that fights an edge case nobody hits in
+    practice.
+    """
+
+    reviewer: str | None = Field(default=None, max_length=39)
+
+
+@app.post("/settings/reviewer", status_code=204)
+async def set_reviewer_setting(
+    payload: ReviewerSetting,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Update the viewer's tracked reviewer + re-broadcast immediately.
+
+    Caches the choice on ``UserState`` and pushes a fresh ``prs`` SSE
+    event to all of this viewer's open tabs so the chip / column
+    placement updates without waiting for the next poll. The frontend
+    is also expected to write the same value to ``localStorage`` + a
+    ``reviewer_pref`` cookie so it survives page reloads and rides
+    on htmx fetches before the next SSE connect.
+    """
+    changed, _ = await state.set_reviewer(session.login, payload.reviewer)
+    if changed:
+        reviewer = state.get_reviewer(session.login)
+        snapshot = state.current_snapshot(session.login)
+        await state.broadcast(
+            session.login, "prs", render_prs(snapshot.prs, reviewer)
+        )
+    return Response(status_code=204)
+
+
 @app.get("/me", include_in_schema=False)
 async def me(session: Session = Depends(require_session)) -> dict[str, str]:
     """Tiny endpoint the frontend topbar uses to render the user chip.
@@ -221,9 +284,11 @@ async def me(session: Session = Depends(require_session)) -> dict[str, str]:
 
 @app.get("/prs.html", response_class=HTMLResponse)
 async def prs_fragment(
+    request: Request,
     session: Session = Depends(require_session),
 ) -> HTMLResponse:
-    html = render_prs(state.current_snapshot(session.login).prs)
+    reviewer = _resolve_reviewer(request, session.login)
+    html = render_prs(state.current_snapshot(session.login).prs, reviewer)
     return HTMLResponse(content=html)
 
 
@@ -274,15 +339,27 @@ async def events(
     login = session.login
     token = session.token
     http_client: httpx.AsyncClient = app.state.http_client
+    # Read the reviewer preference cookie *before* opening the
+    # streaming response so we can prime UserState before the very
+    # first bootstrap render. Skip if no cookie -- the cached value
+    # from a prior connect (if any) wins; otherwise we fall back to
+    # the env default at render time.
+    cookie_reviewer = request.cookies.get(REVIEWER_PREF_COOKIE)
 
     async def event_stream() -> AsyncIterator[dict[str, str]]:
         # Register the subscriber queue first so any broadcast that
         # fires during the bootstrap window (or kicked off by the
         # poller's very first poll below) lands on the queue.
         async with state.subscriber(login) as queue:
+            if cookie_reviewer is not None:
+                await state.set_reviewer(login, cookie_reviewer)
+            reviewer = state.get_reviewer(login)
             start_poller_for(login, token, render_prs, http_client)
             snapshot = state.current_snapshot(login)
-            yield {"event": "prs", "data": _flatten(render_prs(snapshot.prs))}
+            yield {
+                "event": "prs",
+                "data": _flatten(render_prs(snapshot.prs, reviewer)),
+            }
             yield {
                 "event": "reviews",
                 "data": _flatten(render_reviews(snapshot.incoming_reviews)),
@@ -322,6 +399,7 @@ async def events(
 
 @app.post("/refresh", response_class=HTMLResponse)
 async def refresh(
+    request: Request,
     session: Session = Depends(require_session),
 ) -> HTMLResponse:
     """Force a fresh poll synchronously and return the new PR fragment.
@@ -352,7 +430,8 @@ async def refresh(
     except Exception as exc:
         log.exception("manual /refresh poll failed for %s", session.login)
         raise HTTPException(status_code=502, detail=str(exc))
-    html = render_prs(state.current_snapshot(session.login).prs)
+    reviewer = _resolve_reviewer(request, session.login)
+    html = render_prs(state.current_snapshot(session.login).prs, reviewer)
     return HTMLResponse(content=html)
 
 
@@ -416,14 +495,25 @@ async def request_review(
     repo: str,
     number: int,
     background: BackgroundTasks,
+    request: Request,
     session: Session = Depends(require_session),
 ) -> Response:
-    """Add ``settings.REVIEWER_LOGIN`` to the PR's requested reviewers."""
-    reviewer = settings.REVIEWER_LOGIN
+    """Add the viewer's tracked reviewer to the PR's requested reviewers.
+
+    Reviewer login comes from per-user state (settings modal) with the
+    cookie / ``REVIEWER_LOGIN`` env var as fallback -- same precedence
+    as the per-card chip in the rendered HTML, so what the user sees on
+    the button is what gets requested when they click it.
+    """
+    raw = _resolve_reviewer(request, session.login)
+    reviewer = (raw or settings.REVIEWER_LOGIN or "").strip()
     if not reviewer:
         raise HTTPException(
             status_code=400,
-            detail="REVIEWER_LOGIN is empty; the request-review feature is disabled.",
+            detail=(
+                "No reviewer configured. Pick one in SETTINGS or set "
+                "REVIEWER_LOGIN on the server."
+            ),
         )
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)

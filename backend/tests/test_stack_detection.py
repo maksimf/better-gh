@@ -29,7 +29,13 @@ def _pr(
     preview_url: str | None = "https://preview.example/x",
     conflicts: int = 0,
 ) -> PR:
-    """Tiny builder so tests can focus on the head/base relationships."""
+    """Tiny builder so tests can focus on the head/base relationships.
+
+    ``approved=True`` puts ``TEST_REVIEWER`` on the approver list so
+    ``pr.column_for(TEST_REVIEWER) == "approved"``; tests that don't
+    care about the reviewer dimension can ignore the argument
+    entirely.
+    """
     return PR(
         number=number,
         title=title or f"PR {number}",
@@ -43,10 +49,13 @@ def _pr(
         preview_url=preview_url,
         conflicts=conflicts,
         updated_at="2026-05-20T10:00:00Z",
-        approved_by_reviewer=approved,
+        approver_logins=(TEST_REVIEWER,) if approved else (),
         base_ref=base,
         head_ref=head,
     )
+
+
+TEST_REVIEWER = "nicoraga1"
 
 
 class TwoPRChainTests(unittest.TestCase):
@@ -208,7 +217,8 @@ class StackLayoutHintsTests(unittest.TestCase):
         self.assertEqual(by_number[301].stack_order, 1)
 
     def test_split_column_stack_is_not_co_column(self) -> None:
-        # Root is approved, child still in progress -> different columns.
+        # Root is approved by the viewer's reviewer, child still in
+        # progress -> different columns *for that viewer*.
         root = _pr(300, head="feat/a", base="main", approved=True)
         child = _pr(
             301,
@@ -216,10 +226,22 @@ class StackLayoutHintsTests(unittest.TestCase):
             base="feat/a",
             checks=Checks(passed=0, pending=1, failed=0),
         )
-        result = attach_stacks([root, child])
+        result = attach_stacks([root, child], reviewer=TEST_REVIEWER)
         by_number = {p.number: p for p in result}
         self.assertFalse(by_number[300].stack_co_column)
         self.assertFalse(by_number[301].stack_co_column)
+
+    def test_approval_only_splits_stack_for_the_tracking_viewer(self) -> None:
+        # Same stack as ``test_split_column_stack_is_not_co_column`` --
+        # but a viewer who isn't tracking the approver should see the
+        # stack stay co-column (root falls back to READY instead of
+        # being promoted to APPROVED).
+        root = _pr(300, head="feat/a", base="main", approved=True)
+        child = _pr(301, head="feat/b", base="feat/a")
+        result = attach_stacks([root, child], reviewer="someone-else")
+        by_number = {p.number: p for p in result}
+        self.assertTrue(by_number[300].stack_co_column)
+        self.assertTrue(by_number[301].stack_co_column)
 
     def test_solo_prs_have_default_hints(self) -> None:
         solo = _pr(900, head="feat/x", base="main")
@@ -230,8 +252,9 @@ class StackLayoutHintsTests(unittest.TestCase):
 
 
 class StackNodeShapeTests(unittest.TestCase):
-    def test_node_column_reflects_pr_column(self) -> None:
-        # Mixed columns: root is approved, child is in progress.
+    def test_node_column_reflects_pr_column_for_tracking_viewer(self) -> None:
+        # Mixed columns *for the viewer tracking the approver*: root
+        # is approved, child is in progress.
         root = _pr(300, head="feat/a", base="main", approved=True)
         child = _pr(
             301,
@@ -239,14 +262,21 @@ class StackNodeShapeTests(unittest.TestCase):
             base="feat/a",
             checks=Checks(passed=0, pending=1, failed=0),
         )
-        self.assertEqual(root.column, "approved")
-        self.assertEqual(child.column, "progress")
+        self.assertEqual(root.column_for(TEST_REVIEWER), "approved")
+        self.assertEqual(child.column_for(TEST_REVIEWER), "progress")
 
-        result = attach_stacks([root, child])
+        result = attach_stacks([root, child], reviewer=TEST_REVIEWER)
         stack = result[0].stack
         assert stack is not None
-        cols = {n.number: n.column for n in stack.nodes}
+        cols = {n.number: n.column_for(TEST_REVIEWER) for n in stack.nodes}
         self.assertEqual(cols, {300: "approved", 301: "progress"})
+
+    def test_node_column_falls_back_to_ready_without_reviewer(self) -> None:
+        # No viewer reviewer set -> the same "approved" PR sits in the
+        # READY column instead of APPROVED.
+        approved = _pr(300, head="feat/a", base="main", approved=True)
+        self.assertEqual(approved.column_for(None), "ready")
+        self.assertEqual(approved.column_for(""), "ready")
 
     def test_node_carries_title_and_url(self) -> None:
         root = _pr(300, head="feat/a", base="main", title="root work")

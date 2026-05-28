@@ -9,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .config import settings
 from .model import PR, ReviewPR
+from .stack import attach_stacks
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -21,15 +22,41 @@ env = Environment(
 )
 
 
-def render_prs(prs: list[PR]) -> str:
+def effective_reviewer(reviewer_login: str | None) -> str:
+    """Pick the reviewer login a render should use.
+
+    Three-tier fallback so the per-viewer override layers cleanly on
+    top of the deploy-wide default without surprising anyone:
+
+    * ``None`` -> use ``settings.REVIEWER_LOGIN`` (the "I haven't
+      configured anything; show the default reviewer for this deploy"
+      case).
+    * Empty string -> empty (the explicit "I want no reviewer
+      tracking, hide the chip" case -- distinct from "unset").
+    * Anything else -> the trimmed, lower-cased login.
+    """
+    if reviewer_login is None:
+        return (settings.REVIEWER_LOGIN or "").strip().lower()
+    return reviewer_login.strip().lower()
+
+
+def render_prs(prs: list[PR], reviewer_login: str | None = None) -> str:
     """Render the PR-card fragment that goes into ``#pr-stream``.
 
-    Looks the template up on every call so template edits are picked up
-    without restarting uvicorn (Jinja does an mtime check internally).
+    ``reviewer_login`` is the viewer's tracked reviewer; pass ``None``
+    to mean "fall back to the deploy-wide ``REVIEWER_LOGIN`` env var".
+    Pass an empty string to mean "no reviewer at all, hide the chip".
+    Stack attachment runs here (not in the poller) because the
+    ``co_column`` layout decision depends on the viewer's reviewer.
+    Looks the template up on every call so template edits are picked
+    up without restarting uvicorn (Jinja does an mtime check
+    internally).
     """
+    reviewer = effective_reviewer(reviewer_login)
+    stacked = attach_stacks(prs, reviewer)
     return env.get_template("prs.html").render(
-        prs=prs,
-        reviewer_login=settings.REVIEWER_LOGIN,
+        prs=stacked,
+        reviewer_login=reviewer,
     )
 
 
