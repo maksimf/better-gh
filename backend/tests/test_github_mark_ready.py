@@ -97,7 +97,7 @@ class MarkPrReadyForReviewTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError) as ctx:
             await client.mark_pr_ready_for_review("acme", "widgets", 42)
 
-        self.assertIn("GITHUB_TOKEN", str(ctx.exception))
+        self.assertIn("access token", str(ctx.exception))
         await client.aclose()
 
     async def test_raises_when_rest_lookup_fails(self) -> None:

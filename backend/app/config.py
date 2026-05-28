@@ -21,7 +21,57 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    GITHUB_TOKEN: str = Field(default="", description="GitHub PAT used for the GraphQL API.")
+    # GitHub OAuth App credentials. Tokens flow through signed
+    # HttpOnly cookies; there's no shared PAT anymore.
+    GITHUB_OAUTH_CLIENT_ID: str = Field(
+        default="",
+        description=(
+            "OAuth App Client ID. Register one at "
+            "https://github.com/settings/developers (or your org's "
+            "OAuth Apps page) with the authorization callback URL "
+            "set to '{base}/auth/callback'."
+        ),
+    )
+    GITHUB_OAUTH_CLIENT_SECRET: str = Field(
+        default="",
+        description="OAuth App Client Secret matching GITHUB_OAUTH_CLIENT_ID.",
+    )
+    GITHUB_OAUTH_REDIRECT_URL: str = Field(
+        default="http://localhost:8000/auth/callback",
+        description=(
+            "Must match the Authorization callback URL configured on "
+            "the GitHub OAuth App, byte for byte."
+        ),
+    )
+    OAUTH_SCOPES: str = Field(
+        default="repo,read:org",
+        description=(
+            "Comma-separated OAuth scopes requested at sign-in. "
+            "'repo' grants private-repo PR visibility; 'read:org' lets "
+            "GitHub resolve `is:pr review-requested:@me` across orgs."
+        ),
+    )
+    SESSION_SECRET: str = Field(
+        default="",
+        description=(
+            "Secret used to sign the session cookie. Generate one with "
+            "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`. "
+            "Rotating it logs everyone out, which is the desired property."
+        ),
+    )
+    SESSION_MAX_AGE_SECONDS: int = Field(
+        default=30 * 24 * 60 * 60,
+        ge=60,
+        description="How long a signed session cookie stays valid (default 30 days).",
+    )
+    COOKIE_SECURE: bool = Field(
+        default=False,
+        description=(
+            "Set to True in production so the session cookie is only "
+            "sent over HTTPS. Local dev on http://localhost defaults to "
+            "False so the cookie still makes it through."
+        ),
+    )
     GITHUB_GRAPHQL_URL: str = Field(default="https://api.github.com/graphql")
     GITHUB_API_URL: str = Field(default="https://api.github.com")
     POLL_INTERVAL_SECONDS: int = Field(default=300, ge=1)

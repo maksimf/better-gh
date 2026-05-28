@@ -268,7 +268,7 @@ class GitHubClient:
         Returns the parsed JSON body on success.
         """
         if not self._token:
-            raise RuntimeError("GITHUB_TOKEN is not set; cannot merge PRs.")
+            raise RuntimeError("No GitHub access token on session; cannot merge PRs.")
         url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/merge"
         headers = {
             "Authorization": f"bearer {self._token}",
@@ -298,7 +298,7 @@ class GitHubClient:
         """
         if not self._token:
             raise RuntimeError(
-                "GITHUB_TOKEN is not set; cannot mark PRs ready for review."
+                "No GitHub access token on session; cannot mark PRs ready for review."
             )
         rest_url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
         headers = {
@@ -354,7 +354,9 @@ class GitHubClient:
         Raises on HTTP error so the caller can surface the failure.
         """
         if not self._token:
-            raise RuntimeError("GITHUB_TOKEN is not set; cannot request reviewers.")
+            raise RuntimeError(
+                "No GitHub access token on session; cannot request reviewers."
+            )
         url = (
             f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
             "/requested_reviewers"
@@ -388,7 +390,7 @@ class GitHubClient:
         """
         if not self._token:
             raise RuntimeError(
-                "GITHUB_TOKEN is not set; cannot query the GitHub GraphQL API."
+                "No GitHub access token on session; cannot query the GitHub GraphQL API."
             )
 
         headers = {
