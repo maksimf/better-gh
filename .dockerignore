@@ -1,0 +1,13 @@
+.git
+.gitignore
+.cursor
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/.venv
+**/venv
+**/.env
+**/*.egg-info
+**/dist
+.DS_Store
+README.md
