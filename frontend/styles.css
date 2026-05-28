@@ -393,6 +393,15 @@ button {
   border: 3px solid var(--black);
   padding: 18px;
   min-height: 60vh;
+  /* As a CSS-grid item, .column defaults to min-width: auto = min-content,
+     which lets descendants force the track wider than the 1fr we asked
+     for. The .pr-stack inline tree (nodes with white-space: nowrap titles
+     and inflexible "APPROVED"/"READY" badges) has a min-content well past
+     a phone column, so without this the whole board would horizontally
+     scroll on mobile. Anchoring the track lets the cards live inside the
+     viewport and rely on their own overflow-hidden + ellipsis to clamp
+     long titles. */
+  min-width: 0;
 }
 
 .column--ready {
@@ -677,6 +686,14 @@ a.pr-number:hover {
 .checks-cell--fail {
   background: var(--red);
   color: var(--white);
+}
+
+/* Tooltip-only affordance: when the failed cell has a title attribute
+   (i.e. there are names to show on hover), give it the help cursor so
+   the user knows the cell is hover-informative. Plain failed cells with
+   no names attached keep the default cursor. */
+.checks-cell--fail[title] {
+  cursor: help;
 }
 
 .checks-cell--zero {
@@ -1080,6 +1097,65 @@ a.pr-number:hover {
 .pr-card.is-ignored,
 .review-row.is-ignored {
   display: none;
+}
+
+/* ---------- Manually-reviewed toggle ----------
+   Small outlined pill that lives at the end of the PR header (or in the
+   review-row's meta strip). Pure client-side marker -- the server never
+   sees it. Pressed state flips it green so the marker reads at a glance,
+   and the host card/row gets .is-manually-reviewed which dims and
+   strikes through the title to push it visually out of the way without
+   hiding it (unlike the per-repo ignore which removes the card). */
+.reviewed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.reviewed-toggle-check {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.35;
+}
+
+.reviewed-toggle:hover {
+  background: var(--grey-2);
+}
+
+.reviewed-toggle[aria-pressed="true"] {
+  background: var(--green);
+  color: var(--white);
+  border-color: var(--green);
+}
+
+.reviewed-toggle[aria-pressed="true"] .reviewed-toggle-check {
+  opacity: 1;
+}
+
+.reviewed-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.pr-card.is-manually-reviewed,
+.review-row.is-manually-reviewed {
+  opacity: 0.55;
+}
+
+.pr-card.is-manually-reviewed:hover,
+.review-row.is-manually-reviewed:hover {
+  opacity: 1;
 }
 
 /* ---------- Stacked PRs ----------

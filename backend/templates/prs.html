@@ -1,7 +1,11 @@
 {# Flat sequence of PR cards. Slots straight into #pr-stream. #}
-{%- macro checks_cell(value, modifier) -%}
+{%- macro checks_cell(value, modifier, names=None) -%}
 {%- set cls = 'checks-cell--zero' if value == 0 else 'checks-cell--' ~ modifier -%}
+{%- if modifier == 'fail' and value > 0 and names -%}
+<span class="checks-cell {{ cls }}" title="Failed checks: {{ names|map(attribute='name')|join(', ') }}">{{ value }}</span>
+{%- else -%}
 <span class="checks-cell {{ cls }}">{{ value }}</span>
+{%- endif -%}
 {%- endmacro -%}
 {%- macro comments_cell(letter, count, kind, title) -%}
 {%- set cls = 'comments-cell--zero' if count == 0 else 'comments-cell--' ~ kind -%}
@@ -28,6 +32,18 @@
       aria-label="Mark this PR as ready for review"
     >Draft</button>
     {%- endif %}
+    <button
+      type="button"
+      class="reviewed-toggle"
+      data-pr-repo="{{ pr.repo }}"
+      data-pr-number="{{ pr.number }}"
+      title="Toggle manually-reviewed marker"
+      aria-label="Toggle manually-reviewed marker"
+      aria-pressed="false"
+    >
+      <span class="reviewed-toggle-check" aria-hidden="true">&check;</span>
+      <span class="reviewed-toggle-label">Reviewed</span>
+    </button>
   </header>
   {#- The inline tree is only worth rendering when the stack is split
       across columns -- otherwise the cards themselves sit adjacent in
@@ -56,7 +72,7 @@
         <span class="checks-label">Checks</span>
         {{ checks_cell(pr.checks.passed, 'pass') }}
         {{ checks_cell(pr.checks.pending, 'pending') }}
-        {{ checks_cell(pr.checks.failed, 'fail') }}
+        {{ checks_cell(pr.checks.failed, 'fail', pr.checks.failed_names) }}
       </span>
       {%- if pr.conflicts > 0 %}
       <span class="conflicts" title="Merge conflicts with target branch">

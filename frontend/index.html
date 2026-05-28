@@ -369,6 +369,67 @@
           });
       }
 
+      // Manually-reviewed marker. Keyed by "owner/repo#number" so the
+      // same PR is consistently marked across MY PRs and REVIEWING tabs
+      // (a PR you reviewed for someone else stays reviewed even if it
+      // moves between columns). Same private-mode fallback as ignoreStore.
+      var reviewedStore = (function () {
+        var KEY = "better-gh.manually-reviewed";
+        var memory = new Set();
+        function read() {
+          try {
+            var raw = localStorage.getItem(KEY);
+            if (!raw) return new Set();
+            var arr = JSON.parse(raw);
+            return new Set(Array.isArray(arr) ? arr : []);
+          } catch (e) {
+            return new Set(memory);
+          }
+        }
+        function write(set) {
+          memory = new Set(set);
+          try {
+            localStorage.setItem(KEY, JSON.stringify(Array.from(set)));
+          } catch (e) {
+            /* private mode -- keep in-memory copy only */
+          }
+        }
+        return {
+          get: read,
+          has: function (key) { return read().has(key); },
+          toggle: function (key) {
+            var set = read();
+            if (set.has(key)) set.delete(key); else set.add(key);
+            write(set);
+            return set.has(key);
+          },
+        };
+      })();
+
+      function reviewedKeyFor(el) {
+        var repo = el.getAttribute("data-pr-repo") || el.getAttribute("data-repo");
+        var number = el.getAttribute("data-pr-number");
+        if (!number) {
+          var btn = el.querySelector && el.querySelector(".reviewed-toggle[data-pr-number]");
+          if (btn) number = btn.getAttribute("data-pr-number");
+        }
+        if (!repo || !number) return null;
+        return repo + "#" + number;
+      }
+
+      function applyReviewedMarks() {
+        var reviewed = reviewedStore.get();
+        document
+          .querySelectorAll(".pr-card, .review-row")
+          .forEach(function (card) {
+            var key = reviewedKeyFor(card);
+            var on = !!(key && reviewed.has(key));
+            card.classList.toggle("is-manually-reviewed", on);
+            var btn = card.querySelector(".reviewed-toggle");
+            if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+      }
+
       // Distribute cards from the hidden #pr-stream into the two columns
       // based on each card's data-column attribute. Keeps prs.html a flat
       // list (clean swap target) while the shell owns the two-column layout.
@@ -460,6 +521,7 @@
           groupStacks(approved);
 
           applyIgnoreFilter();
+          applyReviewedMarks();
 
           var counts = {
             progress: visibleChildren(progress),
@@ -534,6 +596,7 @@
           });
 
           applyIgnoreFilter();
+          applyReviewedMarks();
 
           var visible = visibleChildren(list);
           document
@@ -843,6 +906,29 @@
           if (typeof window.__betterGhDistributeReviews === "function") {
             window.__betterGhDistributeReviews();
           }
+        });
+      })();
+
+      // Manually-reviewed toggle (per PR card + review row). Pure
+      // client-side marker stored in localStorage -- the server never
+      // sees it. Delegated on body so the listener survives every SSE
+      // swap of #pr-stream / #reviews-stream.
+      (function () {
+        document.body.addEventListener("click", function (evt) {
+          var btn =
+            evt.target &&
+            evt.target.closest &&
+            evt.target.closest(".reviewed-toggle");
+          if (!btn) return;
+          evt.preventDefault();
+          var repo = btn.getAttribute("data-pr-repo") || "";
+          var number = btn.getAttribute("data-pr-number") || "";
+          if (!repo || !number) return;
+          var key = repo + "#" + number;
+          var nowOn = reviewedStore.toggle(key);
+          btn.setAttribute("aria-pressed", nowOn ? "true" : "false");
+          var card = btn.closest(".pr-card, .review-row");
+          if (card) card.classList.toggle("is-manually-reviewed", nowOn);
         });
       })();
 

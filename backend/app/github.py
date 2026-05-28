@@ -10,7 +10,7 @@ from typing import Any, Iterable, Mapping
 import httpx
 
 from .config import settings
-from .model import PR, Checks, ReviewPR
+from .model import PR, Checks, FailedCheck, ReviewPR
 from .preview import extract_preview_url
 
 log = logging.getLogger("better_gh.github")
@@ -108,8 +108,8 @@ fragment prFields on PullRequest {
           contexts(first: 100) {
             nodes {
               __typename
-              ... on CheckRun     { name status conclusion }
-              ... on StatusContext { context state }
+              ... on CheckRun     { name status conclusion detailsUrl }
+              ... on StatusContext { context state targetUrl }
             }
           }
         }
@@ -161,8 +161,8 @@ fragment slimReviewFields on PullRequest {
           contexts(first: 100) {
             nodes {
               __typename
-              ... on CheckRun     { name status conclusion }
-              ... on StatusContext { context state }
+              ... on CheckRun     { name status conclusion detailsUrl }
+              ... on StatusContext { context state targetUrl }
             }
           }
         }
@@ -721,6 +721,7 @@ class GitHubClient:
         contexts = ((rollup.get("contexts") or {}).get("nodes")) or []
 
         passed = pending = failed = 0
+        failed_names: list[FailedCheck] = []
         for ctx in contexts:
             if not ctx:
                 continue
@@ -731,7 +732,42 @@ class GitHubClient:
                 pending += 1
             elif bucket == "failed":
                 failed += 1
-        return Checks(passed=passed, pending=pending, failed=failed)
+                failed_names.append(self._failed_check_from_context(ctx))
+        # Sort by name so the popover order is stable across polls --
+        # GitHub's contexts list isn't deterministic, and unstable order
+        # would force the card to re-render on every poll via the
+        # fingerprint even when nothing actually changed.
+        failed_names.sort(key=lambda f: (f.name.lower(), f.url or ""))
+        return Checks(
+            passed=passed,
+            pending=pending,
+            failed=failed,
+            failed_names=tuple(failed_names),
+        )
+
+    @staticmethod
+    def _failed_check_from_context(ctx: dict[str, Any]) -> FailedCheck:
+        """Pull the human-readable name + details URL off a failing context.
+
+        CheckRun has ``name`` + ``detailsUrl``; StatusContext has
+        ``context`` + ``targetUrl``. Either field may be missing on
+        weird third-party reporters -- we fall back to a placeholder
+        name and ``None`` URL rather than dropping the entry.
+        """
+        typename = ctx.get("__typename")
+        if typename == "CheckRun":
+            return FailedCheck(
+                name=(ctx.get("name") or "(unnamed check)").strip()
+                or "(unnamed check)",
+                url=(ctx.get("detailsUrl") or None),
+            )
+        if typename == "StatusContext":
+            return FailedCheck(
+                name=(ctx.get("context") or "(unnamed status)").strip()
+                or "(unnamed status)",
+                url=(ctx.get("targetUrl") or None),
+            )
+        return FailedCheck(name="(unknown check)", url=None)
 
     @staticmethod
     def _classify_context(ctx: dict[str, Any]) -> str:

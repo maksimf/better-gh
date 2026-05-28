@@ -6,14 +6,34 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class FailedCheck(BaseModel):
+    """One failing CI check, surfaced so the UI can list it by name.
+
+    ``url`` is GitHub's per-check details page (CheckRun.detailsUrl or
+    StatusContext.targetUrl); ``None`` when the upstream payload didn't
+    include one (rare, but e.g. some external status reporters omit it).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    url: str | None = None
+
+
 class Checks(BaseModel):
-    """Bucketed CI check counts for a single PR."""
+    """Bucketed CI check counts for a single PR.
+
+    ``failed_names`` carries one entry per failing check so the
+    frontend can pop up the actual names when the failed cell is
+    clicked, instead of just showing the bare count.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     passed: int = Field(default=0, ge=0)
     pending: int = Field(default=0, ge=0)
     failed: int = Field(default=0, ge=0)
+    failed_names: tuple[FailedCheck, ...] = ()
 
 
 class StackNode(BaseModel):
@@ -119,6 +139,7 @@ class PR(BaseModel):
             self.checks.passed,
             self.checks.pending,
             self.checks.failed,
+            self.checks.failed_names,
             self.comments_human,
             self.comments_bot,
             self.preview_url,
@@ -169,6 +190,7 @@ class ReviewPR(BaseModel):
             self.checks.passed,
             self.checks.pending,
             self.checks.failed,
+            self.checks.failed_names,
             self.conflicts,
             self.requested_at,
         )
