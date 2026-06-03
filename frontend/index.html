@@ -1376,7 +1376,8 @@
           var pill = document.createElement("span");
           pill.className = "merge-button is-merged";
           pill.setAttribute("aria-disabled", "true");
-          pill.innerHTML = 'MERGED <span aria-hidden="true">&check;</span>';
+          pill.innerHTML =
+            'MERGED <span aria-hidden="true"><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>';
           btn.replaceWith(pill);
         }
 
@@ -1503,7 +1504,7 @@
             btn.getAttribute("title") || "Review requested"
           );
           chip.innerHTML =
-            '<span class="chip-key">R</span><span aria-hidden="true">&check;</span>';
+            '<span class="chip-key">R</span><span class="chip-checks" aria-hidden="true"><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>';
           btn.replaceWith(chip);
         }
 

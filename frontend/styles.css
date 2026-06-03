@@ -897,6 +897,30 @@ a.pr-number:hover {
   font-weight: 900;
 }
 
+/* Geometric tick that replaces the rounded "✓" entity. Square caps and a
+   miter join keep it in the same hard-edged vocabulary as the brand mark
+   and the copy-confirm icon; sized in em so it tracks each host pill's
+   font-size and inherits colour through currentColor. */
+.check-icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.1em;
+  flex-shrink: 0;
+}
+
+/* Wrapper for the confirmation tick(s) inside the R chip. The approved
+   chip stacks two ticks with a slight overlap so they read as one
+   connected "double-check" rather than two loose marks. */
+.chip-checks {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chip-checks .check-icon + .check-icon {
+  margin-left: -0.1em;
+}
+
 .preview {
   display: inline-flex;
   align-items: center;
@@ -1169,6 +1193,7 @@ a.pr-number:hover {
 }
 
 .reviewed-toggle-check {
+  display: inline-flex;
   font-size: 12px;
   line-height: 1;
   opacity: 0.35;

@@ -44,7 +44,7 @@
       aria-label="Toggle manually-reviewed marker"
       aria-pressed="false"
     >
-      <span class="reviewed-toggle-check" aria-hidden="true">&check;</span>
+      <span class="reviewed-toggle-check" aria-hidden="true"><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>
       <span class="reviewed-toggle-label">Reviewed</span>
     </button>
   </header>
@@ -94,11 +94,11 @@
       {%- if reviewer_login %}
       {%- if pr_approved %}
       <span class="chip chip--approved" title="Approved by @{{ reviewer_login }}">
-        <span class="chip-key">R</span><span aria-hidden="true">&check;&check;</span>
+        <span class="chip-key">R</span><span class="chip-checks" aria-hidden="true"><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>
       </span>
       {%- elif pr_review_requested %}
       <span class="chip chip--review" title="Review requested from @{{ reviewer_login }}">
-        <span class="chip-key">R</span><span aria-hidden="true">&check;</span>
+        <span class="chip-key">R</span><span class="chip-checks" aria-hidden="true"><svg class="check-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 8.5 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>
       </span>
       {%- else %}
       <button
