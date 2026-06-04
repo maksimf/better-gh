@@ -38,7 +38,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
   </head>
-  <body hx-ext="sse" sse-connect="/events">
+  <body class="is-loading" hx-ext="sse" sse-connect="/events">
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
@@ -202,6 +202,60 @@
         role="tabpanel"
         aria-labelledby="tab-mine"
       >
+        <div id="board-skeleton" class="board-skeleton" aria-hidden="true">
+          <div class="sk-board">
+            <section class="sk-col">
+              <header class="sk-col-head">
+                <h2 class="sk-col-title">IN PROGRESS</h2>
+              </header>
+              <div class="sk-col-body">
+                <div class="pr-card-skeleton">
+                  <span class="sk-line sk-line--title"></span>
+                  <span class="sk-line sk-line--sub"></span>
+                  <span class="sk-row">
+                    <span class="sk-chip"></span><span class="sk-chip"></span>
+                  </span>
+                </div>
+                <div class="pr-card-skeleton">
+                  <span class="sk-line sk-line--title"></span>
+                  <span class="sk-line sk-line--sub"></span>
+                  <span class="sk-row">
+                    <span class="sk-chip"></span><span class="sk-chip"></span>
+                  </span>
+                </div>
+              </div>
+            </section>
+            <section class="sk-col">
+              <header class="sk-col-head">
+                <h2 class="sk-col-title">READY FOR REVIEW</h2>
+              </header>
+              <div class="sk-col-body">
+                <div class="pr-card-skeleton">
+                  <span class="sk-line sk-line--title"></span>
+                  <span class="sk-line sk-line--sub"></span>
+                  <span class="sk-row">
+                    <span class="sk-chip"></span><span class="sk-chip"></span>
+                  </span>
+                </div>
+              </div>
+            </section>
+            <section class="sk-col">
+              <header class="sk-col-head">
+                <h2 class="sk-col-title">APPROVED</h2>
+              </header>
+              <div class="sk-col-body">
+                <div class="pr-card-skeleton">
+                  <span class="sk-line sk-line--title"></span>
+                  <span class="sk-line sk-line--sub"></span>
+                  <span class="sk-row">
+                    <span class="sk-chip"></span><span class="sk-chip"></span>
+                  </span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
         <div class="board">
           <section class="column column--progress" aria-labelledby="col-progress-title">
             <header class="column-header">
@@ -246,6 +300,20 @@
         aria-labelledby="tab-reviews"
         hidden
       >
+        <div id="reviews-skeleton" class="reviews-skeleton" aria-hidden="true">
+          <div class="review-row-skeleton">
+            <span class="sk-line sk-line--title"></span>
+            <span class="sk-line sk-line--sub"></span>
+          </div>
+          <div class="review-row-skeleton">
+            <span class="sk-line sk-line--title"></span>
+            <span class="sk-line sk-line--sub"></span>
+          </div>
+          <div class="review-row-skeleton">
+            <span class="sk-line sk-line--title"></span>
+            <span class="sk-line sk-line--sub"></span>
+          </div>
+        </div>
         <div class="reviews-list" id="reviews-list" aria-live="polite"></div>
         <section class="empty-state empty-state--reviews" hidden aria-live="polite">
           <div class="empty-state-mark" aria-hidden="true">
@@ -867,6 +935,44 @@
           }
           distribute();
         });
+      })();
+
+      // Loading skeleton: cleared once real data lands or a poll
+      // completes. Until then body.is-loading shows the shimmer placeholder
+      // instead of the empty board / a premature INBOX ZERO flash.
+      (function () {
+        var done = false;
+        function markLoaded() {
+          if (done) return;
+          done = true;
+          document.body.classList.remove("is-loading");
+        }
+        window.__betterGhMarkLoaded = markLoaded;
+
+        function onSwap(evt) {
+          if (!evt.target) return;
+          var id = evt.target.id;
+          if (id === "pr-stream" || id === "reviews-stream") {
+            // Real cards reached a column/list -> loaded with data.
+            if (
+              document.querySelector(
+                "#col-progress .pr-card, #col-ready .pr-card, " +
+                  "#col-approved .pr-card, #reviews-list .review-row"
+              )
+            ) {
+              markLoaded();
+            }
+          } else if (id === "last-updated") {
+            // A real timestamp (data-iso) means a poll finished, even when
+            // the viewer has zero PRs (no prs broadcast in that case).
+            if (evt.target.querySelector("[data-iso]")) markLoaded();
+          }
+        }
+        document.body.addEventListener("htmx:afterSwap", onSwap);
+        document.body.addEventListener("htmx:afterSettle", onSwap);
+
+        // Safety net: never get stuck on the skeleton if signals are missed.
+        setTimeout(markLoaded, 12000);
       })();
 
       // Tab switcher (MY PRs / REVIEWING). Persists choice in

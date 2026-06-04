@@ -547,6 +547,155 @@ button {
   padding: 24px 0;
 }
 
+/* ---------- Loading skeletons ----------
+   Shown while body.is-loading (initial paint, before the first poll
+   lands). The loading flag is cleared by JS once real cards arrive or a
+   completed poll is signalled, at which point distribute() owns board
+   visibility again. */
+.board-skeleton,
+.reviews-skeleton {
+  display: none;
+}
+
+body.is-loading .board-skeleton,
+body.is-loading .reviews-skeleton {
+  display: block;
+}
+
+/* While loading, suppress the real board + empty states so only the
+   skeleton is visible (avoids an INBOX ZERO / blank-column flash). Use
+   the child combinator so these don't match the .board the skeleton
+   reuses for its grid layout. */
+body.is-loading #panel-mine > .board,
+body.is-loading #panel-mine > .empty-state,
+body.is-loading #panel-reviews > .reviews-list,
+body.is-loading #panel-reviews > .empty-state {
+  display: none !important;
+}
+
+/* Skeleton board mirrors the real board grid but uses its own classes so
+   distribute()'s global .board / .column--* querySelectors never touch it. */
+.sk-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 28px;
+  padding: 28px;
+  align-items: start;
+}
+
+.sk-col {
+  background: var(--white);
+  border: 3px solid var(--black);
+  padding: 18px;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.sk-col-head {
+  margin-bottom: 18px;
+}
+
+.sk-col-title {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 18px;
+}
+
+.sk-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pr-card-skeleton {
+  background: var(--white);
+  border: 3px solid var(--black);
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-row-skeleton {
+  background: var(--white);
+  border: 3px solid var(--black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sk-line,
+.sk-chip {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--grey-2) 25%,
+    var(--grey) 37%,
+    var(--grey-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.4s ease infinite;
+}
+
+.sk-line {
+  height: 12px;
+  width: 100%;
+}
+
+.sk-line--title {
+  height: 14px;
+  width: 85%;
+}
+
+.sk-line--sub {
+  width: 55%;
+}
+
+.sk-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sk-chip {
+  height: 20px;
+  width: 60px;
+  flex: 0 0 auto;
+}
+
+@keyframes sk-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-line,
+  .sk-chip {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .sk-board {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px;
+  }
+  .sk-col {
+    min-height: 0;
+    padding: 14px;
+  }
+}
+
 /* ---------- PR card ---------- */
 .pr-card {
   background: var(--white);
@@ -1958,11 +2107,13 @@ a.pr-number:hover {
     font-size: 0;
   }
   .btn--settings::before {
-    content: "\2699"; /* gear */
+    /* U+FE0E (text variation selector) forces the monochrome glyph so
+       iOS doesn't render the gear as a colour emoji. */
+    content: "\2699\FE0E"; /* gear */
     font-size: 18px;
   }
   .btn--signout::before {
-    content: "\23FB"; /* power symbol */
+    content: "\23FB\FE0E"; /* power symbol */
     font-size: 18px;
     font-weight: 900;
   }
