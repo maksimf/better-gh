@@ -11,8 +11,6 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "httpx",
-    "jinja2",
-    "sse-starlette",
     "python-dotenv",
     "pydantic",
     "pydantic-settings",

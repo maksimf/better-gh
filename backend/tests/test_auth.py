@@ -249,8 +249,8 @@ class RouteGatingTests(unittest.TestCase):
         finally:
             self._client.cookies.clear()
         self.assertEqual(r.status_code, 200)
-        # The dashboard markup hosts the SSE-connecting <body>.
-        self.assertIn('hx-ext="sse"', r.text)
+        # The dashboard now hosts the React SPA mount point.
+        self.assertIn('id="root"', r.text)
 
     # --- API routes return 401 when signed out -------------------------------
 
@@ -258,16 +258,8 @@ class RouteGatingTests(unittest.TestCase):
         r = self._client.get("/me")
         self.assertEqual(r.status_code, 401)
 
-    def test_prs_fragment_returns_401_when_signed_out(self) -> None:
-        r = self._client.get("/prs.html")
-        self.assertEqual(r.status_code, 401)
-
-    def test_reviews_fragment_returns_401_when_signed_out(self) -> None:
-        r = self._client.get("/reviews.html")
-        self.assertEqual(r.status_code, 401)
-
-    def test_repos_returns_401_when_signed_out(self) -> None:
-        r = self._client.get("/repos")
+    def test_dashboard_returns_401_when_signed_out(self) -> None:
+        r = self._client.get("/api/dashboard")
         self.assertEqual(r.status_code, 401)
 
     def test_refresh_returns_401_when_signed_out(self) -> None:

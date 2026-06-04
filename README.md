@@ -1,13 +1,17 @@
 # Better GitHub UI
 
-A clearer, calmer view of your open pull requests. Bauhaus-styled,
-HTMX-driven, with a tiny FastAPI backend that polls GitHub and pushes
-updates to the browser over Server-Sent Events.
+A clearer, calmer view of your open pull requests. Bauhaus-styled, a
+React + react-query single-page app backed by a tiny FastAPI service
+that polls GitHub and serves the snapshot as JSON.
+
+react-query drives the live updates: it polls the dashboard while the
+tab is focused, stops entirely when the tab is hidden, and refetches the
+moment you switch back to it.
 
 Anyone with a GitHub account can sign in via OAuth. No database: each
 viewer's access token rides on a signed HttpOnly cookie, and their PR
-snapshot lives only in process memory for as long as they have an SSE
-connection open.
+snapshot lives only in process memory for as long as they keep fetching
+(an idle reaper cancels the per-user poller once they stop).
 
 ## Layout
 
@@ -45,24 +49,31 @@ A PR is considered ready for human review when **all** of the following hold:
 
 ```
 better-gh/
-├── frontend/            # static UI shell (HTMX + SSE extension)
-│   ├── index.html
-│   └── styles.css
+├── frontend/            # React + Vite SPA (TypeScript)
+│   ├── index.html       # Vite entry (dashboard shell)
+│   ├── login.html       # static "Sign in with GitHub" page
+│   ├── styles.css       # shared Bauhaus stylesheet
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── main.tsx     # React root + QueryClientProvider
+│       ├── App.tsx      # top-level layout + tab/picker gating
+│       ├── api/         # fetch client, types, react-query hooks
+│       ├── hooks/       # localStorage stores + relative-time
+│       └── components/  # TopBar, Board, PrCard, ReviewsList, ...
 └── backend/             # FastAPI + GitHub poller
     ├── pyproject.toml
     ├── .env.example
-    ├── app/
-    │   ├── main.py      # FastAPI app, lifespan, routes
-    │   ├── auth.py      # GitHub OAuth + signed-cookie sessions
-    │   ├── config.py    # pydantic-settings
-    │   ├── model.py     # PR / Checks dataclasses + readiness rule
-    │   ├── github.py    # async GraphQL client
-    │   ├── preview.py   # deployment-comment parser
-    │   ├── state.py     # per-user snapshot store + SSE registry
-    │   ├── poller.py    # per-user background loop
-    │   └── render.py    # Jinja env
-    └── templates/
-        └── prs.html     # PR-card fragment template
+    └── app/
+        ├── main.py      # FastAPI app, lifespan, routes
+        ├── auth.py      # GitHub OAuth + signed-cookie sessions
+        ├── config.py    # pydantic-settings
+        ├── model.py     # PR / Checks dataclasses + readiness rule
+        ├── github.py    # async GraphQL client
+        ├── preview.py   # deployment-comment parser
+        ├── state.py     # per-user snapshot store + poller lifecycle
+        ├── poller.py    # per-user background loop
+        └── serialize.py # snapshot -> JSON for the SPA
 ```
 
 ## Run it
@@ -96,17 +107,33 @@ better-gh/
 If you don't have [uv](https://github.com/astral-sh/uv) handy, plain pip
 works too (`python -m venv .venv && source .venv/bin/activate && pip install -e .`).
 
+3. **Build (or dev-serve) the frontend.**
+
+   ```sh
+   cd frontend
+   npm install
+   npm run build      # writes frontend/dist, served by the backend at :8000
+   ```
+
+   For an iterative loop, run the Vite dev server instead — it proxies
+   the API/auth routes through to uvicorn:
+
+   ```sh
+   npm run dev        # http://localhost:5173 (backend must be up on :8000)
+   ```
+
 A console script is installed alongside the package:
 
 ```sh
 better-gh   # equivalent to: uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Open <http://localhost:8000>. Unauthenticated visitors land on a
-"Sign in with GitHub" page; clicking through bounces to GitHub's OAuth
-prompt, then back to the dashboard. After that, SSE keeps the page live
-and the per-user poller refreshes from GitHub every five minutes for
-as long as you have a tab open.
+Open <http://localhost:8000> (or the Vite dev server on :5173).
+Unauthenticated visitors land on a "Sign in with GitHub" page; clicking
+through bounces to GitHub's OAuth prompt, then back to the dashboard.
+After that, react-query refetches the dashboard every five minutes while
+the tab is focused (and immediately on refocus), and the per-user poller
+keeps the in-memory snapshot fresh for as long as you keep fetching.
 
 ## Environment variables (backend)
 
@@ -123,7 +150,8 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 | `COOKIE_SECURE` | `false` | Flip to `true` behind HTTPS. |
 | `GITHUB_GRAPHQL_URL` | `https://api.github.com/graphql` | Override for GHE. |
 | `GITHUB_API_URL` | `https://api.github.com` | Override for GHE. |
-| `POLL_INTERVAL_SECONDS` | `300` | How often each per-user poller polls. |
+| `POLL_INTERVAL_SECONDS` | `300` | How often each per-user poller polls (also the react-query refetch cadence while the tab is focused). |
+| `IDLE_TTL_SECONDS` | `900` | How long a viewer's poller keeps running after their last `/api/dashboard` fetch before the idle reaper cancels it. |
 | `MAX_PRS` | `50` | Top-N most recently updated open PRs. |
 | `BOT_LOGINS` | `cursor,cursor[bot],coderabbitai,coderabbitai[bot]` | Comma-separated. |
 | `PREVIEW_COMMENT_PREFIX` | `Preview Environment URL:` | Marker for the preview comment. |
@@ -134,22 +162,27 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 
 ## Routes
 
-- `GET /` — landing page when signed out; dashboard when signed in.
+- `GET /` — dashboard SPA when signed in; redirect to `/login` otherwise.
 - `GET /login` — minimal "Sign in with GitHub" page.
 - `GET /auth/start` — redirects to GitHub's OAuth authorize URL.
 - `GET /auth/callback` — exchanges the OAuth code, sets the session cookie.
 - `POST /logout` — clears the session cookie + drops in-memory state.
 - `GET /me` — `{login, avatar_url}` for the topbar chip (auth-gated).
-- `GET /styles.css` — serves the stylesheet (public; used by both pages).
-- `GET /prs.html` — Jinja-rendered PR cards for the signed-in viewer.
-- `GET /events` — SSE stream; bootstraps a per-user poller on first connect.
-- `POST /refresh` — kick off an out-of-band poll for the signed-in viewer.
+- `GET /styles.css` — serves the stylesheet (used by the login page).
+- `GET /api/dashboard?reviewer=<login>` — the full JSON snapshot the SPA
+  renders (PRs, reviews, repo counts, last-updated, error); warms the
+  per-user poller and touches the keep-alive on every call.
+- `POST /refresh` — force a synchronous poll for the signed-in viewer.
+- `POST /pulls/{owner}/{repo}/{number}/merge` · `…/ready-for-review` ·
+  `…/request-review` — per-card mutations (then refresh the snapshot).
 
 ## Stack
 
-- Python 3.11+, FastAPI, uvicorn, httpx, pydantic, jinja2, sse-starlette
-- Static HTML + CSS + [HTMX](https://htmx.org) (with the SSE extension)
-- No build step on the frontend.
+- Backend: Python 3.11+, FastAPI, uvicorn, httpx, pydantic
+- Frontend: React 18 + TypeScript + [Vite](https://vitejs.dev) +
+  [@tanstack/react-query](https://tanstack.com/query)
+- `npm run build` emits `frontend/dist`, which FastAPI serves; the Docker
+  image builds it in a Node stage.
 
 ## Troubleshooting
 
@@ -163,15 +196,20 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
   `repo` + `read:org` by default; if you need access to repos in orgs
   with restricted third-party access, an org admin has to approve the
   OAuth App. Re-sign-in afterwards.
-- **`/events` shows nothing** — make sure the HTMX SSE extension script is
-  loaded (it lives next to the main `htmx.org` bundle). Browsers will also
-  silently disconnect if your reverse proxy buffers responses; uvicorn alone
-  is fine.
+- **Dashboard loads but shows nothing / 404 on `/assets/...`** — the SPA
+  bundle is missing. Run `npm run build` in `frontend/` (the Docker image
+  does this in a Node stage). The backend falls back to the source
+  `frontend/index.html` when `dist/` is absent, which only works under the
+  Vite dev server.
+- **Data doesn't refresh until I click REFRESH** — react-query only polls
+  while the tab is focused (by design). Switching back to the tab triggers
+  an immediate refetch.
 - **Logged out unexpectedly after restart** — that shouldn't happen
   (the cookie is signed, not server-stored), but rotating
   `SESSION_SECRET` invalidates every cookie by design. Don't rotate
   on every deploy unless you mean to.
-- **Card stuck in the wrong column** — the column is driven by
-  `data-column` on each `<article>`. If you see drift, check that the
-  template's class list matches `styles.css` (it should be unchanged from
-  the original mock).
+- **Card stuck in the wrong column** — the column is computed server-side
+  in `app/serialize.py` (`PR.column_for`) and rendered by the `Board`
+  component, which groups cards by that `column` value. If you see drift,
+  check the reviewer being sent on `/api/dashboard?reviewer=` (an approval
+  by the tracked reviewer promotes a PR to APPROVED).

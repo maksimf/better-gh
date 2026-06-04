@@ -92,6 +92,17 @@ class Settings(BaseSettings):
     GITHUB_GRAPHQL_URL: str = Field(default="https://api.github.com/graphql")
     GITHUB_API_URL: str = Field(default="https://api.github.com")
     POLL_INTERVAL_SECONDS: int = Field(default=300, ge=1)
+    IDLE_TTL_SECONDS: int = Field(
+        default=900,
+        ge=30,
+        description=(
+            "How long a viewer's per-user poller keeps running after their "
+            "last /api/dashboard fetch. react-query stops polling when the "
+            "tab is hidden, so once a viewer closes/backgrounds the app long "
+            "enough their state is reaped and the poller cancelled. Defaults "
+            "to ~3x the poll interval so a brief tab switch doesn't churn it."
+        ),
+    )
     MAX_PRS: int = Field(default=50, ge=1, le=100)
     PREVIEW_COMMENT_PREFIX: str = Field(default="Preview Environment URL:")
     REVIEWER_LOGIN: str = Field(
