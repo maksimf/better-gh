@@ -87,6 +87,17 @@ export function PrCard({
         </div>
 
         <div className="pr-status-row pr-status-row--actions">
+          {pr.linear_url && (
+            <a
+              className="linear-link"
+              href={pr.linear_url}
+              target="_blank"
+              rel="noopener"
+              title="Open Linear ticket"
+            >
+              Linear &uarr;
+            </a>
+          )}
           <PreviewLink url={pr.preview_url} />
           {pr.column === "approved" && (
             <MergeButton
@@ -97,20 +108,6 @@ export function PrCard({
             />
           )}
         </div>
-
-        {pr.linear_url && (
-          <div className="pr-status-row pr-status-row--linear">
-            <a
-              className="linear-link"
-              href={pr.linear_url}
-              target="_blank"
-              rel="noopener"
-              title="Open Linear ticket"
-            >
-              Linear &uarr;
-            </a>
-          </div>
-        )}
       </div>
     </article>
   );
