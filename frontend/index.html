@@ -121,16 +121,6 @@
             SIGN OUT
           </button>
         </form>
-        <button
-          class="btn btn--refresh"
-          hx-post="/refresh"
-          hx-target="#pr-stream"
-          hx-swap="innerHTML"
-          hx-trigger="click"
-          hx-disabled-elt="this"
-        >
-          REFRESH
-        </button>
       </div>
     </header>
 
@@ -168,7 +158,19 @@
       </button>
     </nav>
 
-    <h2 class="page-title" id="page-title">MY PRs</h2>
+    <div class="page-title-row">
+      <h2 class="page-title" id="page-title">MY PRs</h2>
+      <button
+        class="btn btn--refresh"
+        hx-post="/refresh"
+        hx-target="#pr-stream"
+        hx-swap="innerHTML"
+        hx-trigger="click"
+        hx-disabled-elt="this"
+      >
+        REFRESH
+      </button>
+    </div>
 
     <main>
       <section
@@ -603,6 +605,16 @@
       // based on each card's data-column attribute. Keeps prs.html a flat
       // list (clean swap target) while the shell owns the two-column layout.
       (function () {
+        // The set of cards delivered by the most recent swap. distribute()
+        // is destructive -- it relocates these nodes out of #pr-stream into
+        // the columns -- so it CANNOT re-read #pr-stream on subsequent
+        // calls (the stream is already drained). htmx fires htmx:afterSettle
+        // multiple times per swap, and the SSE extension adds its own swap
+        // events, so distribute must be idempotent. We snapshot the cards on
+        // the swap event (which sees exactly what was delivered, even zero)
+        // and always rebuild from that snapshot.
+        var prCardSnapshot = [];
+
         // Counts cards regardless of whether they sit directly in the
         // column body or inside a .pr-stack-group wrapper -- after the
         // co-column grouping pass, the column-body's direct children are
@@ -679,8 +691,10 @@
           ready.innerHTML = "";
           approved.innerHTML = "";
 
-          var cards = stream.querySelectorAll(".pr-card");
-          cards.forEach(function (card) {
+          // Rebuild from the snapshot, not from the (now-drained) stream.
+          // Re-appending nodes already living in a column just moves them
+          // back, so calling distribute() any number of times is safe.
+          prCardSnapshot.forEach(function (card) {
             var col = card.getAttribute("data-column");
             (buckets[col] || progress).appendChild(card);
           });
@@ -744,8 +758,38 @@
         }
 
         window.__betterGhDistribute = distribute;
+
+        // Snapshot whatever the swap just put into #pr-stream (even an
+        // empty list, so a genuine transition to zero clears the board),
+        // then distribute.
+        function captureFromStream() {
+          var stream = document.getElementById("pr-stream");
+          prCardSnapshot = stream
+            ? Array.prototype.slice.call(stream.querySelectorAll(".pr-card"))
+            : [];
+        }
+
+        // htmx:afterSwap fires once per swap with the freshly delivered
+        // cards still in #pr-stream. This is the authoritative capture
+        // point for both the XHR path (GET /prs.html, /refresh) and the
+        // SSE extension's swap (poller broadcasts).
         document.body.addEventListener("htmx:afterSwap", function (evt) {
-          if (evt.target && evt.target.id === "pr-stream") distribute();
+          if (!evt.target || evt.target.id !== "pr-stream") return;
+          captureFromStream();
+          distribute();
+        });
+        // afterSettle fires repeatedly for a single swap; re-running
+        // distribute from the snapshot is idempotent, so these extra
+        // fires can no longer wipe the board. Safety net: if a swap ever
+        // reaches settle without afterSwap, capture any still-undrained
+        // cards before distributing.
+        document.body.addEventListener("htmx:afterSettle", function (evt) {
+          if (!evt.target || evt.target.id !== "pr-stream") return;
+          var stream = document.getElementById("pr-stream");
+          if (stream && stream.querySelectorAll(".pr-card").length > 0) {
+            captureFromStream();
+          }
+          distribute();
         });
       })();
 
@@ -754,6 +798,12 @@
       // settings popup hides reviews from that repo too. Updates the
       // REVIEWING tab count and toggles the empty state.
       (function () {
+        // Same idempotency contract as the #pr-stream distribute above:
+        // distribute() drains #reviews-stream into #reviews-list, so it
+        // rebuilds from a snapshot captured on the swap rather than from
+        // the (drained) stream, surviving the multiple afterSettle fires.
+        var reviewRowSnapshot = [];
+
         function visibleChildren(el) {
           var n = 0;
           for (var i = 0; i < el.children.length; i++) {
@@ -768,8 +818,7 @@
           if (!stream || !list) return;
 
           list.innerHTML = "";
-          var rows = stream.querySelectorAll(".review-row");
-          rows.forEach(function (row) {
+          reviewRowSnapshot.forEach(function (row) {
             list.appendChild(row);
           });
 
@@ -797,8 +846,26 @@
         }
 
         window.__betterGhDistributeReviews = distribute;
+
+        function captureFromStream() {
+          var stream = document.getElementById("reviews-stream");
+          reviewRowSnapshot = stream
+            ? Array.prototype.slice.call(stream.querySelectorAll(".review-row"))
+            : [];
+        }
+
         document.body.addEventListener("htmx:afterSwap", function (evt) {
-          if (evt.target && evt.target.id === "reviews-stream") distribute();
+          if (!evt.target || evt.target.id !== "reviews-stream") return;
+          captureFromStream();
+          distribute();
+        });
+        document.body.addEventListener("htmx:afterSettle", function (evt) {
+          if (!evt.target || evt.target.id !== "reviews-stream") return;
+          var stream = document.getElementById("reviews-stream");
+          if (stream && stream.querySelectorAll(".review-row").length > 0) {
+            captureFromStream();
+          }
+          distribute();
         });
       })();
 

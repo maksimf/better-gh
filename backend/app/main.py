@@ -210,6 +210,45 @@ async def auth_callback(request: Request) -> Response:
     return response
 
 
+@app.get("/auth/dev-login", include_in_schema=False)
+async def dev_login(request: Request) -> Response:
+    """LOCAL DEV ONLY: mint a session from DEV_GITHUB_TOKEN, skip OAuth.
+
+    The prod OAuth App's callback URL can't redirect back to
+    ``localhost``, so this gives a way to exercise the real UI locally
+    without the OAuth round-trip. Hard-gated behind ``DEV_LOGIN`` so it
+    is a 404 in any environment where the flag isn't explicitly set.
+    """
+    if not settings.DEV_LOGIN:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    token = settings.DEV_GITHUB_TOKEN.strip()
+    if not token:
+        return _auth_error_response(
+            "DEV_LOGIN is on but DEV_GITHUB_TOKEN is empty. Put a PAT in "
+            "backend/.env to use the dev sign-in shortcut."
+        )
+
+    http_client: httpx.AsyncClient | None = getattr(
+        app.state, "http_client", None
+    )
+    owns_client = http_client is None
+    if http_client is None:
+        http_client = httpx.AsyncClient(timeout=30.0)
+    try:
+        login = await auth.fetch_viewer_login(token, http_client=http_client)
+    except Exception as exc:
+        log.exception("dev-login viewer lookup failed")
+        return _auth_error_response(f"Dev sign-in failed: {exc}")
+    finally:
+        if owns_client:
+            await http_client.aclose()
+
+    log.warning("DEV_LOGIN: minting session for %s (OAuth bypassed)", login)
+    response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    auth.write_session(response, Session(token=token, login=login))
+    return response
+
+
 @app.post("/logout", include_in_schema=False)
 async def logout(
     request: Request,

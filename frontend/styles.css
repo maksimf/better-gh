@@ -306,9 +306,20 @@ button {
    accent stripe -- but at a "page" scale, anchoring whichever tab the
    user is currently on. The horizontal padding tracks the .tabs / .board
    pattern (28px desktop, 18px tablet, 14px mobile). */
+/* Title row: the active-tab heading on the left, the REFRESH action on
+   the right. The row owns the horizontal/top padding so the title and
+   button share a common top edge. */
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 28px 28px 0;
+}
+
 .page-title {
   margin: 0;
-  padding: 28px 28px 0;
+  padding: 0;
   font-weight: 900;
   font-size: 32px;
   letter-spacing: 0.06em;
@@ -1792,6 +1803,7 @@ a.pr-number:hover {
 }
 
 [data-theme="dark"] .btn--settings,
+[data-theme="dark"] .btn--signout,
 [data-theme="dark"] .btn--theme {
   background: #ededed;
   color: #111111;
@@ -1874,8 +1886,10 @@ a.pr-number:hover {
   .reviews-list {
     padding: 18px;
   }
-  .page-title {
+  .page-title-row {
     padding: 22px 18px 0;
+  }
+  .page-title {
     font-size: 28px;
   }
 }
@@ -1904,17 +1918,20 @@ a.pr-number:hover {
     border-right-width: 8px;
     border-bottom-width: 14px;
   }
+  /* Drop the wordmark on small screens; the geometric brand-mark
+     stays as the logo. */
   .brand-title {
-    font-size: 17px;
-    letter-spacing: 0.03em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
   .topbar-actions {
     gap: 8px;
   }
+  /* Keep the avatar in the topbar but drop the @username text to save
+     horizontal space on small screens. */
   .me {
+    gap: 0;
+  }
+  .me #me-login {
     display: none;
   }
   .btn {
@@ -1923,14 +1940,37 @@ a.pr-number:hover {
     letter-spacing: 0.06em;
     min-height: 40px;
   }
-  .btn--theme {
-    padding: 0;
+  /* Collapse every topbar button to a uniform 40x40 square and centre
+     its glyph with flex, so they all line up at the same height
+     regardless of each icon's intrinsic line-box metrics. */
+  .topbar-actions .btn {
+    height: 40px;
+    min-height: 40px;
     width: 40px;
     min-width: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn--settings,
+  .btn--signout {
+    font-size: 0;
+  }
+  .btn--settings::before {
+    content: "\2699"; /* gear */
+    font-size: 18px;
+  }
+  .btn--signout::before {
+    content: "\23FB"; /* power symbol */
+    font-size: 18px;
+    font-weight: 900;
   }
 
-  .page-title {
+  .page-title-row {
     padding: 18px 14px 0;
+  }
+  .page-title {
     font-size: 22px;
   }
   .page-title::after {
@@ -2181,32 +2221,6 @@ a.pr-number:hover {
   }
   .empty-state-sub {
     font-size: 12px;
-  }
-}
-
-/* ---------- Very narrow phones (<= 380px): drop button text to icon. */
-@media (max-width: 380px) {
-  .btn--settings {
-    font-size: 0;
-    padding: 10px;
-    min-width: 40px;
-  }
-  .btn--settings::before {
-    content: "\2699"; /* gear */
-    font-size: 18px;
-  }
-  .btn--refresh {
-    font-size: 0;
-    padding: 10px;
-    min-width: 40px;
-  }
-  .btn--refresh::before {
-    content: "\21BB"; /* clockwise arrow */
-    font-size: 18px;
-    font-weight: 900;
-  }
-  .brand-title {
-    font-size: 15px;
   }
 }
 

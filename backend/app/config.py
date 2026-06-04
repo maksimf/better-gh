@@ -72,6 +72,23 @@ class Settings(BaseSettings):
             "False so the cookie still makes it through."
         ),
     )
+    DEV_LOGIN: bool = Field(
+        default=False,
+        description=(
+            "LOCAL DEV ONLY. When True, exposes GET /auth/dev-login which "
+            "mints a session straight from DEV_GITHUB_TOKEN, skipping the "
+            "GitHub OAuth round-trip (whose callback URL points at prod). "
+            "MUST stay False in any deployed environment."
+        ),
+    )
+    DEV_GITHUB_TOKEN: str = Field(
+        default="",
+        description=(
+            "LOCAL DEV ONLY. Personal access token used by /auth/dev-login "
+            "to impersonate yourself without OAuth. Ignored unless "
+            "DEV_LOGIN is True."
+        ),
+    )
     GITHUB_GRAPHQL_URL: str = Field(default="https://api.github.com/graphql")
     GITHUB_API_URL: str = Field(default="https://api.github.com")
     POLL_INTERVAL_SECONDS: int = Field(default=300, ge=1)
