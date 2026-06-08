@@ -134,6 +134,16 @@ class Settings(BaseSettings):
             "links to '{LINEAR_WORKSPACE_URL}/issue/{TICKET}'."
         ),
     )
+    LINEAR_API_KEY: str = Field(
+        default="",
+        description=(
+            "Linear personal API key (starts with 'lin_api_'). When set, the "
+            "merge dialog offers a 'merge & mark Linear ticket done' option "
+            "that moves the PR's linked issue into its team's completed "
+            "workflow state. Leave empty to disable -- merging still works, "
+            "but the mark-done action will report that it's unconfigured."
+        ),
+    )
     BOT_LOGINS: frozenset[str] = Field(
         default_factory=lambda: frozenset(
             {"cursor", "cursor[bot]", "coderabbitai", "coderabbitai[bot]"}

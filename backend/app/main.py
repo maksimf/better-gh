@@ -33,6 +33,7 @@ from . import auth, state
 from .auth import Session, require_session
 from .config import settings
 from .github import GitHubRateLimitError
+from .linear import LinearClient, LinearError
 from .poller import build_user_client, poll_once, start_poller_for
 from .serialize import serialize_dashboard
 
@@ -358,14 +359,33 @@ async def refresh(
     )
 
 
-@app.post("/pulls/{owner}/{repo}/{number}/merge", status_code=204)
+class MergeBody(BaseModel):
+    """Body for ``POST /pulls/.../merge``.
+
+    ``mark_linear_done`` asks the server to also move the PR's linked
+    Linear ticket into its team's completed state after the merge lands.
+    The flag is best-effort: a failure there never fails the merge, it's
+    just reported back in the response so the UI can surface it.
+    """
+
+    mark_linear_done: bool = False
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/merge")
 async def merge_pr_endpoint(
     owner: str,
     repo: str,
     number: int,
+    body: MergeBody | None = None,
     session: Session = Depends(require_session),
-) -> Response:
-    """Merge a PR via the GitHub REST API, then refresh the snapshot."""
+) -> JSONResponse:
+    """Merge a PR via the GitHub REST API, then refresh the snapshot.
+
+    Optionally (``mark_linear_done``) also marks the PR's linked Linear
+    ticket done. Returns ``{merged, linear_done, linear_error}`` so the
+    client can confirm the merge and surface any Linear hiccup without
+    treating it as a hard failure.
+    """
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     method = settings.MERGE_METHOD or "merge"
@@ -375,8 +395,21 @@ async def merge_pr_endpoint(
         log.exception("merge failed for %s/%s#%s", owner, repo, number)
         raise HTTPException(status_code=502, detail=str(exc))
 
+    linear_done = False
+    linear_error: str | None = None
+    if body is not None and body.mark_linear_done:
+        linear_done, linear_error = await _mark_linear_done_for_pr(
+            session.login, owner, repo, number, http_client
+        )
+
     await _safe_poll_once(session.token, session.login)
-    return Response(status_code=204)
+    return JSONResponse(
+        content={
+            "merged": True,
+            "linear_done": linear_done,
+            "linear_error": linear_error,
+        }
+    )
 
 
 @app.post("/pulls/{owner}/{repo}/{number}/ready-for-review", status_code=204)
@@ -452,6 +485,72 @@ async def request_review(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _linear_identifier_from_url(linear_url: str | None) -> str | None:
+    """Pull the ``ENG-1234`` identifier out of a ``.../issue/ENG-1234`` URL.
+
+    The snapshot already carries the per-card Linear URL (built by
+    ``GitHubClient._find_linear_url``); rather than re-scan the PR body we
+    just lift the ticket id back out of that URL. Returns ``None`` when the
+    URL is missing or doesn't look like a Linear issue link.
+    """
+    if not linear_url:
+        return None
+    marker = "/issue/"
+    idx = linear_url.find(marker)
+    if idx < 0:
+        return None
+    rest = linear_url[idx + len(marker):]
+    # Identifier runs up to the next path/query separator.
+    for sep in ("/", "?", "#"):
+        cut = rest.find(sep)
+        if cut >= 0:
+            rest = rest[:cut]
+    return rest or None
+
+
+async def _mark_linear_done_for_pr(
+    login: str,
+    owner: str,
+    repo: str,
+    number: int,
+    http_client: httpx.AsyncClient,
+) -> tuple[bool, str | None]:
+    """Best-effort: mark the merged PR's linked Linear ticket done.
+
+    Returns ``(done, error)``. ``error`` is a human-readable string when
+    something went wrong (no key, no ticket, Linear rejected it); the
+    caller passes it straight through to the client. Never raises.
+    """
+    if not settings.LINEAR_API_KEY:
+        return False, "Linear isn't configured on the server (LINEAR_API_KEY unset)."
+
+    full_repo = f"{owner}/{repo}"
+    snapshot = state.current_snapshot(login)
+    linear_url = next(
+        (
+            pr.linear_url
+            for pr in snapshot.prs
+            if pr.number == number and pr.repo == full_repo
+        ),
+        None,
+    )
+    identifier = _linear_identifier_from_url(linear_url)
+    if not identifier:
+        return False, "No Linear ticket is linked to this PR."
+
+    client = LinearClient(settings.LINEAR_API_KEY, http_client=http_client)
+    try:
+        state_name = await client.mark_issue_done(identifier)
+    except LinearError as exc:
+        log.warning("mark Linear done failed for %s: %s", identifier, exc)
+        return False, str(exc)
+    except Exception as exc:  # noqa: BLE001 - never let this fail the merge
+        log.exception("unexpected error marking Linear done for %s", identifier)
+        return False, str(exc)
+    log.info("marked Linear %s done (state=%s)", identifier, state_name)
+    return True, None
 
 
 async def _safe_poll_once(token: str, login: str) -> None:

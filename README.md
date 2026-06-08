@@ -159,6 +159,7 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 | `MERGE_METHOD` | `merge` | `merge` / `squash` / `rebase` for the per-card MERGE button. |
 | `LINEAR_TICKET_PREFIX` | `ENG-` | Ticket prefix scanned in PR title/body (`<PREFIX>` + 3+ digits). Empty disables the Linear button. |
 | `LINEAR_WORKSPACE_URL` | `https://linear.app/clearest` | Base URL; the Linear button links to `{base}/issue/{TICKET}`. |
+| `LINEAR_API_KEY` | _(empty)_ | Personal API key (`lin_api_…`). When set, the merge dialog offers "merge & mark Linear ticket done", moving the linked issue into its team's completed state. Empty disables the action. |
 
 ## Routes
 

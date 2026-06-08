@@ -57,10 +57,25 @@ export function useRefresh() {
   });
 }
 
+export interface MergeResult {
+  merged: boolean;
+  linear_done: boolean;
+  linear_error: string | null;
+}
+
 export function useMergePr() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ref: PrRef) => postJson(pullPath(ref, "merge")),
+    mutationFn: ({
+      ref,
+      markLinearDone = false,
+    }: {
+      ref: PrRef;
+      markLinearDone?: boolean;
+    }) =>
+      postJson<MergeResult>(pullPath(ref, "merge"), {
+        mark_linear_done: markLinearDone,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   });
 }

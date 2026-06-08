@@ -946,6 +946,151 @@ a.pr-number:hover {
   outline-offset: 2px;
 }
 
+/* --- Merge confirmation dialog ------------------------------------- */
+/* Shares the hard-edged language of .settings-modal. CSS variables keep
+   it theme-aware (the --backdrop / --black / --white tokens flip in the
+   dark theme block) so we don't need explicit dark overrides. */
+.merge-modal {
+  padding: 0;
+  border: 4px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  width: min(440px, 92vw);
+  font-family: inherit;
+}
+
+.merge-modal::backdrop {
+  background: var(--backdrop);
+}
+
+.merge-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--black);
+  color: var(--white);
+  padding: 12px 16px;
+  border-bottom: 4px solid var(--green);
+}
+
+.merge-modal-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.merge-modal-close {
+  background: var(--yellow);
+  color: var(--black);
+  border: 2px solid var(--black);
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.merge-modal-close:hover:not(:disabled) {
+  background: var(--red);
+  color: var(--white);
+}
+
+.merge-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.merge-modal-body {
+  padding: 18px 16px;
+}
+
+.merge-modal-summary {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.merge-modal-pr {
+  font-weight: 900;
+}
+
+.merge-modal-pr-title {
+  font-weight: 700;
+}
+
+.merge-modal-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.merge-modal-ticket {
+  color: var(--black);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.merge-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 3px solid var(--grey-2);
+}
+
+.merge-modal-btn {
+  border: 2px solid var(--black);
+  padding: 8px 14px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--black);
+}
+
+.merge-modal-btn:hover:not(:disabled) {
+  background: var(--black);
+  color: var(--yellow);
+}
+
+.merge-modal-btn--merge {
+  background: var(--green);
+  color: var(--white);
+}
+
+.merge-modal-btn--linear {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+}
+
+.merge-modal-btn--linear:hover:not(:disabled) {
+  background: var(--black);
+  color: var(--blue);
+  border-color: var(--black);
+}
+
+.merge-modal-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.merge-modal-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 .chip-key {
   font-weight: 900;
 }

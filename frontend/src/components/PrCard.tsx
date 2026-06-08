@@ -105,6 +105,7 @@ export function PrCard({
               repo={name}
               number={pr.number}
               title={pr.title}
+              linearUrl={pr.linear_url}
             />
           )}
         </div>
