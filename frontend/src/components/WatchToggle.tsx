@@ -8,8 +8,8 @@ export function WatchToggle({
   onToggle: () => void;
 }) {
   const title = pressed
-    ? "Watching -- you'll get a browser notification when all checks pass"
-    : "Watch -- notify me when all checks pass";
+    ? "Watching -- you'll get a browser notification when checks pass and the preview is ready"
+    : "Watch -- notify me when checks pass and the preview is ready";
   return (
     <button
       type="button"

@@ -1,15 +1,19 @@
 import { useEffect, useRef } from "react";
 
-import type { Checks, Pr } from "../api/types";
+import type { Pr } from "../api/types";
 import { watchKey } from "./useWatchedKeys";
 
 /**
- * "All checks green" means there's at least one check and none of them are
- * pending or failed. A PR with no CI at all never counts as green, so we
- * don't spam a notification for repos that simply have no checks.
+ * A watched PR is "ready" -- and worth notifying about -- when:
+ *   - at least one check passed and none are pending or failed, and
+ *   - a preview deployment URL is available.
+ * Requiring the preview means we only ping once the PR is actually clickable
+ * to review, not the moment CI happens to go green.
  */
-export function checksAllGreen(checks: Checks): boolean {
-  return checks.passed > 0 && checks.pending === 0 && checks.failed === 0;
+export function isReadyToNotify(pr: Pr): boolean {
+  const { passed, pending, failed } = pr.checks;
+  const checksGreen = passed > 0 && pending === 0 && failed === 0;
+  return checksGreen && pr.preview_url != null;
 }
 
 export function notificationsSupported(): boolean {
@@ -33,16 +37,19 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   }
 }
 
-function notifyChecksGreen(pr: Pr): void {
+function notifyReady(pr: Pr): void {
   if (!notificationsSupported() || Notification.permission !== "granted") return;
   try {
     // `tag` collapses repeat notifications for the same PR; `renotify`
     // makes the OS re-alert even if a tagged one is still on screen.
-    const notification = new Notification(`✅ Checks passed · #${pr.number}`, {
-      body: `${pr.repo}\n${pr.title}`,
-      tag: `better-gh:checks:${watchKey(pr.repo, pr.number)}`,
-      renotify: true,
-    } as NotificationOptions);
+    const notification = new Notification(
+      `✅ Ready · #${pr.number}`,
+      {
+        body: `${pr.repo}\n${pr.title}\nChecks passed · preview ready`,
+        tag: `better-gh:ready:${watchKey(pr.repo, pr.number)}`,
+        renotify: true,
+      } as NotificationOptions,
+    );
     notification.onclick = () => {
       window.focus();
       window.open(pr.url, "_blank", "noopener");
@@ -55,21 +62,22 @@ function notifyChecksGreen(pr: Pr): void {
 
 /**
  * Watches the supplied PRs and fires a browser notification whenever a
- * *watched* PR transitions into the "all checks green" state. Notifications
- * surface even when the tab is inactive, which is the whole point -- but for
- * that to work the dashboard query must keep polling in the background while
- * anything is watched (see useDashboard's refetchIntervalInBackground).
+ * *watched* PR transitions into the "ready" state (see isReadyToNotify:
+ * checks green AND preview available). Notifications surface even when the
+ * tab is inactive, which is the whole point -- but for that to work the
+ * dashboard query must keep polling in the background while anything is
+ * watched (see useDashboard's refetchIntervalInBackground).
  *
  * We seed each watched PR's last-known state on first sight so that checking
- * "Watch" on an already-green PR does *not* immediately notify; we only
- * notify on a not-green -> green edge.
+ * "Watch" on an already-ready PR does *not* immediately notify; we only
+ * notify on a not-ready -> ready edge.
  */
 export function useWatchNotifications(
   prs: Pr[] | undefined,
   isWatched: (key: string) => boolean,
 ): void {
-  // key -> was the PR green the last time we saw it
-  const lastGreen = useRef<Map<string, boolean>>(new Map());
+  // key -> was the PR "ready" the last time we saw it
+  const lastReady = useRef<Map<string, boolean>>(new Map());
 
   useEffect(() => {
     if (!prs) return;
@@ -80,23 +88,23 @@ export function useWatchNotifications(
       if (!isWatched(key)) continue;
       seen.add(key);
 
-      const green = checksAllGreen(pr.checks);
-      const prev = lastGreen.current.get(key);
+      const ready = isReadyToNotify(pr);
+      const prev = lastReady.current.get(key);
 
       // First time we see a watched PR: seed only, never notify.
       if (prev === undefined) {
-        lastGreen.current.set(key, green);
+        lastReady.current.set(key, ready);
         continue;
       }
 
-      if (green && !prev) notifyChecksGreen(pr);
-      lastGreen.current.set(key, green);
+      if (ready && !prev) notifyReady(pr);
+      lastReady.current.set(key, ready);
     }
 
     // Forget PRs that are no longer watched (or no longer present) so a
     // re-watch later starts fresh and re-seeds instead of double-firing.
-    for (const key of lastGreen.current.keys()) {
-      if (!seen.has(key)) lastGreen.current.delete(key);
+    for (const key of lastReady.current.keys()) {
+      if (!seen.has(key)) lastReady.current.delete(key);
     }
   }, [prs, isWatched]);
 }
