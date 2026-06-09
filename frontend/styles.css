@@ -1416,6 +1416,52 @@ a.pr-number:hover {
   outline-offset: 2px;
 }
 
+/* WATCH TOGGLE
+   Opt a PR into a browser notification that fires when all its checks turn
+   green. Lives in the card's actions row. Mirrors the reviewed-toggle pill
+   but flips blue when armed so the two markers stay distinct at a glance. */
+.watch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+}
+
+.watch-toggle-check {
+  display: inline-flex;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.35;
+}
+
+.watch-toggle:hover {
+  background: var(--grey-2);
+}
+
+.watch-toggle[aria-pressed="true"] {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+}
+
+.watch-toggle[aria-pressed="true"] .watch-toggle-check {
+  opacity: 1;
+}
+
+.watch-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 .pr-card.is-manually-reviewed,
 .review-row.is-manually-reviewed {
   opacity: 0.55;

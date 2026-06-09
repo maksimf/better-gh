@@ -10,6 +10,7 @@ import { PrStack } from "./PrStack";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
 import { ReviewerChip } from "./ReviewerChip";
+import { WatchToggle } from "./WatchToggle";
 
 function splitRepo(repo: string): { owner: string; name: string } {
   const slash = repo.indexOf("/");
@@ -22,15 +23,20 @@ export function PrCard({
   reviewer,
   reviewedHas,
   onToggleReviewed,
+  watchedHas,
+  onToggleWatch,
 }: {
   pr: Pr;
   reviewer: string;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
+  watchedHas: (key: string) => boolean;
+  onToggleWatch: (key: string) => void;
 }) {
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
+  const isWatched = watchedHas(key);
   const showInlineStack = pr.stack_nodes.length > 0 && !pr.stack_co_column;
 
   const classes = [
@@ -87,6 +93,7 @@ export function PrCard({
         </div>
 
         <div className="pr-status-row pr-status-row--actions">
+          <WatchToggle pressed={isWatched} onToggle={() => onToggleWatch(key)} />
           {pr.linear_url && (
             <a
               className="linear-link"

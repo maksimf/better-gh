@@ -15,6 +15,11 @@ import { useActiveTab } from "./hooks/useActiveTab";
 import { useReviewedKeys } from "./hooks/useReviewedKeys";
 import { useReviewer } from "./hooks/useReviewer";
 import { useSelectedRepos } from "./hooks/useSelectedRepos";
+import { useWatchedKeys } from "./hooks/useWatchedKeys";
+import {
+  ensureNotificationPermission,
+  useWatchNotifications,
+} from "./hooks/useWatchNotifications";
 
 const TAB_LABELS = { mine: "MY PRs", reviews: "REVIEWING" } as const;
 
@@ -22,11 +27,23 @@ export function App() {
   const { reviewer, setReviewer } = useReviewer();
   const repoStore = useSelectedRepos();
   const reviewed = useReviewedKeys();
+  const watched = useWatchedKeys();
   const { tab, setTab } = useActiveTab();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const dashboard = useDashboard(reviewer);
+  // Keep polling while the tab is hidden only when something is watched, so
+  // the "checks went green" notification can fire on an inactive tab.
+  const dashboard = useDashboard(reviewer, watched.hasAny);
   const data = dashboard.data;
+
+  // Fire a browser notification when a watched PR's checks all turn green.
+  useWatchNotifications(data?.prs, watched.has);
+
+  // Request notification permission when the user opts a PR into watching.
+  const onToggleWatch = (key: string) => {
+    if (!watched.has(key)) void ensureNotificationPermission();
+    watched.toggle(key);
+  };
 
   // Consume any legacy ignored-repos list once the repo summary lands.
   const { migrateFromRepos } = repoStore;
@@ -86,6 +103,8 @@ export function App() {
                 reviewer={data?.reviewer ?? ""}
                 reviewedHas={reviewed.has}
                 onToggleReviewed={reviewed.toggle}
+                watchedHas={watched.has}
+                onToggleWatch={onToggleWatch}
               />
             ) : (
               <ReviewsList

@@ -68,6 +68,21 @@ export function CopyCheckGlyph() {
   );
 }
 
+export function EyeIcon() {
+  return (
+    <svg className="check-icon" viewBox="0 0 16 16" focusable="false">
+      <path
+        d="M1 8 C3 4 13 4 15 8 C13 12 3 12 1 8 Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="miter"
+      />
+      <circle cx="8" cy="8" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function BrandMark({ large = false }: { large?: boolean }) {
   return (
     <span
