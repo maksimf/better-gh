@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export function defaultQaPrompt(number: number): string {
-  return `Launch a browser automation to QA PR #${number}, your goal is to verify the feature/bug end to end manually in the browser and produce a video of step by step verification`;
+  return `Launch a browser automation to QA PR #${number}. Your goal is to verify the feature/bug end to end manually in the browser and produce a video of the step by step verification. Save the screen recording to artifacts/walkthrough.mp4 so it can be retrieved afterwards.`;
 }
 
 /**
