@@ -72,6 +72,19 @@ export function useCloudAgentStatus(agentId: string | null) {
   });
 }
 
+export interface StartCloudAgentResult {
+  id: string;
+  url: string;
+  name?: string | null;
+}
+
+export function useStartCloudAgent() {
+  return useMutation({
+    mutationFn: ({ prompt, repo }: { prompt: string; repo: string }) =>
+      postJson<StartCloudAgentResult>("/api/cloud-agent", { prompt, repo }),
+  });
+}
+
 export function useMe() {
   return useQuery({
     queryKey: ["me"],

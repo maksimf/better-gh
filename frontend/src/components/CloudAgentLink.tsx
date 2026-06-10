@@ -1,21 +1,31 @@
 import { useState } from "react";
 
-import { useCloudAgentStatus } from "../api/queries";
+import { useCloudAgentStatus, useStartCloudAgent } from "../api/queries";
 import type { CloudAgentStatus } from "../api/types";
 import {
   cursorAgentUrl,
   parseCursorAgentId,
   useCloudAgents,
 } from "../hooks/useCloudAgents";
+import { CloudAgentModal } from "./CloudAgentModal";
 import { CheckIcon } from "./icons";
 
 /**
- * Per-PR "QA agent" control. With no agent linked it offers a button that
- * reveals a paste field; once a Cursor cloud-agent link is stored it shows
- * a live running/done badge (polled via /api/cloud-agent) plus a link to
- * the run. The link is kept in localStorage, keyed by the PR.
+ * Per-PR "QA agent" control. With no agent linked it offers two paths:
+ * paste an existing cloud-agent link, or launch a brand-new QA agent for
+ * the PR. Once an agent is linked it shows a live running/done badge
+ * (polled via /api/cloud-agent) plus a link to the run. The link is kept
+ * in localStorage, keyed by the PR.
  */
-export function CloudAgentLink({ prKey }: { prKey: string }) {
+export function CloudAgentLink({
+  prKey,
+  repo,
+  number,
+}: {
+  prKey: string;
+  repo: string;
+  number: number;
+}) {
   const { get, set, remove } = useCloudAgents();
   const agentId = get(prKey);
 
@@ -25,7 +35,70 @@ export function CloudAgentLink({ prKey }: { prKey: string }) {
     );
   }
 
-  return <CloudAgentAdder onAdd={(id) => set(prKey, id)} />;
+  return (
+    <span className="cloud-agent-actions">
+      <CloudAgentAdder onAdd={(id) => set(prKey, id)} />
+      <CloudAgentStarter
+        repo={repo}
+        number={number}
+        onLaunched={(id) => set(prKey, id)}
+      />
+    </span>
+  );
+}
+
+function CloudAgentStarter({
+  repo,
+  number,
+  onLaunched,
+}: {
+  repo: string;
+  number: number;
+  onLaunched: (agentId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const start = useStartCloudAgent();
+
+  function launch(prompt: string) {
+    setError(null);
+    start.mutate(
+      { prompt, repo },
+      {
+        onSuccess: (res) => {
+          setOpen(false);
+          if (res?.id) onLaunched(res.id);
+        },
+        onError: (e) => setError(e instanceof Error ? e.message : String(e)),
+      },
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="cloud-agent-start"
+        title="Launch a Cursor cloud agent to QA this PR"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        Start QA Agent
+      </button>
+      <CloudAgentModal
+        open={open}
+        number={number}
+        pending={start.isPending}
+        error={error}
+        onLaunch={launch}
+        onClose={() => {
+          if (!start.isPending) setOpen(false);
+        }}
+      />
+    </>
+  );
 }
 
 function CloudAgentAdder({ onAdd }: { onAdd: (agentId: string) => void }) {

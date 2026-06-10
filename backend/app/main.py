@@ -375,6 +375,69 @@ async def cloud_agent_status(
     return JSONResponse(content={"configured": True, "error": None, **result})
 
 
+# Owner/name guard for the repo we hand to the Cursor API.
+_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+class StartCloudAgentBody(BaseModel):
+    """Body for ``POST /api/cloud-agent`` (launch a QA agent for a PR)."""
+
+    prompt: str = Field(min_length=1, max_length=10_000)
+    repo: str = Field(max_length=140)
+
+
+@app.post("/api/cloud-agent")
+async def start_cloud_agent(
+    body: StartCloudAgentBody,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Launch a Cursor cloud agent to QA a PR, proxied with the shared key.
+
+    The client supplies the (editable) prompt and the PR's ``owner/name``
+    repo. We launch in the repo's named Cursor-hosted cloud environment
+    (``env.name == owner/name`` by convention) so the agent inherits the
+    configured repo/setup/preview env, and return ``{id, url}`` so the card
+    can immediately link itself to the new run.
+    """
+    if not settings.CURSOR_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Cursor isn't configured on the server (CURSOR_API_KEY unset).",
+        )
+    repo = body.repo.strip()
+    if not _REPO_RE.match(repo):
+        raise HTTPException(
+            status_code=400, detail="Invalid repo (expected owner/name)."
+        )
+    prompt = body.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required.")
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    client = CursorClient(
+        settings.CURSOR_API_KEY,
+        http_client=http_client,
+        base_url=settings.CURSOR_API_URL,
+    )
+    try:
+        result = await client.create_agent(prompt=prompt, env_name=repo)
+    except CursorError as exc:
+        log.warning("cloud-agent launch failed for %s: %s", repo, exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.exception("unexpected error launching cloud agent for %s", repo)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    log.info("launched cloud agent %s to QA %s", result["id"], repo)
+    return JSONResponse(
+        content={
+            "id": result["id"],
+            "url": result["url"],
+            "name": result.get("name"),
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # Mutations (per-user GitHub client built per request)
 # ---------------------------------------------------------------------------

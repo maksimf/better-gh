@@ -75,18 +75,13 @@ class CursorClient:
         if self._owns_client:
             await self._client.aclose()
 
-    async def _get(self, path: str) -> dict[str, Any]:
-        if not self._api_key:
-            raise CursorError(
-                "CURSOR_API_KEY is not configured; cannot read cloud agents."
-            )
-        resp = await self._client.get(
-            f"{self._base_url}{path}",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Accept": "application/json",
-            },
-        )
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self._api_key}",
+            "Accept": "application/json",
+        }
+
+    def _check(self, resp: httpx.Response) -> dict[str, Any]:
         if resp.status_code == 404:
             raise CursorError("Cloud agent not found.", status_code=404)
         if resp.status_code in (401, 403):
@@ -103,6 +98,28 @@ class CursorClient:
         if not isinstance(body, dict):
             raise CursorError("Cursor response had an unexpected shape.")
         return body
+
+    async def _get(self, path: str) -> dict[str, Any]:
+        if not self._api_key:
+            raise CursorError(
+                "CURSOR_API_KEY is not configured; cannot read cloud agents."
+            )
+        resp = await self._client.get(
+            f"{self._base_url}{path}", headers=self._headers()
+        )
+        return self._check(resp)
+
+    async def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if not self._api_key:
+            raise CursorError(
+                "CURSOR_API_KEY is not configured; cannot launch cloud agents."
+            )
+        resp = await self._client.post(
+            f"{self._base_url}{path}",
+            headers={**self._headers(), "Content-Type": "application/json"},
+            json=payload,
+        )
+        return self._check(resp)
 
     async def agent_run_state(self, agent_id: str) -> dict[str, Any]:
         """Read ``agent_id``'s latest-run state, normalised for the UI.
@@ -141,6 +158,36 @@ class CursorClient:
             "state": classify_status(raw_status),
             "url": agent_url,
             "pr_url": pr_url,
+        }
+
+    async def create_agent(
+        self,
+        *,
+        prompt: str,
+        env_name: str,
+    ) -> dict[str, Any]:
+        """Launch a cloud agent in the named Cursor-hosted environment.
+
+        ``env_name`` is the repo's configured cloud environment (by
+        convention its ``owner/name``), which carries the repo, setup, and
+        any preview env the QA run needs. Using a named ``env`` is mutually
+        exclusive with explicit ``repos`` per the Cloud Agents API. Returns
+        ``{id, url, name}`` for the freshly created agent; raises
+        :class:`CursorError` on failure.
+        """
+        payload: dict[str, Any] = {
+            "prompt": {"text": prompt},
+            "env": {"type": "cloud", "name": env_name},
+        }
+        body = await self._post("/v1/agents", payload)
+        agent = body.get("agent")
+        if not isinstance(agent, dict) or not agent.get("id"):
+            raise CursorError("Cursor did not return a created agent.")
+        agent_id = str(agent["id"])
+        return {
+            "id": agent_id,
+            "url": agent.get("url") or f"https://cursor.com/agents/{agent_id}",
+            "name": agent.get("name"),
         }
 
 

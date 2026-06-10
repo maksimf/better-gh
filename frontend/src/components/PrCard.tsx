@@ -95,7 +95,7 @@ export function PrCard({
 
         <div className="pr-status-row pr-status-row--actions">
           <WatchToggle pressed={isWatched} onToggle={() => onToggleWatch(key)} />
-          <CloudAgentLink prKey={key} />
+          <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />
           {pr.linear_url && (
             <a
               className="linear-link"
