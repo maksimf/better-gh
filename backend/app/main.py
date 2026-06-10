@@ -694,6 +694,120 @@ async def request_review(
     return Response(status_code=204)
 
 
+@app.get("/pulls/{owner}/{repo}/{number}/comments")
+async def pr_human_comments(
+    owner: str,
+    repo: str,
+    number: int,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Return unresolved human comments on a PR for the comments popover.
+
+    Mirrors the filtering logic used by the background poller so the
+    list of items matches the ``comments_human`` count on the PR card.
+    Each entry: ``{id, type, author, body, url}`` where ``type`` is
+    ``"review"`` (inline thread) or ``"issue"`` (conversation comment).
+    """
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        comments = await gh.fetch_human_comments(
+            owner,
+            repo,
+            number,
+            viewer_login=session.login,
+            bot_logins=settings.BOT_LOGINS,
+        )
+    except Exception as exc:
+        log.exception(
+            "fetch_human_comments failed for %s/%s#%s", owner, repo, number
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+    finally:
+        await gh.aclose()
+    return JSONResponse(content=comments)
+
+
+class AckCommentBody(BaseModel):
+    """Body for ``POST /pulls/.../ack-comment``."""
+
+    comment_id: int
+    comment_type: str = Field(pattern="^(review|issue)$")
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/ack-comment", status_code=204)
+async def ack_comment(
+    owner: str,
+    repo: str,
+    number: int,
+    body: AckCommentBody,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Add a 👀 reaction to a PR comment, marking it acknowledged."""
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.add_comment_reaction(
+            owner, repo, body.comment_id, body.comment_type, content="eyes"
+        )
+    except Exception as exc:
+        log.exception(
+            "ack_comment failed for %s/%s#%s comment %s",
+            owner,
+            repo,
+            number,
+            body.comment_id,
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+    finally:
+        await gh.aclose()
+    return Response(status_code=204)
+
+
+class ReplyCommentBody(BaseModel):
+    """Body for ``POST /pulls/.../reply-comment``."""
+
+    quoted_author: str = Field(max_length=39)
+    quoted_body: str = Field(max_length=10_000)
+    reply: str = Field(min_length=1, max_length=10_000)
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/reply-comment", status_code=204)
+async def reply_comment(
+    owner: str,
+    repo: str,
+    number: int,
+    body: ReplyCommentBody,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Post a new PR comment that quotes an existing comment as context.
+
+    The server builds a GitHub-markdown quoted block (first 6 lines of
+    the original) followed by the viewer's reply text, then posts it as
+    an issue-style comment so it appears in the PR conversation timeline.
+    """
+    lines = body.quoted_body.splitlines()
+    quote_lines = "\n".join(f"> {line}" for line in lines[:6])
+    if len(lines) > 6:
+        quote_lines += "\n> …"
+    full_body = (
+        f"**@{body.quoted_author}** wrote:\n{quote_lines}\n\n{body.reply}"
+    )
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.post_issue_comment(owner, repo, number, full_body)
+    except Exception as exc:
+        log.exception(
+            "reply_comment failed for %s/%s#%s", owner, repo, number
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+    finally:
+        await gh.aclose()
+    return Response(status_code=204)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

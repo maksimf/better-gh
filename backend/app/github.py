@@ -15,6 +15,38 @@ from .preview import extract_preview_url
 
 log = logging.getLogger("better_gh.github")
 
+_COMMENTS_QUERY = """
+query PrHumanComments($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          comments(first: 1) {
+            nodes {
+              databaseId
+              author { login __typename }
+              body
+              url
+              reactionGroups { content viewerHasReacted }
+            }
+          }
+        }
+      }
+      comments(first: 100) {
+        nodes {
+          databaseId
+          author { login __typename }
+          body
+          url
+          reactionGroups { content viewerHasReacted }
+        }
+      }
+    }
+  }
+}
+""".strip()
+
 
 class GitHubRateLimitError(RuntimeError):
     """Raised when GitHub returns a primary or secondary rate-limit error.
@@ -373,6 +405,164 @@ class GitHubClient:
             raise RuntimeError(
                 f"GitHub returned {resp.status_code} when requesting "
                 f"@{reviewer_login} on {owner}/{repo}#{pr_number}: {resp.text}"
+            )
+
+    async def fetch_human_comments(
+        self,
+        owner: str,
+        repo: str,
+        number: int,
+        viewer_login: str,
+        bot_logins: frozenset[str] | set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch unresolved human comments on a PR for the comments popover.
+
+        Returns a list of ``{id, type, author, body, url}`` dicts where
+        ``type`` is ``"review"`` (inline review-thread) or ``"issue"``
+        (general PR conversation comment). Mirrors the filtering logic
+        in :meth:`_count_unresolved_comments` so the popover items match
+        the displayed count exactly.
+        """
+        bots = bot_logins if bot_logins is not None else frozenset()
+        viewer = (viewer_login or "").lower()
+
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        }
+        resp = await self._client.post(
+            self._graphql_url,
+            headers=headers,
+            json={
+                "query": _COMMENTS_QUERY,
+                "variables": {"owner": owner, "repo": repo, "number": number},
+            },
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        if body.get("errors"):
+            raise RuntimeError(
+                f"GitHub GraphQL errors fetching comments: {body['errors']}"
+            )
+
+        pr = (
+            ((body.get("data") or {}).get("repository") or {})
+            .get("pullRequest") or {}
+        )
+
+        def _is_bot(author: dict[str, Any] | None) -> bool:
+            if not author:
+                return False
+            if (author.get("__typename") or "") == "Bot":
+                return True
+            login = (author.get("login") or "").lower()
+            return bool(login and login in bots)
+
+        out: list[dict[str, Any]] = []
+
+        threads = ((pr.get("reviewThreads") or {}).get("nodes")) or []
+        for thread in threads:
+            if not thread or thread.get("isResolved"):
+                continue
+            comments = ((thread.get("comments") or {}).get("nodes")) or []
+            if not comments or not comments[0]:
+                continue
+            c = comments[0]
+            author = c.get("author") or {}
+            login = (author.get("login") or "").lower()
+            if viewer and login == viewer:
+                continue
+            if _is_bot(author):
+                continue
+            out.append(
+                {
+                    "id": c.get("databaseId"),
+                    "type": "review",
+                    "author": author.get("login") or "unknown",
+                    "body": c.get("body") or "",
+                    "url": c.get("url") or "",
+                }
+            )
+
+        generic = ((pr.get("comments") or {}).get("nodes")) or []
+        for c in generic:
+            if not c:
+                continue
+            author = c.get("author") or {}
+            login = (author.get("login") or "").lower()
+            if not login:
+                continue
+            if _is_bot(author):
+                continue
+            if viewer and login == viewer:
+                continue
+            groups = c.get("reactionGroups") or []
+            acked = any(g and g.get("viewerHasReacted") for g in groups)
+            if acked:
+                continue
+            out.append(
+                {
+                    "id": c.get("databaseId"),
+                    "type": "issue",
+                    "author": author.get("login") or "unknown",
+                    "body": c.get("body") or "",
+                    "url": c.get("url") or "",
+                }
+            )
+
+        return out
+
+    async def add_comment_reaction(
+        self,
+        owner: str,
+        repo: str,
+        comment_id: int,
+        comment_type: str,
+        content: str = "eyes",
+    ) -> None:
+        """Add a reaction to a PR comment (review or issue-style)."""
+        if comment_type == "review":
+            url = (
+                f"{self._api_url}/repos/{owner}/{repo}"
+                f"/pulls/comments/{comment_id}/reactions"
+            )
+        else:
+            url = (
+                f"{self._api_url}/repos/{owner}/{repo}"
+                f"/issues/comments/{comment_id}/reactions"
+            )
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.post(url, headers=headers, json={"content": content})
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} adding reaction "
+                f"to {owner}/{repo} comment {comment_id}: {resp.text}"
+            )
+
+    async def post_issue_comment(
+        self,
+        owner: str,
+        repo: str,
+        number: int,
+        body: str,
+    ) -> None:
+        """Post a new issue-style comment on a PR (used for quoted replies)."""
+        url = f"{self._api_url}/repos/{owner}/{repo}/issues/{number}/comments"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.post(url, headers=headers, json={"body": body})
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} posting comment "
+                f"on {owner}/{repo}#{number}: {resp.text}"
             )
 
     async def fetch_dashboard_snapshot(

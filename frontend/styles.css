@@ -615,14 +615,21 @@ button {
 
 .pr-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
 }
 
 .pr-number {
-  font-weight: 800;
-  color: var(--muted);
-  letter-spacing: 0.04em;
+  display: inline-block;
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--black);
+  background: var(--yellow);
+  border: 2px solid var(--black);
+  padding: 2px 6px;
+  line-height: 1.25;
 }
 
 .pr-title {
@@ -642,8 +649,7 @@ a.pr-number {
   text-decoration: none;
 }
 
-.pr-title a:hover,
-a.pr-number:hover {
+.pr-title a:hover {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
@@ -651,13 +657,9 @@ a.pr-number:hover {
 }
 
 a.pr-number:hover {
-  color: var(--blue);
-}
-
-.pr-author {
-  font-weight: 600;
-  color: var(--muted);
-  font-size: 12px;
+  background: var(--white);
+  color: var(--black);
+  text-decoration: none;
 }
 
 .pr-tag {
@@ -676,9 +678,9 @@ a.pr-number:hover {
   color: var(--white);
 }
 
-/* One-line meta + status strip under the title: #number, author, draft
-   tag, checks, conflicts, comments, review chip -- all in a single flex
-   row that wraps only when the column is genuinely too narrow. */
+/* One-line status strip under the title: draft tag, checks, conflicts,
+   comments, review chip -- all in a single flex row that wraps only when the
+   column is genuinely too narrow. */
 .pr-bar {
   display: flex;
   flex-wrap: wrap;
@@ -699,25 +701,18 @@ a.pr-number:hover {
   display: none;
 }
 
-/* Action footer: overflow "⋯" on the left, the single primary CTA pushed
-   to the right edge. */
-.pr-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-}
-
+/* Primary CTA (merge / mark ready / request review) pinned top-right in
+   the header, to the right of the title. */
 .pr-primary {
   margin-left: auto;
   display: inline-flex;
+  flex-shrink: 0;
 }
 
-/* ---------- Icon toggle cluster (Reviewed / Watch / Note) ----------
-   Three square icon buttons in the header's top-right. Replaces the old
-   text pills (.reviewed-toggle / .watch-toggle / .note-button). Pressed
-   state tints each a distinct colour so the active marker reads at a
-   glance; the shared base keeps them visually a set. */
+/* ---------- Icon toggle cluster (Reviewed / Watch / Note / ⋯) ----------
+   Lives in the status bar, immediately to the right of the Comments pill.
+   Pressed state tints each a distinct colour; the shared base keeps them
+   visually a set. */
 .pr-toggles {
   display: inline-flex;
   align-items: center;
@@ -813,7 +808,8 @@ a.pr-number:hover {
 .pr-overflow-menu {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
+  left: auto;
   z-index: 20;
   min-width: 220px;
   max-width: 80vw;
@@ -893,8 +889,8 @@ a.pr-number:hover {
 }
 
 /* ---------- Hover-reveal (pointer devices only) ----------
-   At rest a card shows just its title, meta, status, active markers and
-   the one primary CTA. The *inactive* toggles and the overflow trigger
+   At rest a card shows its title, primary CTA, status pills, and active
+   markers. The *inactive* toggles and the overflow trigger
    fade in on hover or keyboard focus, so the resting board reads as calm
    status tiles without losing any affordance. Touch devices (hover:none)
    skip this entirely and always show everything. Space is reserved at
@@ -991,6 +987,7 @@ a.pr-number:hover {
   font-weight: 900;
   font-size: 12px;
   letter-spacing: 0.04em;
+  position: relative;
 }
 
 .comments-label {
@@ -1008,6 +1005,23 @@ a.pr-number:hover {
   background: var(--white);
 }
 
+/* Clickable H cell – resets button defaults so it looks like the span */
+button.comments-cell--btn {
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  border: none;
+  border-left: 2px solid var(--black);
+  padding: 4px 8px;
+  min-width: 26px;
+  line-height: 1;
+  transition: filter 0.1s;
+}
+button.comments-cell--btn:hover {
+  filter: brightness(1.18);
+}
+
 .comments-cell--human {
   background: var(--blue);
   color: var(--white);
@@ -1021,6 +1035,200 @@ a.pr-number:hover {
 .comments-cell--zero {
   background: var(--white);
   color: var(--muted);
+}
+
+/* =========================================================
+   Human-comments popover (.hcp)
+   Opens below the H cell, anchored to .comments (rel-pos).
+   ========================================================= */
+
+.hcp {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 380px;
+  max-width: min(90vw, 440px);
+  background: var(--white);
+  border: 3px solid var(--black);
+  box-shadow: 6px 6px 0 var(--black);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.hcp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--black);
+  color: var(--white);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+}
+
+.hcp-count {
+  background: var(--blue);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.hcp-state {
+  padding: 12px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.hcp-state--err {
+  color: var(--red);
+}
+
+.hcp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.hcp-comment {
+  padding: 10px 12px;
+  border-top: 2px solid var(--black);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hcp-comment--acked {
+  opacity: 0.45;
+}
+
+.hcp-comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hcp-comment-author {
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--black);
+  text-decoration: none;
+}
+.hcp-comment-author:hover {
+  text-decoration: underline;
+}
+
+.hcp-comment-kind {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg-subtle, #f0f0f0);
+  padding: 1px 5px;
+  border: 1px solid var(--black);
+}
+
+.hcp-comment-body {
+  margin: 0;
+  font-size: 12px;
+  color: var(--black);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.hcp-comment-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.hcp-btn {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 2px solid var(--black);
+  padding: 3px 8px;
+  cursor: pointer;
+  background: var(--white);
+  color: var(--black);
+  transition: background 0.1s, color 0.1s;
+}
+.hcp-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hcp-btn:not(:disabled):hover {
+  background: var(--black);
+  color: var(--white);
+}
+
+.hcp-btn--ack {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--black);
+}
+.hcp-btn--ack:not(:disabled):hover {
+  background: var(--black);
+}
+
+.hcp-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 3px 6px;
+  border: 1px solid var(--muted);
+}
+
+.hcp-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.hcp-reply-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  border: 2px solid var(--black);
+  padding: 6px 8px;
+  resize: vertical;
+  background: var(--white);
+  color: var(--black);
+}
+.hcp-reply-input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.hcp-reply-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.hcp-reply-err {
+  margin: 0;
+  font-size: 11px;
+  color: var(--red);
 }
 
 .chip--review {
@@ -2716,6 +2924,9 @@ a.pr-number:hover {
 [data-theme="dark"] .btn,
 [data-theme="dark"] .checks-cell--pending,
 [data-theme="dark"] .review-request,
+[data-theme="dark"] .pr-number,
+[data-theme="dark"] a.pr-number,
+[data-theme="dark"] a.pr-number:hover,
 [data-theme="dark"] .card-toggle--note[aria-pressed="true"],
 [data-theme="dark"] .settings-modal-close,
 [data-theme="dark"] .error-banner {
@@ -2771,6 +2982,34 @@ a.pr-number:hover {
 /* Inner check-mark dot on the settings checkbox stays light on red. */
 [data-theme="dark"] .settings-row input[type="checkbox"]:checked::after {
   background: #fafafa;
+}
+
+[data-theme="dark"] .hcp {
+  background: var(--white);
+  border-color: var(--black);
+  box-shadow: 6px 6px 0 var(--black);
+}
+[data-theme="dark"] .hcp-comment-author,
+[data-theme="dark"] .hcp-comment-body {
+  color: var(--black);
+}
+[data-theme="dark"] .hcp-btn {
+  background: var(--white);
+  color: var(--black);
+  border-color: var(--black);
+}
+[data-theme="dark"] .hcp-btn:not(:disabled):hover {
+  background: var(--black);
+  color: var(--white);
+}
+[data-theme="dark"] .hcp-btn--ack {
+  background: var(--blue);
+  color: #fafafa;
+}
+[data-theme="dark"] .hcp-reply-input {
+  background: var(--white);
+  color: var(--black);
+  border-color: var(--black);
 }
 
 /* ---------- Tablet: collapse to single column ---------- */
@@ -2954,14 +3193,24 @@ a.pr-number:hover {
     border-width: 3px;
   }
 
-  /* Mobile pr-head: the title flexes while the icon toggle cluster stays
-     pinned top-right. Reveal-on-hover is disabled on touch (hover:none),
-     so every toggle is always shown. */
+  /* Mobile pr-head: title flexes; primary CTA stays compact top-right.
+     Icon toggles live in the bar below. */
   .pr-head {
     gap: 8px;
+    flex-wrap: wrap;
   }
   .pr-head .pr-title {
     font-size: 14px;
+  }
+  .pr-head .pr-primary {
+    margin-left: auto;
+  }
+  .pr-head .pr-primary .merge-button,
+  .pr-head .pr-primary .ready-button,
+  .pr-head .pr-primary .review-request {
+    height: 40px;
+    padding: 0 12px;
+    font-size: 11px;
   }
 
   /* Bump every icon button to a 40px touch target. */
@@ -3003,24 +3252,6 @@ a.pr-number:hover {
     padding-top: 0;
     padding-bottom: 0;
   }
-  /* Action footer: overflow on the left, the primary CTA fills the rest
-     as a full-width 44px tap target. */
-  .pr-primary {
-    flex: 1;
-  }
-  .pr-primary .merge-button,
-  .pr-primary .ready-button,
-  .pr-primary .review-request {
-    width: 100%;
-    height: 44px;
-    margin-left: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    justify-content: center;
-    align-items: center;
-    font-size: 13px;
-  }
-
   /* Touch-size the QA controls living inside the overflow menu. */
   .pr-overflow-menu .cloud-agent-add,
   .pr-overflow-menu .cloud-agent-start,

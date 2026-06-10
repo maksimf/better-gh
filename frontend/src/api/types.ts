@@ -87,6 +87,14 @@ export interface Me {
   avatar_url: string;
 }
 
+export interface PrComment {
+  id: number;
+  type: "review" | "issue";
+  author: string;
+  body: string;
+  url: string;
+}
+
 export type CloudAgentState = "running" | "done" | "error" | "unknown";
 
 export interface CloudAgentStatus {

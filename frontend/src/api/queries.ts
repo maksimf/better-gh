@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getJson, postJson, putJson } from "./client";
-import type { CloudAgentStatus, Dashboard, Me } from "./types";
+import type { CloudAgentStatus, Dashboard, Me, PrComment } from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 export const PREFS_KEY = ["prefs"] as const;
@@ -147,7 +147,7 @@ export function useMe() {
   });
 }
 
-interface PrRef {
+export interface PrRef {
   owner: string;
   repo: string;
   number: number;
@@ -204,5 +204,62 @@ export function useRequestReview() {
     mutationFn: ({ ref, reviewer }: { ref: PrRef; reviewer: string | null }) =>
       postJson(pullPath(ref, "request-review"), { reviewer }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  });
+}
+
+export function usePrComments(
+  owner: string,
+  repo: string,
+  number: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["pr-comments", owner, repo, number],
+    queryFn: () =>
+      getJson<PrComment[]>(
+        `/pulls/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(String(number))}/comments`,
+      ),
+    enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useAckComment() {
+  return useMutation({
+    mutationFn: ({
+      ref,
+      commentId,
+      commentType,
+    }: {
+      ref: PrRef;
+      commentId: number;
+      commentType: string;
+    }) =>
+      postJson(pullPath(ref, "ack-comment"), {
+        comment_id: commentId,
+        comment_type: commentType,
+      }),
+  });
+}
+
+export function useReplyComment() {
+  return useMutation({
+    mutationFn: ({
+      ref,
+      quotedAuthor,
+      quotedBody,
+      reply,
+    }: {
+      ref: PrRef;
+      quotedAuthor: string;
+      quotedBody: string;
+      reply: string;
+    }) =>
+      postJson(pullPath(ref, "reply-comment"), {
+        quoted_author: quotedAuthor,
+        quoted_body: quotedBody,
+        reply,
+      }),
   });
 }

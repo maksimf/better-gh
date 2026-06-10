@@ -82,7 +82,6 @@ export function PrCard({
   }
 
   const showOverflow = !linkedAgent;
-  const showFooter = primaryAction != null || showOverflow;
 
   const classes = [
     "pr-card",
@@ -102,11 +101,28 @@ export function PrCard({
   return (
     <article className={classes} data-repo={pr.repo} data-column={pr.column} style={style}>
       <header className="pr-head">
+        <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
+          #{pr.number}
+        </a>
         <h3 className="pr-title">
           <a href={pr.url} target="_blank" rel="noopener">
             {pr.title}
           </a>
         </h3>
+        {primaryAction && <div className="pr-primary">{primaryAction}</div>}
+      </header>
+
+      {showInlineStack && <PrStack nodes={pr.stack_nodes} />}
+
+      <div className="pr-bar">
+        {pr.is_draft && <span className="pr-tag pr-tag--draft">Draft</span>}
+        <ChecksPill checks={pr.checks} />
+        <Conflicts conflicts={pr.conflicts} />
+        <CommentsPill
+          human={pr.comments_human}
+          bot={pr.comments_bot}
+          prRef={{ owner, repo: name, number: pr.number }}
+        />
         <div className="pr-toggles">
           <ReviewedToggle pressed={isReviewed} onToggle={() => onToggleReviewed(key)} />
           <WatchToggle
@@ -115,20 +131,12 @@ export function PrCard({
             disabled={watchDisabled}
           />
           <NoteButton prKey={key} number={pr.number} />
+          {showOverflow && (
+            <OverflowMenu>
+              <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />
+            </OverflowMenu>
+          )}
         </div>
-      </header>
-
-      {showInlineStack && <PrStack nodes={pr.stack_nodes} />}
-
-      <div className="pr-bar">
-        <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
-          #{pr.number}
-        </a>
-        <span className="pr-author">@{pr.author}</span>
-        {pr.is_draft && <span className="pr-tag pr-tag--draft">Draft</span>}
-        <ChecksPill checks={pr.checks} />
-        <Conflicts conflicts={pr.conflicts} />
-        <CommentsPill human={pr.comments_human} bot={pr.comments_bot} />
         <ReviewerChip
           variant="chip"
           reviewer={reviewer}
@@ -150,7 +158,7 @@ export function PrCard({
             rel="noopener"
             title="Open Linear ticket"
           >
-            Linear &uarr;
+            Linear
           </a>
         )}
         {linkedAgent && (
@@ -158,16 +166,6 @@ export function PrCard({
         )}
       </div>
 
-      {showFooter && (
-        <footer className="pr-actions">
-          {showOverflow && (
-            <OverflowMenu>
-              <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />
-            </OverflowMenu>
-          )}
-          {primaryAction && <div className="pr-primary">{primaryAction}</div>}
-        </footer>
-      )}
     </article>
   );
 }
