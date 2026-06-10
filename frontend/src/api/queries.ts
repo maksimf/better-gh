@@ -85,6 +85,32 @@ export function useStartCloudAgent() {
   });
 }
 
+export interface CloudAgentVideo {
+  url: string | null;
+  expires_at?: string | null;
+}
+
+export function useCloudAgentVideo(
+  agentId: string | null,
+  path: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["cloud-agent-video", agentId, path],
+    enabled: enabled && agentId !== null && path !== null,
+    queryFn: () =>
+      getJson<CloudAgentVideo>(
+        `/api/cloud-agent/${encodeURIComponent(
+          agentId as string,
+        )}/video-url?path=${encodeURIComponent(path as string)}`,
+      ),
+    // Presigned URLs live ~15 min; cache for 10 and don't auto-refetch.
+    staleTime: 10 * 60 * 1000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useMe() {
   return useQuery({
     queryKey: ["me"],

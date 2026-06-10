@@ -375,6 +375,51 @@ async def cloud_agent_status(
     return JSONResponse(content={"configured": True, "error": None, **result})
 
 
+@app.get("/api/cloud-agent/{agent_id}/video-url")
+async def cloud_agent_video_url(
+    agent_id: str,
+    path: str,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Mint a short-lived presigned URL for a recorded walkthrough artifact.
+
+    Fetched lazily when the user opens the video modal (the URL expires in
+    ~15 min, so we don't bake it into the polled status). ``path`` is the
+    artifact's workspace-relative path (must live under ``artifacts/``).
+    """
+    if not settings.CURSOR_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Cursor isn't configured on the server (CURSOR_API_KEY unset).",
+        )
+    if not _AGENT_ID_RE.match(agent_id):
+        raise HTTPException(status_code=400, detail="Invalid cloud agent id.")
+    if not path.startswith("artifacts/") or ".." in path:
+        raise HTTPException(status_code=400, detail="Invalid artifact path.")
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    client = CursorClient(
+        settings.CURSOR_API_KEY,
+        http_client=http_client,
+        base_url=settings.CURSOR_API_URL,
+    )
+    try:
+        result = await client.artifact_download_url(agent_id, path)
+    except CursorError as exc:
+        log.info("artifact url failed for %s (%s): %s", agent_id, path, exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.exception("unexpected error fetching artifact url for %s", agent_id)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    return JSONResponse(
+        content={
+            "url": result.get("url"),
+            "expires_at": result.get("expiresAt"),
+        }
+    )
+
+
 # Owner/name guard for the repo we hand to the Cursor API.
 _REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 

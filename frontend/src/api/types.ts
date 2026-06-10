@@ -96,5 +96,6 @@ export interface CloudAgentStatus {
   url?: string | null;
   pr_url?: string | null;
   name?: string | null;
+  video_path?: string | null;
   error?: string | null;
 }

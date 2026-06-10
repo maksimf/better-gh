@@ -8,6 +8,7 @@ import {
   useCloudAgents,
 } from "../hooks/useCloudAgents";
 import { CloudAgentModal } from "./CloudAgentModal";
+import { CloudAgentVideoModal } from "./CloudAgentVideoModal";
 import { CheckIcon } from "./icons";
 
 /**
@@ -170,8 +171,10 @@ function CloudAgentBadge({
   onRemove: () => void;
 }) {
   const { data, isLoading } = useCloudAgentStatus(agentId);
+  const [videoOpen, setVideoOpen] = useState(false);
   const href = data?.url ?? cursorAgentUrl(agentId);
   const view = describe(data, isLoading);
+  const videoPath = data?.video_path ?? null;
 
   return (
     <span className="cloud-agent-group">
@@ -187,6 +190,16 @@ function CloudAgentBadge({
         </span>
         {view.label}
       </a>
+      {videoPath && (
+        <button
+          type="button"
+          className="cloud-agent-video"
+          title="View QA walkthrough video"
+          onClick={() => setVideoOpen(true)}
+        >
+          <span aria-hidden="true">&#9654;</span> video
+        </button>
+      )}
       <button
         type="button"
         className="cloud-agent-remove"
@@ -196,6 +209,14 @@ function CloudAgentBadge({
       >
         &times;
       </button>
+      {videoPath && (
+        <CloudAgentVideoModal
+          open={videoOpen}
+          agentId={agentId}
+          path={videoPath}
+          onClose={() => setVideoOpen(false)}
+        />
+      )}
     </span>
   );
 }

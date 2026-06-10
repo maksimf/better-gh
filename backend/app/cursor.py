@@ -151,6 +151,15 @@ class CursorClient:
             # created agent doesn't read as "unknown".
             raw_status = agent.get("status")
 
+        # Best-effort: surface a recorded walkthrough if the agent saved one
+        # to its workspace artifacts/. Never let an artifacts hiccup break the
+        # status read.
+        video_path: str | None = None
+        try:
+            video_path = _pick_video(await self.list_artifacts(agent_id))
+        except Exception:  # noqa: BLE001
+            log.debug("artifact listing failed for %s", agent_id, exc_info=True)
+
         return {
             "id": agent_id,
             "name": name,
@@ -158,7 +167,25 @@ class CursorClient:
             "state": classify_status(raw_status),
             "url": agent_url,
             "pr_url": pr_url,
+            "video_path": video_path,
         }
+
+    async def list_artifacts(self, agent_id: str) -> list[dict[str, Any]]:
+        """List artifacts saved by an agent (paths relative to ``artifacts/``)."""
+        body = await self._get(f"/v1/agents/{agent_id}/artifacts")
+        items = body.get("items")
+        return [it for it in items if isinstance(it, dict)] if isinstance(items, list) else []
+
+    async def artifact_download_url(
+        self, agent_id: str, path: str
+    ) -> dict[str, Any]:
+        """Get a temporary presigned URL for one artifact (~15 min TTL)."""
+        from urllib.parse import quote
+
+        body = await self._get(
+            f"/v1/agents/{agent_id}/artifacts/download?path={quote(path, safe='')}"
+        )
+        return body
 
     async def create_agent(
         self,
@@ -189,6 +216,24 @@ class CursorClient:
             "url": agent.get("url") or f"https://cursor.com/agents/{agent_id}",
             "name": agent.get("name"),
         }
+
+
+_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v", ".mkv")
+
+
+def _pick_video(items: list[dict[str, Any]]) -> str | None:
+    """Return the path of the most recently updated video artifact, if any."""
+    videos = [
+        it
+        for it in items
+        if isinstance(it.get("path"), str)
+        and it["path"].lower().endswith(_VIDEO_EXTS)
+    ]
+    if not videos:
+        return None
+    # Prefer the newest by updatedAt (ISO 8601 sorts lexicographically).
+    videos.sort(key=lambda it: str(it.get("updatedAt") or ""), reverse=True)
+    return str(videos[0]["path"])
 
 
 def _first_pr_url(git: object) -> str | None:
