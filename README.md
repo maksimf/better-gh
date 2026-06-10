@@ -13,12 +13,151 @@ viewer's access token rides on a signed HttpOnly cookie, and their PR
 snapshot lives only in process memory for as long as they keep fetching
 (an idle reaper cancels the per-user poller once they stop).
 
+> **Note — persistence is changing.** We're moving to a persistent
+> data backend, so state will be stored rather than kept only in process
+> memory. Today's behavior (in-memory per-user snapshots that vanish when
+> the poller is reaped or the process restarts) is being replaced by a
+> backing store that persists data across restarts. The relevant sections
+> below describe the current in-memory model and will be updated as the
+> persistent backend lands.
+
+## Features
+
+A full tour of what the app does, grouped by area.
+
+### Sign-in & multi-tenancy
+
+- **GitHub OAuth sign-in.** Anyone with a GitHub account signs in through
+  the standard OAuth flow; unauthenticated visitors land on a "Sign in
+  with GitHub" page.
+- **No database, no shared token.** Each viewer's OAuth access token rides
+  on a signed, HttpOnly session cookie. There's no server-side user store,
+  so the only persistent secret is the cookie-signing key. _(Changing —
+  see the persistence note above; a persistent backend is being added.)_
+- **Per-user, in-memory snapshots.** Every viewer gets their own PR
+  snapshot and background poller, scoped to the repos *their* token can
+  see. State lives only in process memory. _(Changing — snapshots will be
+  persisted in the new backend rather than lost on restart/reap.)_
+- **Idle reaper.** A viewer's poller keeps running only while they're
+  actively fetching the dashboard; once they stop (tab closed/hidden long
+  enough), the reaper cancels the poller and frees their snapshot.
+- **Dev-login shortcut.** An opt-in `DEV_LOGIN` mode mints a session
+  straight from a personal access token, skipping the OAuth round-trip for
+  local development. Off by default and meant to stay off in production.
+
+### Live updates
+
+- **Focus-aware polling.** react-query refetches the dashboard on the
+  server's poll cadence while the tab is focused, and immediately on
+  refocus.
+- **Background throttling.** When the tab is hidden it stops polling
+  entirely — unless you're watching a PR, in which case it drops to a slow
+  background cadence to stay clear of GitHub's rate limit.
+- **Cold-start warm-up.** On the first load (or after a reap) the server
+  polls GitHub synchronously once, so the first paint has data instead of
+  an empty board.
+- **Manual refresh** forces a fresh synchronous poll on demand.
+- **Rate-limit handling.** GitHub rate-limit errors surface in a banner
+  (with the reset time) instead of blanking the board.
+
+### The board
+
+- **Three Trello-style columns**, shown only when non-empty:
+  - **In Progress** — PRs you've opened that aren't ready for human review yet.
+  - **Ready for review** — green-bordered column for PRs that are fully cooked.
+  - **Approved** — PRs your tracked reviewer has approved (ready to merge).
+- **MY PRs / REVIEWING tabs.** "MY PRs" is your authored board; "REVIEWING"
+  lists PRs where you've been requested as a reviewer, with a "requested
+  N ago" hint. Each tab shows a live count and is reflected in the
+  document title.
+- **Inbox-zero empty state** when there's nothing open.
+
+### What each card shows
+
+- **Checks pill** in `passed / pending / failed` form — green/yellow/red.
+  Hover the failed count to see the actual failing check names.
+- **Conflict badge** with a count, hidden when there are zero conflicts.
+- **Two comment chips:** `H` (unresolved human comments, blue) and `B`
+  (unresolved bot comments, black).
+- **Preview link** when a preview deployment is detected, otherwise a
+  muted "preview pending".
+- **Reviewer chip** (see below) and per-card action buttons.
+- **Draft PRs** render flat grey; **ready PRs** get a thick green border;
+  manually-reviewed cards are dimmed.
+
+### Reviewer tracking
+
+- **Track a reviewer by GitHub login** (configurable per-browser in
+  Settings, with a deploy-wide default). Their approval promotes a PR into
+  the **Approved** column.
+- **Per-card reviewer chip with three states:** approved (green
+  double-check), review-requested (blue single-check), or a **Request
+  review** button that adds them to the PR's reviewers in one click
+  (optimistically updated).
+
+### Per-card actions
+
+- **Merge** (on approved PRs) via a confirmation dialog, using the
+  configured merge method (`merge` / `squash` / `rebase`).
+- **Ready for review** flips a draft PR out of draft.
+- **Request review** from your tracked reviewer.
+
+### Stacked PRs
+
+- **Automatic stack detection.** PRs whose base branch is another
+  dashboard PR's head are linked into a stack (a forest, structurally — no
+  hardcoded `main`/`master`), with cycle detection.
+- **Two rendering modes.** A stack whose members all land in the same
+  column collapses into a single indented group; a stack split across
+  columns shows an inline tree on each card with a per-node column badge.
+
+### Cursor Cloud Agent QA
+
+- **Launch a QA agent** for a PR straight from its card (editable prompt),
+  running in the repo's Cursor-hosted cloud environment.
+- **Link an existing agent** by pasting a `cursor.com/agents/` link.
+- **Live run badge** — running / done / errored / cancelled — polled
+  through the server so the shared `CURSOR_API_KEY` never reaches the
+  browser, with a link to the run.
+- **Walkthrough video.** When the run produced a recorded walkthrough
+  artifact, a "video" button opens it via a short-lived presigned URL.
+
+### Linear integration
+
+- **Per-card Linear link.** When a PR title/body references a ticket (e.g.
+  `ENG-1234`), the card links straight to the Linear issue.
+- **Merge & mark done.** With a Linear API key configured, the merge
+  dialog offers "merge & mark the linked ticket done", moving the issue
+  into its team's completed state (best-effort — a Linear hiccup never
+  fails the merge).
+
+### Watch & notify
+
+- **Watch a PR** to get a browser notification the moment its checks go
+  green *and* its preview is deployed (i.e. it's actually clickable to
+  review). Watching keeps the dashboard polling in the background so the
+  ping fires even on an inactive tab; clicking the notification opens the PR.
+
+### Per-browser preferences
+
+All stored in `localStorage` — no server-side state:
+
+- **Repo picker.** Show/hide repos across both tabs; a first-run picker
+  appears until you choose.
+- **Tracked reviewer** override.
+- **Dark / light theme toggle** that respects your OS preference until you
+  pick explicitly (and applies pre-paint to avoid a flash).
+- **"Reviewed" marker** to manually dim a card you've dealt with.
+- **Watched PRs** and **linked QA agents** (keyed per PR).
+- **Active tab.**
+
 ## Layout
 
-Two trello-like columns:
+Three Trello-like columns (each shown only when it has cards):
 
 - **In Progress** — PRs you've opened that aren't ready for human review yet.
 - **Ready for review** — green-bordered column for PRs that are fully cooked.
+- **Approved** — PRs your tracked reviewer has approved, ready to merge.
 
 A PR is considered ready for human review when **all** of the following hold:
 
@@ -35,15 +174,7 @@ A PR is considered ready for human review when **all** of the following hold:
 - The PR's preview is deployed.
 - There are zero merge conflicts with the target branch.
 
-## What each card shows
-
-- Checks pill in `A/B/C` form: green = finished, yellow = pending/in progress,
-  red = failed.
-- Two comment chips: `H:n` (humans, blue) and `B:n` (bots, black).
-- Preview link if deployed, otherwise muted "preview is pending".
-- Red exclamation block with the conflict count, hidden when zero.
-- Draft PRs are flat grey.
-- Ready PRs get a thick green border.
+(See **Features → What each card shows** above for the full card anatomy.)
 
 ## Repo layout
 
