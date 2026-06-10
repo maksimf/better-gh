@@ -40,3 +40,26 @@ export function readJsonArray(key: string): string[] | null {
 export function writeJsonArray(key: string, value: string[]): void {
   writeString(key, JSON.stringify(value));
 }
+
+export function readJsonRecord(key: string): Record<string, string> | null {
+  const raw = readString(key);
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) out[k] = String(v);
+      return out;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export function writeJsonRecord(
+  key: string,
+  value: Record<string, string>,
+): void {
+  writeString(key, JSON.stringify(value));
+}

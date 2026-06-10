@@ -10,6 +10,7 @@ is hidden). The React SPA reads the snapshot back as JSON.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,6 +33,7 @@ from pydantic import BaseModel, Field
 from . import auth, state
 from .auth import Session, require_session
 from .config import settings
+from .cursor import CursorClient, CursorError
 from .github import GitHubRateLimitError
 from .linear import LinearClient, LinearError
 from .poller import build_user_client, poll_once, start_poller_for
@@ -307,6 +309,70 @@ async def dashboard(
         poll_interval_seconds=settings.POLL_INTERVAL_SECONDS,
     )
     return JSONResponse(content=payload)
+
+
+# Cloud-agent ids look like ``bc-<uuid>`` (v1) or ``bc_<slug>`` (legacy
+# v0). Anchor + cap the charset so the path segment can't be coerced into
+# a different Cursor API path (SSRF guard) before we interpolate it.
+_AGENT_ID_RE = re.compile(r"^bc[-_][A-Za-z0-9-]{1,128}$")
+
+
+@app.get("/api/cloud-agent/{agent_id}")
+async def cloud_agent_status(
+    agent_id: str,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Read a linked cloud agent's run state for a PR card.
+
+    The client stores the agent link locally (per PR) and polls this
+    endpoint for the running/done badge. We proxy through the server so
+    the shared ``CURSOR_API_KEY`` never reaches the browser. Returns
+    ``{configured, state, status, url, pr_url, error}``; transport/lookup
+    failures come back as ``state: "error"`` (HTTP 200) so the card can
+    degrade quietly rather than blow up the dashboard.
+    """
+    if not settings.CURSOR_API_KEY:
+        return JSONResponse(
+            content={
+                "configured": False,
+                "state": "unknown",
+                "status": None,
+                "error": "Cursor isn't configured on the server (CURSOR_API_KEY unset).",
+            }
+        )
+    if not _AGENT_ID_RE.match(agent_id):
+        raise HTTPException(status_code=400, detail="Invalid cloud agent id.")
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    client = CursorClient(
+        settings.CURSOR_API_KEY,
+        http_client=http_client,
+        base_url=settings.CURSOR_API_URL,
+    )
+    try:
+        result = await client.agent_run_state(agent_id)
+    except CursorError as exc:
+        log.info("cloud-agent lookup failed for %s: %s", agent_id, exc)
+        return JSONResponse(
+            content={
+                "configured": True,
+                "state": "error",
+                "status": None,
+                "error": str(exc),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - never let a poll break the card
+        log.exception("unexpected error reading cloud agent %s", agent_id)
+        return JSONResponse(
+            content={
+                "configured": True,
+                "state": "error",
+                "status": None,
+                "error": str(exc),
+            }
+        )
+
+    return JSONResponse(content={"configured": True, "error": None, **result})
 
 
 # ---------------------------------------------------------------------------

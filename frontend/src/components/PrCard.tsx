@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { Pr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { ChecksPill, Conflicts } from "./ChecksPill";
+import { CloudAgentLink } from "./CloudAgentLink";
 import { CommentsPill } from "./CommentsPill";
 import { DraftButton } from "./DraftButton";
 import { MergeButton } from "./MergeButton";
@@ -94,6 +95,7 @@ export function PrCard({
 
         <div className="pr-status-row pr-status-row--actions">
           <WatchToggle pressed={isWatched} onToggle={() => onToggleWatch(key)} />
+          <CloudAgentLink prKey={key} />
           {pr.linear_url && (
             <a
               className="linear-link"

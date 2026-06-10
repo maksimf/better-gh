@@ -144,6 +144,20 @@ class Settings(BaseSettings):
             "but the mark-done action will report that it's unconfigured."
         ),
     )
+    CURSOR_API_KEY: str = Field(
+        default="",
+        description=(
+            "Cursor Cloud Agents API key (Cursor Dashboard -> Integrations / "
+            "API Keys). When set, each PR card can be linked to a cloud agent "
+            "QAing the PR and the server polls that agent's run state "
+            "(running vs done) on the client's behalf. Shared across the "
+            "deploy like LINEAR_API_KEY; the feature is simply off when unset."
+        ),
+    )
+    CURSOR_API_URL: str = Field(
+        default="https://api.cursor.com",
+        description="Base URL for the Cursor Cloud Agents API.",
+    )
     BOT_LOGINS: frozenset[str] = Field(
         default_factory=lambda: frozenset(
             {"cursor", "cursor[bot]", "coderabbitai", "coderabbitai[bot]"}

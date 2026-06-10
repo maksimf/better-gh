@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getJson, postJson } from "./client";
-import type { Dashboard, Me } from "./types";
+import type { CloudAgentStatus, Dashboard, Me } from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 
@@ -43,6 +43,32 @@ export function useDashboard(
     // fire without the tab being focused. Otherwise a backgrounded tab stops
     // hitting the API entirely (the global default).
     refetchIntervalInBackground: watchInBackground,
+  });
+}
+
+// How often to re-poll a cloud agent that's still running. Faster than
+// the GitHub dashboard cadence since QA runs are short-lived; we stop
+// entirely once the run reaches a terminal state.
+const CLOUD_AGENT_POLL_MS = 15 * 1000;
+
+export function useCloudAgentStatus(agentId: string | null) {
+  return useQuery({
+    queryKey: ["cloud-agent", agentId],
+    enabled: agentId !== null,
+    queryFn: () =>
+      getJson<CloudAgentStatus>(
+        `/api/cloud-agent/${encodeURIComponent(agentId as string)}`,
+      ),
+    // Keep polling while the run is in flight (or its state is still
+    // indeterminate); once it's done/errored/unconfigured there's nothing
+    // left to watch, so go quiet.
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "running" || state === "unknown"
+        ? CLOUD_AGENT_POLL_MS
+        : false;
+    },
+    staleTime: 5_000,
   });
 }
 

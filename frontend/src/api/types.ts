@@ -86,3 +86,15 @@ export interface Me {
   login: string;
   avatar_url: string;
 }
+
+export type CloudAgentState = "running" | "done" | "error" | "unknown";
+
+export interface CloudAgentStatus {
+  configured: boolean;
+  state: CloudAgentState;
+  status: string | null;
+  url?: string | null;
+  pr_url?: string | null;
+  name?: string | null;
+  error?: string | null;
+}
