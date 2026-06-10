@@ -3,13 +3,17 @@ import { EyeIcon } from "./icons";
 export function WatchToggle({
   pressed,
   onToggle,
+  disabled = false,
 }: {
   pressed: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }) {
-  const title = pressed
-    ? "Watching -- you'll get a browser notification when checks pass and the preview is ready"
-    : "Watch -- notify me when checks pass and the preview is ready";
+  const title = disabled
+    ? "set ntfy channel in settings"
+    : pressed
+      ? "Watching -- you'll get an ntfy notification when checks pass and the preview is ready"
+      : "Watch -- notify me when checks pass and the preview is ready";
   return (
     <button
       type="button"
@@ -17,6 +21,7 @@ export function WatchToggle({
       title={title}
       aria-label={title}
       aria-pressed={pressed}
+      disabled={disabled}
       onClick={onToggle}
     >
       <span className="watch-toggle-check" aria-hidden="true">

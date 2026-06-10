@@ -27,6 +27,7 @@ export function PrCard({
   onToggleReviewed,
   watchedHas,
   onToggleWatch,
+  watchDisabled,
 }: {
   pr: Pr;
   reviewer: string;
@@ -34,6 +35,7 @@ export function PrCard({
   onToggleReviewed: (key: string) => void;
   watchedHas: (key: string) => boolean;
   onToggleWatch: (key: string) => void;
+  watchDisabled: boolean;
 }) {
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
@@ -95,7 +97,11 @@ export function PrCard({
         </div>
 
         <div className="pr-status-row pr-status-row--actions">
-          <WatchToggle pressed={isWatched} onToggle={() => onToggleWatch(key)} />
+          <WatchToggle
+            pressed={isWatched}
+            onToggle={() => onToggleWatch(key)}
+            disabled={watchDisabled}
+          />
           <NoteButton prKey={key} number={pr.number} />
           <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />
           {pr.linear_url && (

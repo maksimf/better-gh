@@ -1857,6 +1857,15 @@ a.pr-number:hover {
   outline-offset: 2px;
 }
 
+.watch-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.watch-toggle:disabled:hover {
+  background: var(--white);
+}
+
 /* NOTE BUTTON
    Personal per-PR note stored in localStorage. Highlights yellow when a
    note exists so it stays distinct from the blue watch toggle. */

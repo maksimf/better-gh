@@ -59,6 +59,7 @@ export function Board({
   onToggleReviewed,
   watchedHas,
   onToggleWatch,
+  watchDisabled,
 }: {
   prs: Pr[];
   reviewer: string;
@@ -66,6 +67,7 @@ export function Board({
   onToggleReviewed: (key: string) => void;
   watchedHas: (key: string) => boolean;
   onToggleWatch: (key: string) => void;
+  watchDisabled: boolean;
 }) {
   const buckets: Record<ColumnKey, Pr[]> = {
     progress: [],
@@ -102,6 +104,7 @@ export function Board({
         onToggleReviewed={onToggleReviewed}
         watchedHas={watchedHas}
         onToggleWatch={onToggleWatch}
+        watchDisabled={watchDisabled}
       />
     );
   }

@@ -13,13 +13,11 @@ import { Tabs } from "./components/Tabs";
 import { TopBar } from "./components/TopBar";
 import { useActiveTab } from "./hooks/useActiveTab";
 import { useReviewedKeys } from "./hooks/useReviewedKeys";
+import { useNtfyChannel } from "./hooks/useNtfyChannel";
 import { useReviewer } from "./hooks/useReviewer";
 import { useSelectedRepos } from "./hooks/useSelectedRepos";
 import { useWatchedKeys } from "./hooks/useWatchedKeys";
-import {
-  ensureNotificationPermission,
-  useWatchNotifications,
-} from "./hooks/useWatchNotifications";
+import { useWatchNotifications } from "./hooks/useWatchNotifications";
 
 const TAB_LABELS = { mine: "MY PRs", reviews: "REVIEWING" } as const;
 
@@ -28,6 +26,7 @@ export function App() {
   const repoStore = useSelectedRepos();
   const reviewed = useReviewedKeys();
   const watched = useWatchedKeys();
+  const { channel: ntfyChannel, setChannel: setNtfyChannel } = useNtfyChannel();
   const { tab, setTab } = useActiveTab();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -36,12 +35,12 @@ export function App() {
   const dashboard = useDashboard(reviewer, watched.hasAny);
   const data = dashboard.data;
 
-  // Fire a browser notification when a watched PR's checks all turn green.
-  useWatchNotifications(data?.prs, watched.has);
+  // Publish an ntfy.sh notification when a watched PR's checks all turn green.
+  useWatchNotifications(data?.prs, watched.has, ntfyChannel);
 
-  // Request notification permission when the user opts a PR into watching.
+  // Watching is only meaningful once an ntfy channel is configured.
+  const watchDisabled = ntfyChannel.trim() === "";
   const onToggleWatch = (key: string) => {
-    if (!watched.has(key)) void ensureNotificationPermission();
     watched.toggle(key);
   };
 
@@ -105,6 +104,7 @@ export function App() {
                 onToggleReviewed={reviewed.toggle}
                 watchedHas={watched.has}
                 onToggleWatch={onToggleWatch}
+                watchDisabled={watchDisabled}
               />
             ) : (
               <ReviewsList
@@ -127,6 +127,8 @@ export function App() {
         onToggleRepo={repoStore.toggle}
         reviewerInitial={reviewer ?? data?.reviewer ?? ""}
         onReviewerChange={setReviewer}
+        ntfyChannel={ntfyChannel}
+        onNtfyChannelChange={setNtfyChannel}
       />
     </>
   );

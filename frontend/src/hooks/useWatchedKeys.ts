@@ -6,8 +6,8 @@ const KEY = "better-gh.watched";
 
 /**
  * "Watch" markers, keyed by "owner/repo#number". When a PR is watched we
- * fire a browser notification the moment all of its checks turn green (see
- * useWatchNotifications). Pure client-side -- the server never sees it.
+ * publish an ntfy.sh notification the moment all of its checks turn green
+ * (see useWatchNotifications). Pure client-side -- the server never sees it.
  */
 export function useWatchedKeys() {
   const [keys, setKeys] = useState<string[]>(() => readJsonArray(KEY) ?? []);

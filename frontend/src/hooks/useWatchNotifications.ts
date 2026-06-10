@@ -16,57 +16,37 @@ export function isReadyToNotify(pr: Pr): boolean {
   return checksGreen && pr.preview_url != null;
 }
 
-export function notificationsSupported(): boolean {
-  return typeof window !== "undefined" && "Notification" in window;
-}
-
 /**
- * Ask for notification permission. Safe to call repeatedly -- the browser
- * only prompts once and remembers the answer. Returns whether we're allowed
- * to show notifications afterwards.
+ * Publish a "ready" notification to the configured ntfy.sh channel. ntfy
+ * delivers it to every device subscribed to that topic, so alerts work even
+ * when this tab is closed. Header values must be ISO-8859-1, so the title
+ * stays plain text and the checkmark is supplied via the Tags emoji shortcode.
  */
-export async function ensureNotificationPermission(): Promise<boolean> {
-  if (!notificationsSupported()) return false;
-  if (Notification.permission === "granted") return true;
-  if (Notification.permission === "denied") return false;
+async function notifyReady(pr: Pr, channel: string): Promise<void> {
   try {
-    const result = await Notification.requestPermission();
-    return result === "granted";
+    await fetch(`https://ntfy.sh/${encodeURIComponent(channel)}`, {
+      method: "POST",
+      body: `${pr.repo}\n${pr.title}\nChecks passed \u00B7 preview ready`,
+      headers: {
+        Title: `Ready - #${pr.number}`,
+        Click: pr.url,
+        Tags: "white_check_mark",
+      },
+    });
   } catch {
-    return false;
-  }
-}
-
-function notifyReady(pr: Pr): void {
-  if (!notificationsSupported() || Notification.permission !== "granted") return;
-  try {
-    // `tag` collapses repeat notifications for the same PR; `renotify`
-    // makes the OS re-alert even if a tagged one is still on screen.
-    const notification = new Notification(
-      `✅ Ready · #${pr.number}`,
-      {
-        body: `${pr.repo}\n${pr.title}\nChecks passed · preview ready`,
-        tag: `better-gh:ready:${watchKey(pr.repo, pr.number)}`,
-        renotify: true,
-      } as NotificationOptions,
-    );
-    notification.onclick = () => {
-      window.focus();
-      window.open(pr.url, "_blank", "noopener");
-      notification.close();
-    };
-  } catch {
-    /* notification construction can throw on some platforms -- ignore */
+    /* network errors -- ignore, we'll try again on the next ready edge */
   }
 }
 
 /**
- * Watches the supplied PRs and fires a browser notification whenever a
+ * Watches the supplied PRs and publishes an ntfy.sh notification whenever a
  * *watched* PR transitions into the "ready" state (see isReadyToNotify:
- * checks green AND preview available). Notifications surface even when the
- * tab is inactive, which is the whole point -- but for that to work the
- * dashboard query must keep polling in the background while anything is
- * watched (see useDashboard's refetchIntervalInBackground).
+ * checks green AND preview available). Because ntfy fans out to subscribed
+ * devices, alerts surface even when the tab is inactive -- but for that to
+ * work the dashboard query must keep polling in the background while anything
+ * is watched (see useDashboard's refetchIntervalInBackground).
+ *
+ * Notifications are skipped entirely when no `channel` is configured.
  *
  * We seed each watched PR's last-known state on first sight so that checking
  * "Watch" on an already-ready PR does *not* immediately notify; we only
@@ -75,6 +55,7 @@ function notifyReady(pr: Pr): void {
 export function useWatchNotifications(
   prs: Pr[] | undefined,
   isWatched: (key: string) => boolean,
+  channel: string,
 ): void {
   // key -> was the PR "ready" the last time we saw it
   const lastReady = useRef<Map<string, boolean>>(new Map());
@@ -97,7 +78,7 @@ export function useWatchNotifications(
         continue;
       }
 
-      if (ready && !prev) notifyReady(pr);
+      if (ready && !prev && channel) void notifyReady(pr, channel);
       lastReady.current.set(key, ready);
     }
 
@@ -106,5 +87,5 @@ export function useWatchNotifications(
     for (const key of lastReady.current.keys()) {
       if (!seen.has(key)) lastReady.current.delete(key);
     }
-  }, [prs, isWatched]);
+  }, [prs, isWatched, channel]);
 }
