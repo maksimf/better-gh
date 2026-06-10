@@ -10,7 +10,7 @@ export function PreviewLink({ url }: { url: string | null }) {
       target="_blank"
       rel="noopener"
     >
-      preview &uarr;
+      preview
     </a>
   );
 }
