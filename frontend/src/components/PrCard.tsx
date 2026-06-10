@@ -118,34 +118,26 @@ export function PrCard({
         </div>
       </header>
 
-      <div className="pr-meta">
+      {showInlineStack && <PrStack nodes={pr.stack_nodes} />}
+
+      <div className="pr-bar">
         <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
           #{pr.number}
         </a>
         <span className="pr-author">@{pr.author}</span>
         {pr.is_draft && <span className="pr-tag pr-tag--draft">Draft</span>}
-      </div>
-
-      {showInlineStack && <PrStack nodes={pr.stack_nodes} />}
-
-      <div className="pr-status">
-        <div className="pr-status-row">
-          <ChecksPill checks={pr.checks} />
-          <Conflicts conflicts={pr.conflicts} />
-        </div>
-
-        <div className="pr-status-row">
-          <CommentsPill human={pr.comments_human} bot={pr.comments_bot} />
-          <ReviewerChip
-            variant="chip"
-            reviewer={reviewer}
-            approved={pr.approved}
-            reviewRequested={pr.review_requested}
-            owner={owner}
-            repo={name}
-            number={pr.number}
-          />
-        </div>
+        <ChecksPill checks={pr.checks} />
+        <Conflicts conflicts={pr.conflicts} />
+        <CommentsPill human={pr.comments_human} bot={pr.comments_bot} />
+        <ReviewerChip
+          variant="chip"
+          reviewer={reviewer}
+          approved={pr.approved}
+          reviewRequested={pr.review_requested}
+          owner={owner}
+          repo={name}
+          number={pr.number}
+        />
       </div>
 
       <div className="pr-links">

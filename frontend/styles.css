@@ -676,32 +676,14 @@ a.pr-number:hover {
   color: var(--white);
 }
 
-/* PR card meta line: number + author + draft tag, sitting under the title
-   so the header's right edge is reserved for the toggle cluster. */
-.pr-meta {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* status strip: a stack of real flex rows (checks/conflicts, then
-   comments/review-state). Empty rows collapse. */
-.pr-status {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pr-status-row {
+/* One-line meta + status strip under the title: #number, author, draft
+   tag, checks, conflicts, comments, review chip -- all in a single flex
+   row that wraps only when the column is genuinely too narrow. */
+.pr-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.pr-status-row:empty {
-  display: none;
 }
 
 /* Quiet navigation links (preview / Linear / linked QA badge). Distinct
@@ -1712,57 +1694,6 @@ a.pr-number:hover {
   text-transform: uppercase;
 }
 
-.preview-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.preview-copy {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: var(--white);
-  color: var(--black);
-  border: 2px solid var(--black);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.preview-copy:hover {
-  background: var(--yellow);
-}
-
-.preview-copy:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-
-.preview-copy.is-copied {
-  background: var(--green);
-  color: var(--white);
-}
-
-.preview-copy .icon {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-.preview-copy .icon--check {
-  display: none;
-}
-
-.preview-copy.is-copied .icon--copy {
-  display: none;
-}
-
-.preview-copy.is-copied .icon--check {
-  display: block;
-}
-
 .preview--live {
   color: var(--blue);
   text-decoration: underline;
@@ -2062,7 +1993,7 @@ a.pr-number:hover {
 .cloud-agent-group {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .cloud-agent-link {
@@ -2644,7 +2575,6 @@ a.pr-number:hover {
 .merge-button,
 .card-toggle,
 .pr-overflow-trigger,
-.preview-copy,
 .settings-modal-close,
 .settings-row input[type="checkbox"] {
   touch-action: manipulation;
@@ -2788,7 +2718,6 @@ a.pr-number:hover {
 [data-theme="dark"] .review-request,
 [data-theme="dark"] .card-toggle--note[aria-pressed="true"],
 [data-theme="dark"] .settings-modal-close,
-[data-theme="dark"] .preview-copy:hover,
 [data-theme="dark"] .error-banner {
   color: #111111;
 }
@@ -2822,7 +2751,6 @@ a.pr-number:hover {
 [data-theme="dark"] .ready-button:hover:not(:disabled),
 [data-theme="dark"] .card-toggle--reviewed[aria-pressed="true"],
 [data-theme="dark"] .card-toggle--watch[aria-pressed="true"],
-[data-theme="dark"] .preview-copy.is-copied,
 [data-theme="dark"] .conflicts,
 [data-theme="dark"] .settings-modal-close:hover {
   color: #fafafa;
@@ -3044,21 +2972,13 @@ a.pr-number:hover {
     font-size: 16px;
   }
 
-  /* Status rows already stack via the base flex column; give each a
-     comfortable touch height. */
-  .pr-status-row {
-    align-items: stretch;
-    min-height: 40px;
-  }
-
-  /* Uniform 40px height for every pill / quiet link in the status and
+  /* Uniform 40px height for every pill / quiet link in the bar and
      links rows. */
   .checks,
   .comments,
   .chip,
   .conflicts,
   .preview,
-  .preview-copy,
   .linear-link,
   .cloud-agent-link,
   .cloud-agent-video {
@@ -3083,18 +3003,6 @@ a.pr-number:hover {
     padding-top: 0;
     padding-bottom: 0;
   }
-  .preview-copy {
-    width: 40px;
-  }
-  .preview-copy .icon {
-    width: 18px;
-    height: 18px;
-  }
-  .preview-group {
-    height: 40px;
-    align-items: center;
-  }
-
   /* Action footer: overflow on the left, the primary CTA fills the rest
      as a full-width 44px tap target. */
   .pr-primary {
