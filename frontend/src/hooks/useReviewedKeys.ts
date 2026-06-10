@@ -1,16 +1,18 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { readJsonArray, writeJsonArray } from "./storage";
+import { setRaw, useRawPref } from "./prefsStore";
+import { parseJsonArray } from "./storage";
 
 const KEY = "better-gh.manually-reviewed";
 
 /**
  * Manually-reviewed marker, keyed by "owner/repo#number" so the same PR
- * stays marked across the MY PRs and REVIEWING tabs. Pure client-side --
- * the server never sees it.
+ * stays marked across the MY PRs and REVIEWING tabs. Synced across the
+ * viewer's devices via the preference store.
  */
 export function useReviewedKeys() {
-  const [keys, setKeys] = useState<string[]>(() => readJsonArray(KEY) ?? []);
+  const raw = useRawPref(KEY);
+  const keys = useMemo(() => parseJsonArray(raw) ?? [], [raw]);
   const set = useMemo(() => new Set(keys), [keys]);
 
   const has = useCallback((key: string) => set.has(key), [set]);
@@ -20,9 +22,7 @@ export function useReviewedKeys() {
       const next = new Set(set);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      const arr = Array.from(next);
-      writeJsonArray(KEY, arr);
-      setKeys(arr);
+      setRaw(KEY, JSON.stringify(Array.from(next)));
     },
     [set],
   );

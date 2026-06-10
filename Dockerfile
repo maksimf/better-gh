@@ -48,6 +48,12 @@ RUN pip install --no-cache-dir /app/backend
 ENV PORT=8080
 EXPOSE 8080
 
+# Per-user preferences are persisted to a SQLite file under PREFS_DB_PATH
+# (default backend/data/better-gh.sqlite3, relative to the WORKDIR below).
+# Declare it as a volume so the synced settings survive container
+# restarts; mount a host path or named volume here in production.
+VOLUME ["/app/backend/data"]
+
 # WORKDIR matters: backend/app/main.py walks `__file__.parent.parent.parent`
 # to find the frontend directory, so the container layout must mirror
 # the repo layout (repo_root/{backend,frontend}).

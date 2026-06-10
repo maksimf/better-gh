@@ -26,8 +26,12 @@ export function removeKey(key: string): void {
   }
 }
 
-export function readJsonArray(key: string): string[] | null {
-  const raw = readString(key);
+// Pure parsers that operate on a raw string (e.g. one handed back by the
+// preference store) rather than reading localStorage themselves. null in
+// -> null out ("never set"); an unparseable value collapses to the empty
+// shape so a corrupt cache degrades gracefully.
+
+export function parseJsonArray(raw: string | null): string[] | null {
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -37,12 +41,7 @@ export function readJsonArray(key: string): string[] | null {
   }
 }
 
-export function writeJsonArray(key: string, value: string[]): void {
-  writeString(key, JSON.stringify(value));
-}
-
-export function readJsonRecord(key: string): Record<string, string> | null {
-  const raw = readString(key);
+export function parseJsonRecord(raw: string | null): Record<string, string> | null {
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -55,6 +54,18 @@ export function readJsonRecord(key: string): Record<string, string> | null {
   } catch {
     return {};
   }
+}
+
+export function readJsonArray(key: string): string[] | null {
+  return parseJsonArray(readString(key));
+}
+
+export function writeJsonArray(key: string, value: string[]): void {
+  writeString(key, JSON.stringify(value));
+}
+
+export function readJsonRecord(key: string): Record<string, string> | null {
+  return parseJsonRecord(readString(key));
 }
 
 export function writeJsonRecord(

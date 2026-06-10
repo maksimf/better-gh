@@ -8,10 +8,20 @@ react-query drives the live updates: it polls the dashboard while the
 tab is focused, stops entirely when the tab is hidden, and refetches the
 moment you switch back to it.
 
-Anyone with a GitHub account can sign in via OAuth. No database: each
-viewer's access token rides on a signed HttpOnly cookie, and their PR
-snapshot lives only in process memory for as long as they keep fetching
-(an idle reaper cancels the per-user poller once they stop).
+Anyone with a GitHub account can sign in via OAuth. The runtime stays
+database-free: each viewer's access token rides on a signed HttpOnly
+cookie, and their PR snapshot lives only in process memory for as long
+as they keep fetching (an idle reaper cancels the per-user poller once
+they stop).
+
+The one bit of durable state is per-user **preferences** — the settings
+that used to live only in the browser's `localStorage` (watched/reviewed
+PRs, selected repos, tracked reviewer, theme, cloud-agent links, ntfy
+channel, per-PR notes). These
+sync across a viewer's devices through a tiny SQLite store keyed by
+GitHub login (`PREFS_DB_PATH`); the browser keeps a `localStorage` copy
+as an instant-render cache, and react-query folds the server's copy back
+in on load and on refocus (last-write-wins).
 
 > **Note — persistence is changing.** We're moving to a persistent
 > data backend, so state will be stored rather than kept only in process
@@ -203,6 +213,7 @@ better-gh/
         ├── github.py    # async GraphQL client
         ├── preview.py   # deployment-comment parser
         ├── state.py     # per-user snapshot store + poller lifecycle
+        ├── prefs.py     # SQLite per-user preference store (cross-device sync)
         ├── poller.py    # per-user background loop
         └── serialize.py # snapshot -> JSON for the SPA
 ```
@@ -284,6 +295,7 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 | `POLL_INTERVAL_SECONDS` | `300` | How often each per-user poller polls (also the react-query refetch cadence while the tab is focused). |
 | `IDLE_TTL_SECONDS` | `900` | How long a viewer's poller keeps running after their last `/api/dashboard` fetch before the idle reaper cancels it. |
 | `MAX_PRS` | `50` | Top-N most recently updated open PRs. |
+| `PREFS_DB_PATH` | `data/better-gh.sqlite3` | SQLite file holding synced per-user preferences (relative to the backend working dir). Mount a volume here in prod so settings survive restarts; `:memory:` for an ephemeral store. |
 | `BOT_LOGINS` | `cursor,cursor[bot],coderabbitai,coderabbitai[bot]` | Comma-separated. |
 | `PREVIEW_COMMENT_PREFIX` | `Preview Environment URL:` | Marker for the preview comment. |
 | `REVIEWER_LOGIN` | `nicoraga1` | Reviewer tracked on each card. Empty disables the chip + per-card request-review button. |
@@ -304,6 +316,10 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 - `GET /api/dashboard?reviewer=<login>` — the full JSON snapshot the SPA
   renders (PRs, reviews, repo counts, last-updated, error); warms the
   per-user poller and touches the keep-alive on every call.
+- `GET /api/prefs` — the signed-in viewer's synced preferences as a flat
+  `{ key: value }` map (only keys they've set).
+- `PUT /api/prefs` — upsert one or more preferences (`{ key: value }`;
+  a `null` value deletes the key). Last-write-wins.
 - `POST /refresh` — force a synchronous poll for the signed-in viewer.
 - `POST /pulls/{owner}/{repo}/{number}/merge` · `…/ready-for-review` ·
   `…/request-review` — per-card mutations (then refresh the snapshot).

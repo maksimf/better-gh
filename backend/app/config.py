@@ -103,6 +103,16 @@ class Settings(BaseSettings):
             "to ~3x the poll interval so a brief tab switch doesn't churn it."
         ),
     )
+    PREFS_DB_PATH: str = Field(
+        default="data/better-gh.sqlite3",
+        description=(
+            "Filesystem path to the SQLite database that stores per-user "
+            "preferences (the synced localStorage equivalents). Resolved "
+            "relative to the backend working directory; point it at a "
+            "mounted volume so preferences survive container restarts. Use "
+            "':memory:' for an ephemeral store (tests)."
+        ),
+    )
     MAX_PRS: int = Field(default=50, ge=1, le=100)
     PREVIEW_COMMENT_PREFIX: str = Field(default="Preview Environment URL:")
     REVIEWER_LOGIN: str = Field(

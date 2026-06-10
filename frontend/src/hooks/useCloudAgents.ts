@@ -1,39 +1,38 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { readJsonRecord, writeJsonRecord } from "./storage";
+import { setRaw, useRawPref } from "./prefsStore";
+import { parseJsonRecord } from "./storage";
 
 const KEY = "better-gh.cloud-agents";
 
 /**
  * Per-PR links to a Cursor cloud agent QAing the PR, keyed by
- * "owner/repo#number" -> agent id (e.g. "bc-95ed48f0-..."). Pure
- * client-side, like the watched/reviewed markers -- the server only ever
- * sees the agent id when the card polls /api/cloud-agent/{id} for state.
+ * "owner/repo#number" -> agent id (e.g. "bc-95ed48f0-..."). Synced across
+ * the viewer's devices via the preference store; the server also sees the
+ * agent id when the card polls /api/cloud-agent/{id} for state.
  */
 export function useCloudAgents() {
-  const [map, setMap] = useState<Record<string, string>>(
-    () => readJsonRecord(KEY) ?? {},
-  );
+  const raw = useRawPref(KEY);
+  const map = useMemo(() => parseJsonRecord(raw) ?? {}, [raw]);
 
   const get = useCallback((key: string): string | null => map[key] ?? null, [map]);
 
-  const set = useCallback((key: string, agentId: string) => {
-    setMap((prev) => {
-      const next = { ...prev, [key]: agentId };
-      writeJsonRecord(KEY, next);
-      return next;
-    });
-  }, []);
+  const set = useCallback(
+    (key: string, agentId: string) => {
+      setRaw(KEY, JSON.stringify({ ...map, [key]: agentId }));
+    },
+    [map],
+  );
 
-  const remove = useCallback((key: string) => {
-    setMap((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
+  const remove = useCallback(
+    (key: string) => {
+      if (!(key in map)) return;
+      const next = { ...map };
       delete next[key];
-      writeJsonRecord(KEY, next);
-      return next;
-    });
-  }, []);
+      setRaw(KEY, JSON.stringify(next));
+    },
+    [map],
+  );
 
   return { get, set, remove };
 }

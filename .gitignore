@@ -17,3 +17,8 @@ venv/
 .ruff_cache/
 dist/
 *.egg-info/
+
+# SQLite preference store (runtime data; mount a volume in prod)
+*.sqlite3
+*.sqlite3-journal
+backend/data/

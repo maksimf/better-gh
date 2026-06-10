@@ -14,7 +14,7 @@ import re
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 import httpx
 from fastapi import (
@@ -30,7 +30,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import auth, state
+from . import auth, prefs, state
 from .auth import Session, require_session
 from .config import settings
 from .cursor import CursorClient, CursorError
@@ -73,6 +73,7 @@ def _index_file() -> Path:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     http_client = httpx.AsyncClient(timeout=30.0)
     app.state.http_client = http_client
+    await prefs.connect(settings.PREFS_DB_PATH)
     log.info(
         "ready (poll_interval=%ss, idle_ttl=%ss, max_prs=%s); per-user pollers "
         "spin up as viewers fetch /api/dashboard",
@@ -88,6 +89,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             yield
     finally:
         await state.shutdown()
+        await prefs.close()
         await http_client.aclose()
 
 
@@ -256,6 +258,42 @@ async def me(session: Session = Depends(require_session)) -> dict[str, str]:
         "login": session.login,
         "avatar_url": f"https://github.com/{session.login}.png?size=80",
     }
+
+
+# ---------------------------------------------------------------------------
+# Per-user preferences (synced localStorage equivalents)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/prefs")
+async def get_prefs(
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Return the signed-in viewer's synced preferences as a flat dict.
+
+    Shape is ``{ "<localStorage key>": <decoded JSON value>, ... }`` --
+    only keys the viewer has actually set are present, so the client
+    falls back to its own defaults for anything missing.
+    """
+    values = await prefs.get_all(session.login)
+    return JSONResponse(content=values)
+
+
+@app.put("/api/prefs")
+async def put_prefs(
+    body: dict[str, Any],
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Upsert one or more of the viewer's preferences (last-write-wins).
+
+    Body is ``{ "<key>": <value>, ... }``. Unknown keys or oversized
+    values reject the whole batch with 400; nothing is partially written.
+    """
+    try:
+        stored = await prefs.set_many(session.login, body)
+    except prefs.PrefError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return JSONResponse(content=stored)
 
 
 # ---------------------------------------------------------------------------

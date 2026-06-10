@@ -1,17 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { readJsonRecord, writeJsonRecord } from "./storage";
+import { setRaw, useRawPref } from "./prefsStore";
+import { parseJsonRecord } from "./storage";
 
 const KEY = "better-gh.pr-notes";
 
 /**
  * Per-PR personal notes, keyed by "owner/repo#number" -> note text.
- * Client-side only, like watched/reviewed markers and cloud-agent links.
+ * Synced across the viewer's devices via the preference store.
  */
 export function usePrNotes() {
-  const [map, setMap] = useState<Record<string, string>>(
-    () => readJsonRecord(KEY) ?? {},
-  );
+  const raw = useRawPref(KEY);
+  const map = useMemo(() => parseJsonRecord(raw) ?? {}, [raw]);
 
   const get = useCallback((key: string): string | null => map[key] ?? null, [map]);
 
@@ -20,31 +20,30 @@ export function usePrNotes() {
     [map],
   );
 
-  const set = useCallback((key: string, note: string) => {
-    setMap((prev) => {
+  const set = useCallback(
+    (key: string, note: string) => {
       const trimmed = note.trim();
       if (!trimmed) {
-        if (!(key in prev)) return prev;
-        const next = { ...prev };
+        if (!(key in map)) return;
+        const next = { ...map };
         delete next[key];
-        writeJsonRecord(KEY, next);
-        return next;
+        setRaw(KEY, JSON.stringify(next));
+        return;
       }
-      const next = { ...prev, [key]: trimmed };
-      writeJsonRecord(KEY, next);
-      return next;
-    });
-  }, []);
+      setRaw(KEY, JSON.stringify({ ...map, [key]: trimmed }));
+    },
+    [map],
+  );
 
-  const remove = useCallback((key: string) => {
-    setMap((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
+  const remove = useCallback(
+    (key: string) => {
+      if (!(key in map)) return;
+      const next = { ...map };
       delete next[key];
-      writeJsonRecord(KEY, next);
-      return next;
-    });
-  }, []);
+      setRaw(KEY, JSON.stringify(next));
+    },
+    [map],
+  );
 
   return { get, has, set, remove };
 }

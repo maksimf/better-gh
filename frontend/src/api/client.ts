@@ -48,3 +48,18 @@ export async function postJson<T = unknown>(
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : null;
 }
+
+export async function putJson<T = unknown>(
+  path: string,
+  body: unknown,
+): Promise<T | null> {
+  const res = await request(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new HttpError(res.status, await res.text());
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? (JSON.parse(text) as T) : null;
+}

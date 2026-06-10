@@ -1,11 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import { readString, removeKey, writeString } from "./storage";
+import { removeRaw, setRaw, useRawPref } from "./prefsStore";
 
 const KEY = "better-gh.reviewer-login";
 
 /**
- * The viewer's tracked reviewer login, persisted in localStorage.
+ * The viewer's tracked reviewer login, synced across their devices.
  *
  *   null  -> unconfigured: the server falls back to REVIEWER_LOGIN.
  *   ""    -> explicitly "no reviewer": hide the chip entirely.
@@ -18,19 +18,14 @@ export function useReviewer(): {
   reviewer: string | null;
   setReviewer: (value: string | null) => void;
 } {
-  const [reviewer, setReviewerState] = useState<string | null>(() =>
-    readString(KEY),
-  );
+  const reviewer = useRawPref(KEY);
 
   const setReviewer = useCallback((value: string | null) => {
     if (value === null) {
-      removeKey(KEY);
-      setReviewerState(null);
+      removeRaw(KEY);
       return;
     }
-    const trimmed = value.trim();
-    writeString(KEY, trimmed);
-    setReviewerState(trimmed);
+    setRaw(KEY, value.trim());
   }, []);
 
   return { reviewer, setReviewer };

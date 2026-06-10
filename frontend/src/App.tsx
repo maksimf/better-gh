@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useDashboard } from "./api/queries";
+import { useDashboard, usePrefs } from "./api/queries";
 import { Board } from "./components/Board";
 import { Loader } from "./components/Loader";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -11,6 +11,7 @@ import { ReviewsList } from "./components/ReviewsList";
 import { SettingsModal } from "./components/SettingsModal";
 import { Tabs } from "./components/Tabs";
 import { TopBar } from "./components/TopBar";
+import { hydrate as hydratePrefs } from "./hooks/prefsStore";
 import { useActiveTab } from "./hooks/useActiveTab";
 import { useReviewedKeys } from "./hooks/useReviewedKeys";
 import { useNtfyChannel } from "./hooks/useNtfyChannel";
@@ -34,6 +35,14 @@ export function App() {
   // the "checks went green" notification can fire on an inactive tab.
   const dashboard = useDashboard(reviewer, watched.hasAny);
   const data = dashboard.data;
+
+  // Fold the server's synced preferences into the local store whenever they
+  // (re)load -- this is how another device's changes show up here.
+  const prefs = usePrefs();
+  const prefsData = prefs.data;
+  useEffect(() => {
+    if (prefsData) hydratePrefs(prefsData);
+  }, [prefsData]);
 
   // Publish an ntfy.sh notification when a watched PR's checks all turn green.
   useWatchNotifications(data?.prs, watched.has, ntfyChannel);

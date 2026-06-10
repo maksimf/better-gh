@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
-import { readJsonArray, removeKey, writeJsonArray } from "./storage";
+import { setRaw, useRawPref } from "./prefsStore";
+import { parseJsonArray, readJsonArray, removeKey } from "./storage";
 
 const KEY = "better-gh.selected-repos";
 const LEGACY_KEY = "better-gh.ignored-repos";
@@ -8,16 +9,17 @@ const LEGACY_KEY = "better-gh.ignored-repos";
 /**
  * The set of "owner/repo" strings the viewer wants this board to track.
  *
- * Distinguishes "never set up" (key absent -> selected === null) from
- * "set up with an empty selection" (key present but []). A one-shot soft
- * migration consumes any legacy ignored-repos list so upgrading users
- * keep the same effective visibility instead of suddenly seeing the
- * "PICK YOUR REPOS" empty state.
+ * The selection is synced across the viewer's devices via the preference
+ * store. Distinguishes "never set up" (key absent -> selected === null)
+ * from "set up with an empty selection" (key present but []). A one-shot
+ * soft migration consumes any legacy ignored-repos list so upgrading
+ * users keep the same effective visibility instead of suddenly seeing the
+ * "PICK YOUR REPOS" empty state. The legacy key stays device-local (not
+ * synced) since it's consumed once and discarded.
  */
 export function useSelectedRepos() {
-  const [selected, setSelected] = useState<string[] | null>(() =>
-    readJsonArray(KEY),
-  );
+  const rawSelected = useRawPref(KEY);
+  const selected = useMemo(() => parseJsonArray(rawSelected), [rawSelected]);
   // Read the legacy ignore-list once; it's only consulted until migration.
   const [legacy, setLegacy] = useState<string[] | null>(() =>
     readJsonArray(LEGACY_KEY),
@@ -28,8 +30,7 @@ export function useSelectedRepos() {
   const isInitialized = selected !== null;
 
   const persist = useCallback((next: string[]) => {
-    writeJsonArray(KEY, next);
-    setSelected(next);
+    setRaw(KEY, JSON.stringify(next));
   }, []);
 
   const toggle = useCallback(
@@ -80,12 +81,11 @@ export function useSelectedRepos() {
     (repos: string[]) => {
       if (isInitialized || legacy === null) return;
       const keep = repos.filter((r) => !legacySet.has(r));
-      writeJsonArray(KEY, keep);
+      persist(keep);
       removeKey(LEGACY_KEY);
-      setSelected(keep);
       setLegacy(null);
     },
-    [isInitialized, legacy, legacySet],
+    [isInitialized, legacy, legacySet, persist],
   );
 
   return {

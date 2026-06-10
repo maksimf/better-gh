@@ -4,10 +4,37 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { getJson, postJson } from "./client";
+import { getJson, postJson, putJson } from "./client";
 import type { CloudAgentStatus, Dashboard, Me } from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
+export const PREFS_KEY = ["prefs"] as const;
+
+/** The viewer's synced preferences: a flat ``{ key: value }`` map. */
+export type Prefs = Record<string, unknown>;
+
+export function getPrefs(): Promise<Prefs> {
+  return getJson<Prefs>("/api/prefs");
+}
+
+export function putPrefs(body: Record<string, unknown>): Promise<Prefs | null> {
+  return putJson<Prefs>("/api/prefs", body);
+}
+
+/**
+ * Pull the viewer's server-side preferences. Rides the global
+ * refetchOnWindowFocus default so another device's changes land when the
+ * user returns to the tab; refetched on the same cadence as the dashboard
+ * so cross-device sync settles within one poll cycle.
+ */
+export function usePrefs() {
+  return useQuery({
+    queryKey: PREFS_KEY,
+    queryFn: getPrefs,
+    staleTime: 30_000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
 
 // While the tab is hidden we only poll to drive Watch notifications, so we
 // deliberately throttle to a slow cadence to stay well clear of GitHub's

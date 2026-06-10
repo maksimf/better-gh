@@ -1,16 +1,19 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { readJsonArray, writeJsonArray } from "./storage";
+import { setRaw, useRawPref } from "./prefsStore";
+import { parseJsonArray } from "./storage";
 
 const KEY = "better-gh.watched";
 
 /**
  * "Watch" markers, keyed by "owner/repo#number". When a PR is watched we
  * publish an ntfy.sh notification the moment all of its checks turn green
- * (see useWatchNotifications). Pure client-side -- the server never sees it.
+ * (see useWatchNotifications). Synced across the viewer's devices via the
+ * preference store.
  */
 export function useWatchedKeys() {
-  const [keys, setKeys] = useState<string[]>(() => readJsonArray(KEY) ?? []);
+  const raw = useRawPref(KEY);
+  const keys = useMemo(() => parseJsonArray(raw) ?? [], [raw]);
   const set = useMemo(() => new Set(keys), [keys]);
 
   const has = useCallback((key: string) => set.has(key), [set]);
@@ -20,9 +23,7 @@ export function useWatchedKeys() {
       const next = new Set(set);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      const arr = Array.from(next);
-      writeJsonArray(KEY, arr);
-      setKeys(arr);
+      setRaw(KEY, JSON.stringify(Array.from(next)));
     },
     [set],
   );
