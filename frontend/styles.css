@@ -615,9 +615,8 @@ button {
 
 .pr-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .pr-number {
@@ -677,74 +676,263 @@ a.pr-number:hover {
   color: var(--white);
 }
 
-/* The "Draft" pill is a button: clicking it flips the PR to
-   "Ready for review". Visually matches .pr-tag--draft at rest so the
-   tag's familiar shape is preserved; hover paints it green to telegraph
-   the upcoming state change. */
-.draft-button {
-  display: inline-block;
-  font-family: inherit;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  padding: 2px 6px;
+/* PR card meta line: number + author + draft tag, sitting under the title
+   so the header's right edge is reserved for the toggle cluster. */
+.pr-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* status strip: a stack of real flex rows (checks/conflicts, then
+   comments/review-state). Empty rows collapse. */
+.pr-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pr-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pr-status-row:empty {
+  display: none;
+}
+
+/* Quiet navigation links (preview / Linear / linked QA badge). Distinct
+   from the bordered action buttons: these only ever *go* somewhere. */
+.pr-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.pr-links:empty {
+  display: none;
+}
+
+/* Action footer: overflow "⋯" on the left, the single primary CTA pushed
+   to the right edge. */
+.pr-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.pr-primary {
+  margin-left: auto;
+  display: inline-flex;
+}
+
+/* ---------- Icon toggle cluster (Reviewed / Watch / Note) ----------
+   Three square icon buttons in the header's top-right. Replaces the old
+   text pills (.reviewed-toggle / .watch-toggle / .note-button). Pressed
+   state tints each a distinct colour so the active marker reads at a
+   glance; the shared base keeps them visually a set. */
+.pr-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.card-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 0;
   border: 2px solid var(--black);
-  background: var(--black);
-  color: var(--white);
+  background: var(--white);
+  color: var(--black);
   cursor: pointer;
 }
 
-.draft-button:hover:not(:disabled) {
+.card-toggle-icon {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.card-toggle:hover:not(:disabled) {
+  background: var(--grey-2);
+}
+
+.card-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.card-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.card-toggle:disabled:hover {
+  background: var(--white);
+}
+
+.card-toggle--reviewed[aria-pressed="true"] {
   background: var(--green);
   color: var(--white);
   border-color: var(--green);
 }
 
-.draft-button:disabled {
+.card-toggle--watch[aria-pressed="true"] {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+}
+
+.card-toggle--note[aria-pressed="true"] {
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--black);
+}
+
+/* ---------- Overflow menu ("⋯") ---------- */
+.pr-overflow {
+  position: relative;
+  display: inline-flex;
+}
+
+.pr-overflow-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 0;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+}
+
+.pr-overflow-trigger:hover,
+.pr-overflow.is-open .pr-overflow-trigger {
+  background: var(--grey-2);
+}
+
+.pr-overflow-trigger:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.pr-overflow-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  max-width: 80vw;
+  padding: 10px;
+  background: var(--white);
+  border: 3px solid var(--black);
+  box-shadow: 5px 5px 0 var(--black);
+}
+
+/* QA-agent controls stack and go full-width inside the menu. */
+.pr-overflow-menu .cloud-agent-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.pr-overflow-menu .cloud-agent-add,
+.pr-overflow-menu .cloud-agent-start {
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.pr-overflow-menu .cloud-agent-edit {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pr-overflow-menu .cloud-agent-input {
+  width: 100%;
+  max-width: none;
+}
+
+.pr-overflow-menu .cloud-agent-save {
+  padding: 8px 10px;
+}
+
+/* ---------- Primary "Mark ready" button (promotes a draft) ---------- */
+.ready-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid var(--black);
+  padding: 6px 14px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--black);
+  color: var(--white);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ready-button:hover:not(:disabled) {
+  background: var(--green);
+  color: var(--white);
+  border-color: var(--green);
+}
+
+.ready-button:disabled {
   background: var(--grey);
   color: var(--muted);
-  border-color: var(--grey);
   cursor: wait;
 }
 
-.draft-button.is-error {
+.ready-button.is-error {
   background: var(--red);
   color: var(--white);
   border-color: var(--red);
 }
 
-.draft-button:focus-visible {
+.ready-button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
-/* status strip */
-.pr-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
+/* ---------- Hover-reveal (pointer devices only) ----------
+   At rest a card shows just its title, meta, status, active markers and
+   the one primary CTA. The *inactive* toggles and the overflow trigger
+   fade in on hover or keyboard focus, so the resting board reads as calm
+   status tiles without losing any affordance. Touch devices (hover:none)
+   skip this entirely and always show everything. Space is reserved at
+   rest (opacity, not display) so revealing never shifts layout. */
+@media (hover: hover) {
+  .pr-toggles .card-toggle:not([aria-pressed="true"]),
+  .pr-overflow-trigger {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 100ms ease;
+  }
 
-/* On desktop the row wrappers vanish: their children flow into the
-   parent's flex line so visual layout is unchanged. The actions row
-   (preview + merge) and the Linear row are deliberate exceptions:
-   they each break onto their own line so the call-to-action strip
-   and the ticket link never get crammed in next to the status pills.
-   On mobile (below) all rows become real flex containers, giving us
-   stacked rows. */
-.pr-status-row {
-  display: contents;
-}
-
-.pr-status-row--actions,
-.pr-status-row--linear {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  flex-basis: 100%;
+  .pr-card:hover .pr-toggles .card-toggle,
+  .pr-card:focus-within .pr-toggles .card-toggle,
+  .pr-card:hover .pr-overflow-trigger,
+  .pr-card:focus-within .pr-overflow-trigger,
+  .pr-overflow.is-open .pr-overflow-trigger {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .checks {
@@ -1761,143 +1949,10 @@ a.pr-number:hover {
   display: none;
 }
 
-/* ---------- Manually-reviewed toggle ----------
-   Small outlined pill that lives at the end of the PR header (or in the
-   review-row's meta strip). Pure client-side marker -- the server never
-   sees it. Pressed state flips it green so the marker reads at a glance,
-   and the host card/row gets .is-manually-reviewed which dims and
-   strikes through the title to push it visually out of the way without
-   hiding it (unlike the per-repo ignore which removes the card). */
-.reviewed-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: inherit;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  padding: 2px 6px;
-  border: 2px solid var(--black);
-  background: var(--white);
-  color: var(--black);
-  cursor: pointer;
-  margin-left: auto;
-}
-
-.reviewed-toggle-check {
-  display: inline-flex;
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.35;
-}
-
-.reviewed-toggle:hover {
-  background: var(--grey-2);
-}
-
-.reviewed-toggle[aria-pressed="true"] {
-  background: var(--green);
-  color: var(--white);
-  border-color: var(--green);
-}
-
-.reviewed-toggle[aria-pressed="true"] .reviewed-toggle-check {
-  opacity: 1;
-}
-
-.reviewed-toggle:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-
-/* WATCH TOGGLE
-   Opt a PR into a browser notification that fires when all its checks turn
-   green. Lives in the card's actions row. Mirrors the reviewed-toggle pill
-   but flips blue when armed so the two markers stay distinct at a glance. */
-.watch-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: inherit;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  padding: 2px 6px;
-  border: 2px solid var(--black);
-  background: var(--white);
-  color: var(--black);
-  cursor: pointer;
-}
-
-.watch-toggle-check {
-  display: inline-flex;
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.35;
-}
-
-.watch-toggle:hover {
-  background: var(--grey-2);
-}
-
-.watch-toggle[aria-pressed="true"] {
-  background: var(--blue);
-  color: var(--white);
-  border-color: var(--blue);
-}
-
-.watch-toggle[aria-pressed="true"] .watch-toggle-check {
-  opacity: 1;
-}
-
-.watch-toggle:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-
-.watch-toggle:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-.watch-toggle:disabled:hover {
-  background: var(--white);
-}
-
-/* NOTE BUTTON
-   Personal per-PR note stored in localStorage. Highlights yellow when a
-   note exists so it stays distinct from the blue watch toggle. */
-.note-button {
-  display: inline-flex;
-  align-items: center;
-  font-family: inherit;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  padding: 2px 6px;
-  border: 2px solid var(--black);
-  background: var(--white);
-  color: var(--black);
-  cursor: pointer;
-}
-
-.note-button:hover {
-  background: var(--grey-2);
-}
-
-.note-button[aria-pressed="true"] {
-  background: var(--yellow);
-  color: var(--black);
-  border-color: var(--black);
-}
-
-.note-button:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
+/* The per-PR markers (Reviewed / Watch / Note) are now icon buttons in the
+   header's toggle cluster -- see `.card-toggle` in the PR-card section above.
+   `.is-manually-reviewed` (which dims the host card/row) is defined further
+   down. */
 
 /* ---------- Cloud (QA) agent link ---------- */
 .cloud-agent-actions {
@@ -2585,7 +2640,10 @@ a.pr-number:hover {
 /* Reduce double-tap zoom delay on touch buttons. */
 .btn,
 .review-request,
-.draft-button,
+.ready-button,
+.merge-button,
+.card-toggle,
+.pr-overflow-trigger,
 .preview-copy,
 .settings-modal-close,
 .settings-row input[type="checkbox"] {
@@ -2677,23 +2735,23 @@ a.pr-number:hover {
 [data-theme="dark"] .comments-label,
 [data-theme="dark"] .comments-cell--bot,
 [data-theme="dark"] .pr-tag--draft,
-[data-theme="dark"] .draft-button,
+[data-theme="dark"] .ready-button,
 [data-theme="dark"] .settings-count {
   background: #111111;
   color: #fafafa;
 }
 
-[data-theme="dark"] .draft-button {
+[data-theme="dark"] .ready-button {
   border-color: #111111;
 }
 
-[data-theme="dark"] .draft-button:hover:not(:disabled) {
+[data-theme="dark"] .ready-button:hover:not(:disabled) {
   background: var(--green);
   border-color: var(--green);
   color: #fafafa;
 }
 
-[data-theme="dark"] .draft-button.is-error {
+[data-theme="dark"] .ready-button.is-error {
   background: var(--red);
   border-color: var(--red);
   color: #fafafa;
@@ -2728,10 +2786,16 @@ a.pr-number:hover {
 [data-theme="dark"] .btn,
 [data-theme="dark"] .checks-cell--pending,
 [data-theme="dark"] .review-request,
+[data-theme="dark"] .card-toggle--note[aria-pressed="true"],
 [data-theme="dark"] .settings-modal-close,
 [data-theme="dark"] .preview-copy:hover,
 [data-theme="dark"] .error-banner {
   color: #111111;
+}
+
+/* The pressed note toggle keeps a black border on yellow in dark mode. */
+[data-theme="dark"] .card-toggle--note[aria-pressed="true"] {
+  border-color: #111111;
 }
 
 [data-theme="dark"] .error-banner {
@@ -2755,6 +2819,9 @@ a.pr-number:hover {
 [data-theme="dark"] .review-request.is-error,
 [data-theme="dark"] .merge-button,
 [data-theme="dark"] .merge-button.is-error,
+[data-theme="dark"] .ready-button:hover:not(:disabled),
+[data-theme="dark"] .card-toggle--reviewed[aria-pressed="true"],
+[data-theme="dark"] .card-toggle--watch[aria-pressed="true"],
 [data-theme="dark"] .preview-copy.is-copied,
 [data-theme="dark"] .conflicts,
 [data-theme="dark"] .settings-modal-close:hover {
@@ -2959,79 +3026,49 @@ a.pr-number:hover {
     border-width: 3px;
   }
 
-  /* Mobile pr-head: title gets its own row, number + author justify
-     across the second row (draft tag, if present, sits after author). */
+  /* Mobile pr-head: the title flexes while the icon toggle cluster stays
+     pinned top-right. Reveal-on-hover is disabled on touch (hover:none),
+     so every toggle is always shown. */
   .pr-head {
-    row-gap: 4px;
+    gap: 8px;
   }
   .pr-head .pr-title {
-    order: -1;
-    flex: 1 0 100%;
     font-size: 14px;
   }
-  .pr-head .pr-number {
-    margin-right: auto;
+
+  /* Bump every icon button to a 40px touch target. */
+  .card-toggle,
+  .pr-overflow-trigger {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
   }
 
-  /* Stacked rows on mobile: each .pr-status-row becomes its own flex
-     line. Order matches semantic grouping in the template:
-       row 1 = checks + conflicts
-       row 2 = comment chips + R chip/button
-       row 3 = preview link + copy, merge button
-       row 4 = Linear ticket link (only when one is detected). */
-  .pr-status {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
+  /* Status rows already stack via the base flex column; give each a
+     comfortable touch height. */
   .pr-status-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
     align-items: stretch;
     min-height: 40px;
   }
-  .pr-status-row:empty {
-    display: none;
-  }
-  .pr-status-row--actions,
-  .pr-status-row--linear {
-    justify-content: flex-start;
-    /* Reset the desktop "force own line" basis -- on mobile each row
-       is its own stacked line via flex-direction: column already, and a
-       percentage main-axis basis in a column flex with indefinite
-       height is poorly specified across browsers. */
-    flex-basis: auto;
-  }
 
-  /* Uniform 40px height for every interactive element in the strip. */
+  /* Uniform 40px height for every pill / quiet link in the status and
+     links rows. */
   .checks,
   .comments,
   .chip,
   .conflicts,
-  .review-request,
-  .preview-copy,
-  .merge-button,
   .preview,
+  .preview-copy,
   .linear-link,
-  .note-button,
-  .cloud-agent-add,
-  .cloud-agent-start,
   .cloud-agent-link,
-  .cloud-agent-video,
-  .cloud-agent-input,
-  .cloud-agent-save {
+  .cloud-agent-video {
     height: 40px;
     box-sizing: border-box;
   }
-  /* For simple text chips, centre vertically. .checks is itself a flex
-     container of cells; it must KEEP align-items: stretch so the cells
-     fill the full pill height (otherwise their background colours only
-     paint the content's intrinsic height). */
+  /* .checks / .comments stay align-items: stretch so their cells fill the
+     full pill height; simple chips centre their content. */
   .chip,
-  .conflicts,
-  .review-request,
-  .merge-button {
+  .conflicts {
     padding-top: 0;
     padding-bottom: 0;
     align-items: center;
@@ -3057,18 +3094,35 @@ a.pr-number:hover {
     height: 40px;
     align-items: center;
   }
-  .merge-button {
-    padding: 0 16px;
+
+  /* Action footer: overflow on the left, the primary CTA fills the rest
+     as a full-width 44px tap target. */
+  .pr-primary {
+    flex: 1;
+  }
+  .pr-primary .merge-button,
+  .pr-primary .ready-button,
+  .pr-primary .review-request {
+    width: 100%;
+    height: 44px;
+    margin-left: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    justify-content: center;
+    align-items: center;
     font-size: 13px;
-    margin-left: auto;
   }
 
-  /* Push the "Request review" button (only its un-clicked, button form
-     -- not the post-click chip) onto its own wrapped line below the
-     Comments pill. The approved / requested chips stay inline. */
-  .review-request {
-    flex: 1 0 100%;
-    justify-content: center;
+  /* Touch-size the QA controls living inside the overflow menu. */
+  .pr-overflow-menu .cloud-agent-add,
+  .pr-overflow-menu .cloud-agent-start,
+  .pr-overflow-menu .cloud-agent-save,
+  .pr-overflow-menu .cloud-agent-input {
+    min-height: 40px;
+  }
+  /* Keep the popover within the viewport on narrow screens. */
+  .pr-overflow-menu {
+    max-width: min(280px, 86vw);
   }
 
   /* Settings modal: near-fullscreen sheet on phones. */

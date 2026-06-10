@@ -86,7 +86,7 @@ function CloudAgentStarter({
           setOpen(true);
         }}
       >
-        Start QA Agent
+        Cloud agent
       </button>
       <CloudAgentModal
         open={open}

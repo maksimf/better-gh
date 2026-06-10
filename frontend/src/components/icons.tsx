@@ -83,6 +83,38 @@ export function EyeIcon() {
   );
 }
 
+export function NoteIcon() {
+  return (
+    <svg className="check-icon" viewBox="0 0 16 16" focusable="false">
+      <rect
+        x="2.5"
+        y="1.5"
+        width="11"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M5 5 H11 M5 8 H11 M5 11 H9"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="square"
+      />
+    </svg>
+  );
+}
+
+export function EllipsisIcon() {
+  return (
+    <svg className="check-icon" viewBox="0 0 16 16" focusable="false">
+      <rect x="1" y="6.5" width="3" height="3" fill="currentColor" />
+      <rect x="6.5" y="6.5" width="3" height="3" fill="currentColor" />
+      <rect x="12" y="6.5" width="3" height="3" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function BrandMark({ large = false }: { large?: boolean }) {
   return (
     <span

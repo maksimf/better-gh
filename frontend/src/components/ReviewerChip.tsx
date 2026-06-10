@@ -10,6 +10,13 @@ import { CheckIcon } from "./icons";
  *   - neither                            -> "Request review" button
  * Hidden entirely when no reviewer is configured (reviewer === "").
  */
+/**
+ * `variant` splits the chip's two jobs so the card can place them apart:
+ *   - "chip"   -> only the at-a-glance status chip (approved / requested),
+ *                 null when neither (it belongs in the status strip).
+ *   - "action" -> only the "Request review" call-to-action button, null
+ *                 once approved/requested (it belongs in the primary slot).
+ */
 export function ReviewerChip({
   reviewer,
   approved,
@@ -17,6 +24,7 @@ export function ReviewerChip({
   owner,
   repo,
   number,
+  variant = "chip",
 }: {
   reviewer: string;
   approved: boolean;
@@ -24,6 +32,7 @@ export function ReviewerChip({
   owner: string;
   repo: string;
   number: number;
+  variant?: "chip" | "action";
 }) {
   const requestReview = useRequestReview();
   const [optimisticRequested, setOptimisticRequested] = useState(false);
@@ -32,6 +41,7 @@ export function ReviewerChip({
   if (!reviewer) return null;
 
   if (approved) {
+    if (variant === "action") return null;
     return (
       <span className="chip chip--approved" title={`Approved by @${reviewer}`}>
         <span className="chip-key">R</span>
@@ -44,6 +54,7 @@ export function ReviewerChip({
   }
 
   if (reviewRequested || optimisticRequested) {
+    if (variant === "action") return null;
     return (
       <span
         className="chip chip--review"
@@ -56,6 +67,10 @@ export function ReviewerChip({
       </span>
     );
   }
+
+  // Neither approved nor requested: this is the actionable state. Only the
+  // "action" variant surfaces it (as the card's primary call-to-action).
+  if (variant === "chip") return null;
 
   function onClick() {
     setError(false);

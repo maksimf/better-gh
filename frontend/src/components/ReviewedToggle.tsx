@@ -7,19 +7,21 @@ export function ReviewedToggle({
   pressed: boolean;
   onToggle: () => void;
 }) {
+  const title = pressed
+    ? "Reviewed by you -- click to unmark"
+    : "Mark as reviewed by you";
   return (
     <button
       type="button"
-      className="reviewed-toggle"
-      title="Toggle manually-reviewed marker"
-      aria-label="Toggle manually-reviewed marker"
+      className="card-toggle card-toggle--reviewed"
+      title={title}
+      aria-label={title}
       aria-pressed={pressed}
       onClick={onToggle}
     >
-      <span className="reviewed-toggle-check" aria-hidden="true">
+      <span className="card-toggle-icon" aria-hidden="true">
         <CheckIcon />
       </span>
-      <span className="reviewed-toggle-label">Reviewed</span>
     </button>
   );
 }

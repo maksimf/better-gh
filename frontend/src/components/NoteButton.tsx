@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { usePrNotes } from "../hooks/usePrNotes";
 import { NoteModal } from "./NoteModal";
+import { NoteIcon } from "./icons";
 
 /**
  * Per-PR note control. Opens a modal to add or edit a personal note stored
@@ -19,13 +20,15 @@ export function NoteButton({ prKey, number }: { prKey: string; number: number })
     <>
       <button
         type="button"
-        className="note-button"
+        className="card-toggle card-toggle--note"
         title={title}
         aria-label={title}
         aria-pressed={hasNote}
         onClick={() => setOpen(true)}
       >
-        Note
+        <span className="card-toggle-icon" aria-hidden="true">
+          <NoteIcon />
+        </span>
       </button>
       <NoteModal
         open={open}

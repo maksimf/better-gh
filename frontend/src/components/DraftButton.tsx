@@ -31,13 +31,13 @@ export function DraftButton({
   return (
     <button
       type="button"
-      className={`draft-button${error ? " is-error" : ""}`}
+      className={`ready-button${error ? " is-error" : ""}`}
       title={error ?? "Mark this PR as ready for review"}
       aria-label="Mark this PR as ready for review"
       disabled={markReady.isPending}
       onClick={onClick}
     >
-      Draft
+      {markReady.isPending ? "Marking\u2026" : "Mark ready \u2192"}
     </button>
   );
 }

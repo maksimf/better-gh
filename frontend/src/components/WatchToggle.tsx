@@ -17,17 +17,16 @@ export function WatchToggle({
   return (
     <button
       type="button"
-      className="watch-toggle"
+      className="card-toggle card-toggle--watch"
       title={title}
       aria-label={title}
       aria-pressed={pressed}
       disabled={disabled}
       onClick={onToggle}
     >
-      <span className="watch-toggle-check" aria-hidden="true">
+      <span className="card-toggle-icon" aria-hidden="true">
         <EyeIcon />
       </span>
-      <span className="watch-toggle-label">Watch</span>
     </button>
   );
 }
