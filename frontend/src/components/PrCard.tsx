@@ -7,6 +7,7 @@ import { CloudAgentLink } from "./CloudAgentLink";
 import { CommentsPill } from "./CommentsPill";
 import { DraftButton } from "./DraftButton";
 import { MergeButton } from "./MergeButton";
+import { NoteButton } from "./NoteButton";
 import { PrStack } from "./PrStack";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
@@ -95,6 +96,7 @@ export function PrCard({
 
         <div className="pr-status-row pr-status-row--actions">
           <WatchToggle pressed={isWatched} onToggle={() => onToggleWatch(key)} />
+          <NoteButton prKey={key} number={pr.number} />
           <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />
           {pr.linear_url && (
             <a

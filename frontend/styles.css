@@ -1253,6 +1253,160 @@ a.pr-number:hover {
   outline-offset: 2px;
 }
 
+/* PR note modal. Mirrors qa-modal layout. */
+.note-modal {
+  padding: 0;
+  border: 4px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  width: min(560px, 94vw);
+  font-family: inherit;
+}
+
+.note-modal::backdrop {
+  background: var(--backdrop);
+}
+
+.note-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--black);
+  color: var(--white);
+  padding: 12px 16px;
+  border-bottom: 4px solid var(--yellow);
+}
+
+.note-modal-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.note-modal-close {
+  background: var(--yellow);
+  color: var(--black);
+  border: 2px solid var(--black);
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.note-modal-close:hover:not(:disabled) {
+  background: var(--red);
+  color: var(--white);
+}
+
+.note-modal-body {
+  padding: 18px 16px;
+}
+
+.note-modal-summary {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.note-modal-pr {
+  font-weight: 900;
+}
+
+.note-modal-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.note-modal-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  resize: vertical;
+}
+
+.note-modal-textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 0;
+}
+
+.note-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 3px solid var(--grey-2);
+}
+
+.note-modal-footer-spacer {
+  flex: 1;
+}
+
+.note-modal-btn {
+  border: 2px solid var(--black);
+  padding: 8px 14px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--black);
+}
+
+.note-modal-btn:hover:not(:disabled) {
+  background: var(--black);
+  color: var(--yellow);
+}
+
+.note-modal-btn--save {
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--black);
+}
+
+.note-modal-btn--save:hover:not(:disabled) {
+  background: var(--black);
+  color: var(--yellow);
+}
+
+.note-modal-btn--danger {
+  background: var(--white);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.note-modal-btn--danger:hover:not(:disabled) {
+  background: var(--red);
+  color: var(--white);
+  border-color: var(--red);
+}
+
+.note-modal-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 /* QA walkthrough video modal. */
 .video-modal {
   padding: 0;
@@ -1699,6 +1853,39 @@ a.pr-number:hover {
 }
 
 .watch-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* NOTE BUTTON
+   Personal per-PR note stored in localStorage. Highlights yellow when a
+   note exists so it stays distinct from the blue watch toggle. */
+.note-button {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+}
+
+.note-button:hover {
+  background: var(--grey-2);
+}
+
+.note-button[aria-pressed="true"] {
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--black);
+}
+
+.note-button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
@@ -2818,6 +3005,7 @@ a.pr-number:hover {
   .merge-button,
   .preview,
   .linear-link,
+  .note-button,
   .cloud-agent-add,
   .cloud-agent-start,
   .cloud-agent-link,
