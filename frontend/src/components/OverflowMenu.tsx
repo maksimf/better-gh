@@ -4,8 +4,7 @@ import { EllipsisIcon } from "./icons";
 
 /**
  * A small "⋯" disclosure for a PR card's rare/occasional actions (today:
- * the QA-agent tooling). Keeps those controls out of the resting card so it
- * reads as a calm status tile, while staying one click away. Closes on
+ * the QA-agent tooling). Closes on
  * outside click or Escape; the trigger advertises its state via
  * aria-expanded for keyboard / screen-reader users.
  */

@@ -888,31 +888,6 @@ a.pr-number:hover {
   outline-offset: 2px;
 }
 
-/* ---------- Hover-reveal (pointer devices only) ----------
-   At rest a card shows its title, primary CTA, status pills, and active
-   markers. The *inactive* toggles and the overflow trigger
-   fade in on hover or keyboard focus, so the resting board reads as calm
-   status tiles without losing any affordance. Touch devices (hover:none)
-   skip this entirely and always show everything. Space is reserved at
-   rest (opacity, not display) so revealing never shifts layout. */
-@media (hover: hover) {
-  .pr-toggles .card-toggle:not([aria-pressed="true"]),
-  .pr-overflow-trigger {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 100ms ease;
-  }
-
-  .pr-card:hover .pr-toggles .card-toggle,
-  .pr-card:focus-within .pr-toggles .card-toggle,
-  .pr-card:hover .pr-overflow-trigger,
-  .pr-card:focus-within .pr-overflow-trigger,
-  .pr-overflow.is-open .pr-overflow-trigger {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
 .checks {
   display: inline-flex;
   align-items: stretch;
