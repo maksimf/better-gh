@@ -790,9 +790,7 @@ async def reply_comment(
     quote_lines = "\n".join(f"> {line}" for line in lines[:6])
     if len(lines) > 6:
         quote_lines += "\n> …"
-    full_body = (
-        f"**@{body.quoted_author}** wrote:\n{quote_lines}\n\n{body.reply}"
-    )
+    full_body = f"{quote_lines}\n\n{body.reply}" if quote_lines else body.reply
 
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
