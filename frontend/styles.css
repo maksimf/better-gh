@@ -614,25 +614,38 @@ button {
 }
 
 .pr-head {
+  --pr-head-title-size: 15px;
+  --pr-head-note-size: 12px;
+  --pr-head-line: 1.25;
+  --pr-head-note-gap: 2px;
+  --pr-head-block-height: calc(
+    var(--pr-head-title-size) * var(--pr-head-line) + var(--pr-head-note-gap) +
+      var(--pr-head-note-size) * var(--pr-head-line)
+  );
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
-}
-
-.pr-head--has-note {
-  align-items: flex-start;
 }
 
 .pr-head-main {
   flex: 1;
   min-width: 0;
+  min-height: var(--pr-head-block-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pr-head--has-note .pr-head-main {
+  justify-content: flex-start;
 }
 
 .pr-note {
-  margin: 2px 0 0;
-  font-size: 12px;
+  margin: var(--pr-head-note-gap) 0 0;
+  font-size: var(--pr-head-note-size);
   font-weight: 500;
-  line-height: 1.25;
+  font-style: italic;
+  line-height: var(--pr-head-line);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -640,7 +653,9 @@ button {
 }
 
 .pr-number {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
   flex-shrink: 0;
   font-weight: 900;
   font-size: 12px;
@@ -648,17 +663,18 @@ button {
   color: var(--black);
   background: var(--yellow);
   border: 2px solid var(--black);
-  padding: 2px 6px;
+  padding: 0 6px;
   line-height: 1.25;
+  box-sizing: border-box;
 }
 
 .pr-title {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  font-size: 15px;
+  font-size: var(--pr-head-title-size);
   margin: 0;
-  line-height: 1.25;
+  line-height: var(--pr-head-line);
 }
 
 .pr-title a,
@@ -720,11 +736,19 @@ a.pr-number:hover {
 }
 
 /* Primary CTA (merge / mark ready / request review) pinned top-right in
-   the header, to the right of the title. */
+   the header, to the right of the title. Stretches to the title+note block. */
 .pr-primary {
   margin-left: auto;
   display: inline-flex;
+  align-self: stretch;
   flex-shrink: 0;
+}
+
+.pr-primary .merge-button,
+.pr-primary .ready-button,
+.pr-primary .review-request {
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* ---------- Icon toggle cluster (Reviewed / Watch / Note / ⋯) ----------
@@ -3189,11 +3213,9 @@ button.comments-cell--btn:hover {
   /* Mobile pr-head: title flexes; primary CTA stays compact top-right.
      Icon toggles live in the bar below. */
   .pr-head {
+    --pr-head-title-size: 14px;
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .pr-head .pr-title {
-    font-size: 14px;
   }
   .pr-head .pr-primary {
     margin-left: auto;
@@ -3201,7 +3223,6 @@ button.comments-cell--btn:hover {
   .pr-head .pr-primary .merge-button,
   .pr-head .pr-primary .ready-button,
   .pr-head .pr-primary .review-request {
-    height: 40px;
     padding: 0 12px;
     font-size: 11px;
   }
