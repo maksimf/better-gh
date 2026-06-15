@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import type { Pr } from "../api/types";
 import { useCloudAgents } from "../hooks/useCloudAgents";
+import { usePrNotes } from "../hooks/usePrNotes";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { ChecksPill, Conflicts } from "./ChecksPill";
 import { CloudAgentLink } from "./CloudAgentLink";
@@ -49,7 +50,9 @@ export function PrCard({
   // inline. When none is linked the launch/link controls are tucked into the
   // overflow menu so they don't crowd the resting card.
   const { get: getAgent } = useCloudAgents();
+  const { get: getNote } = usePrNotes();
   const linkedAgent = getAgent(key);
+  const note = getNote(key);
 
   // One primary call-to-action per card, by precedence: merge an approved PR,
   // else promote a draft, else request review when it hasn't been asked for.
@@ -100,15 +103,22 @@ export function PrCard({
 
   return (
     <article className={classes} data-repo={pr.repo} data-column={pr.column} style={style}>
-      <header className="pr-head">
+      <header className={`pr-head${note ? " pr-head--has-note" : ""}`}>
         <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
           #{pr.number}
         </a>
-        <h3 className="pr-title">
-          <a href={pr.url} target="_blank" rel="noopener">
-            {pr.title}
-          </a>
-        </h3>
+        <div className="pr-head-main">
+          <h3 className="pr-title">
+            <a href={pr.url} target="_blank" rel="noopener">
+              {pr.title}
+            </a>
+          </h3>
+          {note && (
+            <p className="pr-note" title={note}>
+              {note}
+            </p>
+          )}
+        </div>
         {primaryAction && <div className="pr-primary">{primaryAction}</div>}
       </header>
 

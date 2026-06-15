@@ -619,6 +619,26 @@ button {
   gap: 8px;
 }
 
+.pr-head--has-note {
+  align-items: flex-start;
+}
+
+.pr-head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pr-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pr-number {
   display: inline-block;
   flex-shrink: 0;
@@ -638,8 +658,6 @@ button {
   letter-spacing: 0.02em;
   font-size: 15px;
   margin: 0;
-  flex: 1;
-  min-width: 0;
   line-height: 1.25;
 }
 
