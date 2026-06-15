@@ -12,8 +12,8 @@ export function WatchToggle({
   const title = disabled
     ? "set ntfy channel in settings"
     : pressed
-      ? "Watching -- you'll get an ntfy notification when checks pass and the preview is ready"
-      : "Watch -- notify me when checks pass and the preview is ready";
+      ? "Watching — the server will ntfy you when checks pass and the preview is ready"
+      : "Watch — notify me when checks pass and the preview is ready";
   return (
     <button
       type="button"

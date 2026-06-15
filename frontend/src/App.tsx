@@ -18,7 +18,6 @@ import { useNtfyChannel } from "./hooks/useNtfyChannel";
 import { useReviewer } from "./hooks/useReviewer";
 import { useSelectedRepos } from "./hooks/useSelectedRepos";
 import { useWatchedKeys } from "./hooks/useWatchedKeys";
-import { useWatchNotifications } from "./hooks/useWatchNotifications";
 
 const TAB_LABELS = { mine: "MY PRs", reviews: "REVIEWING" } as const;
 
@@ -31,9 +30,7 @@ export function App() {
   const { tab, setTab } = useActiveTab();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Keep polling while the tab is hidden only when something is watched, so
-  // the "checks went green" notification can fire on an inactive tab.
-  const dashboard = useDashboard(reviewer, watched.hasAny);
+  const dashboard = useDashboard(reviewer);
   const data = dashboard.data;
 
   // Fold the server's synced preferences into the local store whenever they
@@ -43,9 +40,6 @@ export function App() {
   useEffect(() => {
     if (prefsData) hydratePrefs(prefsData);
   }, [prefsData]);
-
-  // Publish an ntfy.sh notification when a watched PR's checks all turn green.
-  useWatchNotifications(data?.prs, watched.has, ntfyChannel);
 
   // Watching is only meaningful once an ntfy channel is configured.
   const watchDisabled = ntfyChannel.trim() === "";

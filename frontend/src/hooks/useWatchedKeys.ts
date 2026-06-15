@@ -6,10 +6,10 @@ import { parseJsonArray } from "./storage";
 const KEY = "better-gh.watched";
 
 /**
- * "Watch" markers, keyed by "owner/repo#number". When a PR is watched we
- * publish an ntfy.sh notification the moment all of its checks turn green
- * (see useWatchNotifications). Synced across the viewer's devices via the
- * preference store.
+ * "Watch" markers, keyed by "owner/repo#number". The backend poller
+ * evaluates watched PRs after each GitHub refresh and publishes an
+ * ntfy.sh notification when checks pass and a preview is ready, then
+ * removes the watch automatically. Synced across devices via prefs.
  */
 export function useWatchedKeys() {
   const raw = useRawPref(KEY);

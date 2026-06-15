@@ -2,10 +2,10 @@
 
 Multi-tenant via GitHub OAuth + signed cookies. No DB: the OAuth access
 token rides on a signed HttpOnly cookie, per-user PR snapshots live in
-memory in :mod:`state`, and the per-user poller in :mod:`poller` only
-runs while the viewer is actively fetching ``/api/dashboard`` (a request
-keep-alive + idle reaper, since react-query stops polling when the tab
-is hidden). The React SPA reads the snapshot back as JSON.
+memory in :mod:`state`, and the per-user poller in :mod:`poller` runs
+while the viewer is active or has watched PRs. Watched-PR readiness is
+evaluated on the server after each poll; ntfy.sh notifications fire
+from :mod:`watch` without any browser involvement.
 """
 from __future__ import annotations
 
@@ -38,6 +38,7 @@ from .github import GitHubRateLimitError
 from .linear import LinearClient, LinearError
 from .poller import build_user_client, poll_once, start_poller_for
 from .serialize import serialize_dashboard
+from .watch import WATCHED_KEY, clear_watch_seeds, seed_newly_watched
 
 log = logging.getLogger("better_gh.main")
 logging.basicConfig(
@@ -282,17 +283,47 @@ async def get_prefs(
 @app.put("/api/prefs")
 async def put_prefs(
     body: dict[str, Any],
+    request: Request,
     session: Session = Depends(require_session),
 ) -> JSONResponse:
     """Upsert one or more of the viewer's preferences (last-write-wins).
 
     Body is ``{ "<key>": <value>, ... }``. Unknown keys or oversized
     values reject the whole batch with 400; nothing is partially written.
+
+    When the watch list changes we start (or keep) the viewer's backend
+    poller and seed readiness for newly added keys so an already-ready
+    PR does not notify immediately.
     """
+    login = session.login
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    old_watched: set[str] = set()
+    if WATCHED_KEY in body:
+        existing = await prefs.get_all(login)
+        raw = existing.get(WATCHED_KEY)
+        if isinstance(raw, list):
+            old_watched = {str(x) for x in raw}
+
     try:
-        stored = await prefs.set_many(session.login, body)
+        stored = await prefs.set_many(login, body)
     except prefs.PrefError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    if WATCHED_KEY in body:
+        new_raw = body.get(WATCHED_KEY)
+        new_watched = (
+            {str(x) for x in new_raw} if isinstance(new_raw, list) else set()
+        )
+        if new_watched:
+            await state.remember_token(login, session.token)
+            start_poller_for(login, session.token, http_client)
+            added = new_watched - old_watched
+            if added:
+                snapshot = state.current_snapshot(login)
+                await seed_newly_watched(login, added=added, prs=snapshot.prs)
+        else:
+            await clear_watch_seeds(login)
+
     return JSONResponse(content=stored)
 
 
@@ -319,6 +350,7 @@ async def dashboard(
     http_client: httpx.AsyncClient = app.state.http_client
 
     await state.touch(login)
+    await state.remember_token(login, session.token)
     start_poller_for(login, session.token, http_client)
 
     # Cold cache (process just started, or this viewer was reaped): warm
@@ -328,7 +360,7 @@ async def dashboard(
     if state.last_polled_at(login) is None:
         gh = build_user_client(session.token, http_client=http_client)
         try:
-            await poll_once(gh, login=login)
+            await poll_once(gh, login=login, http_client=http_client)
         except GitHubRateLimitError:
             pass
         except Exception:
@@ -539,7 +571,7 @@ async def refresh(
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     try:
-        await poll_once(gh, login=session.login)
+        await poll_once(gh, login=session.login, http_client=http_client)
     except GitHubRateLimitError as exc:
         log.warning(
             "manual /refresh hit rate limit for %s (reset_at=%s)",
@@ -913,7 +945,7 @@ async def _safe_poll_once(token: str, login: str) -> None:
         return
     gh = build_user_client(token, http_client=http_client)
     try:
-        await poll_once(gh, login=login)
+        await poll_once(gh, login=login, http_client=http_client)
     except Exception:
         log.exception("post-mutation poll failed for %s", login)
     finally:

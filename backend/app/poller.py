@@ -3,12 +3,12 @@
 Lifecycle is driven by a request keep-alive in :mod:`app.main`: the
 ``/api/dashboard`` handler calls :func:`start_poller_for` the first time
 a viewer fetches and ``state.reap_idle`` (run from a global reaper)
-cancels the task once the viewer stops fetching. No always-on background
-loop; nothing runs for signed-out users.
+cancels the task once the viewer stops fetching *and* has no watched
+PRs. Viewers with active watches keep their poller alive even when the
+browser tab is closed.
 
-The poller only fetches GitHub and stores the snapshot -- the React SPA
-reads it back over ``/api/dashboard`` via react-query, so there's no
-server-push / render step here anymore.
+After each poll, :mod:`app.watch` evaluates watched PRs and publishes
+ntfy.sh notifications when they become ready.
 """
 from __future__ import annotations
 
@@ -21,11 +21,17 @@ import httpx
 from . import state
 from .config import settings
 from .github import GitHubClient, GitHubRateLimitError
+from .watch import process_watches_after_poll
 
 log = logging.getLogger("better_gh.poller")
 
 
-async def poll_once(client: GitHubClient, *, login: str) -> bool:
+async def poll_once(
+    client: GitHubClient,
+    *,
+    login: str,
+    http_client: httpx.AsyncClient,
+) -> bool:
     """Fetch PRs + incoming reviews for ``login`` and swap into their snapshot.
 
     Rate-limit failures are recorded as the viewer's error message (and
@@ -70,6 +76,7 @@ async def poll_once(client: GitHubClient, *, login: str) -> bool:
             rate_limit.get("limit"),
             rate_limit.get("resetAt"),
         )
+    await process_watches_after_poll(login, new_snapshot.prs, http_client)
     return prs_changed
 
 
@@ -78,12 +85,13 @@ async def poll_forever(
     interval_seconds: int,
     *,
     login: str,
+    http_client: httpx.AsyncClient,
 ) -> None:
     """Loop forever for ``login``; never exits on its own. Cancellation stops it."""
     try:
         while True:
             try:
-                await poll_once(client, login=login)
+                await poll_once(client, login=login, http_client=http_client)
             except asyncio.CancelledError:
                 log.info("poller[%s] cancelled; exiting loop", login)
                 raise
@@ -144,6 +152,9 @@ def start_poller_for(
     """
     existing = state.get_poll_task(login)
     if existing is not None and not existing.done():
+        user = state.get(login)
+        if user is not None:
+            user.github_token = token
         return existing
 
     client = build_user_client(token, http_client=http_client)
@@ -152,10 +163,14 @@ def start_poller_for(
             client,
             settings.POLL_INTERVAL_SECONDS,
             login=login,
+            http_client=http_client,
         ),
         name=f"better-gh.poller[{login}]",
     )
     state.set_poll_task(login, task)
+    user = state.get(login)
+    if user is not None:
+        user.github_token = token
     log.info(
         "poller[%s] started (interval=%ss, max_prs=%s)",
         login,

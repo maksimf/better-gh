@@ -36,11 +36,6 @@ export function usePrefs() {
   });
 }
 
-// While the tab is hidden we only poll to drive Watch notifications, so we
-// deliberately throttle to a slow cadence to stay well clear of GitHub's
-// rate limit. Foreground polling keeps the server-driven interval.
-const BACKGROUND_POLL_MS = 10 * 60 * 1000;
-
 function dashboardUrl(reviewer: string | null): string {
   // reviewer === null  -> unconfigured: let the server use its default.
   // reviewer === ""    -> explicitly "no reviewer": send the empty param.
@@ -48,28 +43,12 @@ function dashboardUrl(reviewer: string | null): string {
   return `/api/dashboard?reviewer=${encodeURIComponent(reviewer)}`;
 }
 
-export function useDashboard(
-  reviewer: string | null,
-  watchInBackground = false,
-) {
+export function useDashboard(reviewer: string | null) {
   return useQuery({
     queryKey: [...DASHBOARD_KEY, reviewer],
     queryFn: () => getJson<Dashboard>(dashboardUrl(reviewer)),
-    // Steady-state cadence: the server's POLL_INTERVAL while focused, but
-    // throttled to BACKGROUND_POLL_MS while the tab is hidden so Watch
-    // polling doesn't burn through GitHub's rate limit. react-query re-reads
-    // this after each fetch, so the cadence settles within one cycle of a
-    // visibility change.
-    refetchInterval: (query) => {
-      const base = (query.state.data?.poll_interval_seconds ?? 300) * 1000;
-      const hidden = typeof document !== "undefined" && document.hidden;
-      return hidden ? Math.max(base, BACKGROUND_POLL_MS) : base;
-    },
-    // When the user is watching at least one PR we keep polling even while
-    // the tab is hidden, so the "checks went green" browser notification can
-    // fire without the tab being focused. Otherwise a backgrounded tab stops
-    // hitting the API entirely (the global default).
-    refetchIntervalInBackground: watchInBackground,
+    refetchInterval: (query) =>
+      (query.state.data?.poll_interval_seconds ?? 300) * 1000,
   });
 }
 

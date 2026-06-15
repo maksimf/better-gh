@@ -97,10 +97,9 @@ class Settings(BaseSettings):
         ge=30,
         description=(
             "How long a viewer's per-user poller keeps running after their "
-            "last /api/dashboard fetch. react-query stops polling when the "
-            "tab is hidden, so once a viewer closes/backgrounds the app long "
-            "enough their state is reaped and the poller cancelled. Defaults "
-            "to ~3x the poll interval so a brief tab switch doesn't churn it."
+            "last /api/dashboard fetch. Viewers with watched PRs are never "
+            "reaped, so the backend can keep polling for readiness after "
+            "the browser tab closes. Defaults to ~3x the poll interval."
         ),
     )
     PREFS_DB_PATH: str = Field(

@@ -5,8 +5,8 @@ import { removeRaw, setRaw, useRawPref } from "./prefsStore";
 const KEY = "better-gh.ntfy-channel";
 
 /**
- * The ntfy.sh topic/channel watched-PR notifications are published to,
- * synced across the viewer's devices.
+ * The ntfy.sh topic/channel the backend publishes watched-PR ready
+ * notifications to, synced across the viewer's devices.
  *
  *   null / "" -> unconfigured: watching is disabled until a channel is set.
  *   "my-prs"  -> POST ready notifications to https://ntfy.sh/my-prs.

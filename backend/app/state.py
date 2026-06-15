@@ -56,9 +56,10 @@ class UserState:
     the "did this change?" comparisons stay in one place.
 
     ``last_seen_at`` is stamped on every ``/api/dashboard`` fetch and
-    drives the idle reaper -- a viewer whose tab is closed (or
-    backgrounded long enough that react-query stops polling) stops
-    being seen and eventually gets reaped, cancelling their poller.
+    drives the idle reaper -- a viewer whose tab is closed eventually
+    gets reaped unless they still have watched PRs (see
+    :func:`reap_idle`). ``watch_last_ready`` tracks the last-known
+    readiness of each watched key so we only notify on edges.
     """
 
     snapshot: Snapshot = field(default_factory=Snapshot)
@@ -67,6 +68,8 @@ class UserState:
     error_message: str = ""
     error_reset_at: datetime | None = None
     poll_task: asyncio.Task | None = None
+    github_token: str | None = None
+    watch_last_ready: dict[str, bool] = field(default_factory=dict)
 
 
 _states: dict[str, UserState] = {}
@@ -128,6 +131,12 @@ async def mark_polled(login: str) -> datetime:
     now = datetime.now(timezone.utc)
     state.last_polled_at = now
     return now
+
+
+async def remember_token(login: str, token: str) -> None:
+    """Store the viewer's GitHub token for poller (re)starts."""
+    user = await get_or_create(login)
+    user.github_token = token
 
 
 async def touch(login: str) -> None:
@@ -205,19 +214,26 @@ async def drop_user(login: str) -> bool:
 async def reap_idle(ttl_seconds: float) -> int:
     """Drop every viewer whose last fetch is older than ``ttl_seconds``.
 
+    Viewers with active watched PRs are kept alive so the backend poller
+    can keep checking readiness after the browser tab closes.
+
     Returns the number of users reaped. Run periodically from a global
     background task started in the app lifespan.
     """
+    from .watch import has_active_watches
+
     now = datetime.now(timezone.utc)
     async with _lock:
-        stale = [
+        candidates = [
             key
             for key, st in _states.items()
             if st.last_seen_at is not None
             and (now - st.last_seen_at).total_seconds() > ttl_seconds
         ]
     dropped = 0
-    for key in stale:
+    for key in candidates:
+        if await has_active_watches(key):
+            continue
         if await drop_user(key):
             dropped += 1
     return dropped
