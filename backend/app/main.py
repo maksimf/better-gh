@@ -581,6 +581,10 @@ class MergeBody(BaseModel):
     """
 
     mark_linear_done: bool = False
+    # Optional client-provided ticket id (e.g. ENG-1234). When present we
+    # prefer this over the in-memory snapshot lookup so merge-time races don't
+    # lose the linked ticket reference.
+    linear_ticket: str | None = Field(default=None, max_length=64)
 
 
 @app.post("/pulls/{owner}/{repo}/{number}/merge")
@@ -611,7 +615,12 @@ async def merge_pr_endpoint(
     linear_error: str | None = None
     if body is not None and body.mark_linear_done:
         linear_done, linear_error = await _mark_linear_done_for_pr(
-            session.login, owner, repo, number, http_client
+            session.login,
+            owner,
+            repo,
+            number,
+            http_client,
+            linear_ticket=body.linear_ticket,
         )
 
     await _safe_poll_once(session.token, session.login)
@@ -834,12 +843,27 @@ def _linear_identifier_from_url(linear_url: str | None) -> str | None:
     return rest or None
 
 
+_LINEAR_IDENTIFIER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*-\d+$")
+
+
+def _normalize_linear_identifier(identifier: str | None) -> str | None:
+    """Normalize a client-provided Linear ticket id (e.g. ``eng-123``)."""
+    raw = (identifier or "").strip().upper()
+    if not raw:
+        return None
+    if not _LINEAR_IDENTIFIER_RE.match(raw):
+        return None
+    return raw
+
+
 async def _mark_linear_done_for_pr(
     login: str,
     owner: str,
     repo: str,
     number: int,
     http_client: httpx.AsyncClient,
+    *,
+    linear_ticket: str | None = None,
 ) -> tuple[bool, str | None]:
     """Best-effort: mark the merged PR's linked Linear ticket done.
 
@@ -850,17 +874,19 @@ async def _mark_linear_done_for_pr(
     if not settings.LINEAR_API_KEY:
         return False, "Linear isn't configured on the server (LINEAR_API_KEY unset)."
 
-    full_repo = f"{owner}/{repo}"
-    snapshot = state.current_snapshot(login)
-    linear_url = next(
-        (
-            pr.linear_url
-            for pr in snapshot.prs
-            if pr.number == number and pr.repo == full_repo
-        ),
-        None,
-    )
-    identifier = _linear_identifier_from_url(linear_url)
+    identifier = _normalize_linear_identifier(linear_ticket)
+    if identifier is None:
+        full_repo = f"{owner}/{repo}"
+        snapshot = state.current_snapshot(login)
+        linear_url = next(
+            (
+                pr.linear_url
+                for pr in snapshot.prs
+                if pr.number == number and pr.repo == full_repo
+            ),
+            None,
+        )
+        identifier = _linear_identifier_from_url(linear_url)
     if not identifier:
         return False, "No Linear ticket is linked to this PR."
 

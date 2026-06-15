@@ -179,12 +179,15 @@ export function useMergePr() {
     mutationFn: ({
       ref,
       markLinearDone = false,
+      linearTicket = null,
     }: {
       ref: PrRef;
       markLinearDone?: boolean;
+      linearTicket?: string | null;
     }) =>
       postJson<MergeResult>(pullPath(ref, "merge"), {
         mark_linear_done: markLinearDone,
+        linear_ticket: linearTicket,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   });

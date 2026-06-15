@@ -54,7 +54,11 @@ export function MergeButton({
   function doMerge(markLinearDone: boolean) {
     setError(null);
     merge.mutate(
-      { ref: { owner, repo, number }, markLinearDone },
+      {
+        ref: { owner, repo, number },
+        markLinearDone,
+        linearTicket,
+      },
       {
         onSuccess: (result) => {
           setOpen(false);

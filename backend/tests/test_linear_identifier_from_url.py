@@ -1,6 +1,6 @@
 import unittest
 
-from app.main import _linear_identifier_from_url
+from app.main import _linear_identifier_from_url, _normalize_linear_identifier
 
 
 class LinearIdentifierFromUrlTests(unittest.TestCase):
@@ -27,6 +27,16 @@ class LinearIdentifierFromUrlTests(unittest.TestCase):
         self.assertIsNone(
             _linear_identifier_from_url("https://linear.app/clearest/team/ENG")
         )
+
+
+class NormalizeLinearIdentifierTests(unittest.TestCase):
+    def test_uppercases_and_trims(self) -> None:
+        self.assertEqual(_normalize_linear_identifier("  eng-1234  "), "ENG-1234")
+
+    def test_rejects_invalid_shape(self) -> None:
+        self.assertIsNone(_normalize_linear_identifier("https://linear.app/foo"))
+        self.assertIsNone(_normalize_linear_identifier("ENG1234"))
+        self.assertIsNone(_normalize_linear_identifier("ENG-"))
 
 
 if __name__ == "__main__":
