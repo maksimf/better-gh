@@ -81,6 +81,8 @@ class SerializePrTests(unittest.TestCase):
         self.assertTrue(out["approved"])
         self.assertTrue(out["review_requested"])
         self.assertEqual(out["checks"]["passed"], 1)
+        self.assertEqual(out["additions"], 0)
+        self.assertEqual(out["deletions"], 0)
         self.assertEqual(out["stack_id"], None)
         self.assertEqual(out["stack_nodes"], [])
 

@@ -11,6 +11,7 @@ import { DraftButton } from "./DraftButton";
 import { MergeButton } from "./MergeButton";
 import { NoteButton } from "./NoteButton";
 import { OverflowMenu } from "./OverflowMenu";
+import { PrLocStats } from "./PrLocStats";
 import { PrStack } from "./PrStack";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
@@ -112,6 +113,7 @@ export function PrCard({
             <a href={pr.url} target="_blank" rel="noopener">
               {pr.title}
             </a>
+            <PrLocStats additions={pr.additions} deletions={pr.deletions} />
           </h3>
           {note && (
             <p className="pr-note" title={note}>

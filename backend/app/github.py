@@ -125,6 +125,8 @@ fragment prFields on PullRequest {
   title
   url
   body
+  additions
+  deletions
   isDraft
   updatedAt
   baseRefName
@@ -181,6 +183,8 @@ fragment slimReviewFields on PullRequest {
   number
   title
   url
+  additions
+  deletions
   isDraft
   updatedAt
   author { login }
@@ -694,6 +698,8 @@ class GitHubClient:
             conflicts=self._extract_conflicts(node),
             updated_at=node.get("updatedAt") or "",
             requested_at=requested_at,
+            additions=max(0, int(node.get("additions") or 0)),
+            deletions=max(0, int(node.get("deletions") or 0)),
         )
 
     @staticmethod
@@ -879,6 +885,8 @@ class GitHubClient:
             linear_url=linear_url,
             base_ref=node.get("baseRefName") or "",
             head_ref=node.get("headRefName") or "",
+            additions=max(0, int(node.get("additions") or 0)),
+            deletions=max(0, int(node.get("deletions") or 0)),
         )
 
     @staticmethod

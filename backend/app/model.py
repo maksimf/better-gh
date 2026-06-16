@@ -126,6 +126,8 @@ class PR(BaseModel):
     comments_bot: int = Field(ge=0)
     preview_url: str | None
     conflicts: int = Field(ge=0)
+    additions: int = Field(default=0, ge=0)
+    deletions: int = Field(default=0, ge=0)
     updated_at: str
     # Raw reviewer state from GitHub. ``requested_reviewers`` is the
     # current "Reviewers" list on the PR (non-team users only).
@@ -212,6 +214,8 @@ class PR(BaseModel):
             self.comments_bot,
             self.preview_url,
             self.conflicts,
+            self.additions,
+            self.deletions,
             self.requested_reviewers,
             self.approver_logins,
             self.linear_url,
@@ -244,6 +248,8 @@ class ReviewPR(BaseModel):
     is_draft: bool
     checks: Checks
     conflicts: int = Field(ge=0)
+    additions: int = Field(default=0, ge=0)
+    deletions: int = Field(default=0, ge=0)
     updated_at: str
     requested_at: str = ""
 
@@ -260,5 +266,7 @@ class ReviewPR(BaseModel):
             self.checks.failed,
             self.checks.failed_names,
             self.conflicts,
+            self.additions,
+            self.deletions,
             self.requested_at,
         )

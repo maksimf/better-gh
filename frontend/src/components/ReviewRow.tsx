@@ -2,6 +2,7 @@ import type { ReviewPr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { formatRelative } from "../hooks/useRelativeTime";
 import { ChecksPill, Conflicts } from "./ChecksPill";
+import { PrLocStats } from "./PrLocStats";
 import { ReviewedToggle } from "./ReviewedToggle";
 
 export function ReviewRow({
@@ -35,6 +36,7 @@ export function ReviewRow({
           <a href={pr.url} target="_blank" rel="noopener">
             {pr.title}
           </a>
+          <PrLocStats additions={pr.additions} deletions={pr.deletions} />
         </h3>
         <span className="review-repo">{pr.repo}</span>
         <span className="review-author">@{pr.author}</span>

@@ -81,6 +81,8 @@ def serialize_pr(pr: PR, reviewer: str) -> dict[str, object]:
         "comments_bot": pr.comments_bot,
         "preview_url": pr.preview_url,
         "conflicts": pr.conflicts,
+        "additions": pr.additions,
+        "deletions": pr.deletions,
         "linear_url": pr.linear_url,
         "updated_at": pr.updated_at,
         "column": pr.column_for(reviewer),
@@ -104,6 +106,8 @@ def serialize_review(pr: ReviewPR) -> dict[str, object]:
         "is_draft": pr.is_draft,
         "checks": _serialize_checks(pr.checks),
         "conflicts": pr.conflicts,
+        "additions": pr.additions,
+        "deletions": pr.deletions,
         "updated_at": pr.updated_at,
         "requested_at": pr.requested_at,
     }

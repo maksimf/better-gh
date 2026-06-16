@@ -37,6 +37,8 @@ export interface Pr {
   comments_bot: number;
   preview_url: string | null;
   conflicts: number;
+  additions: number;
+  deletions: number;
   linear_url: string | null;
   updated_at: string;
   column: Column;
@@ -58,6 +60,8 @@ export interface ReviewPr {
   is_draft: boolean;
   checks: Checks;
   conflicts: number;
+  additions: number;
+  deletions: number;
   updated_at: string;
   requested_at: string;
 }

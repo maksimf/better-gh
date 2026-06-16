@@ -695,6 +695,23 @@ a.pr-number {
     text-decoration-color: var(--blue);
 }
 
+.pr-loc {
+    margin-left: 0.45em;
+    font-weight: 700;
+    font-size: 0.85em;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.pr-loc-add {
+    color: var(--green);
+}
+
+.pr-loc-del {
+    color: var(--red);
+}
+
 a.pr-number:hover {
     background: var(--white);
     color: var(--black);

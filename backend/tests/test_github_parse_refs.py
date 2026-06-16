@@ -51,6 +51,13 @@ class ParseRefsTests(unittest.TestCase):
         self.assertEqual(pr.base_ref, "")
         self.assertEqual(pr.head_ref, "")
 
+    def test_parses_additions_and_deletions(self) -> None:
+        pr = self._client()._parse_pr(
+            _node(additions=120, deletions=45)
+        )
+        self.assertEqual(pr.additions, 120)
+        self.assertEqual(pr.deletions, 45)
+
 
 if __name__ == "__main__":
     unittest.main()
