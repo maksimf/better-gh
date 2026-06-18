@@ -181,8 +181,11 @@ A PR is considered ready for human review when **all** of the following hold:
   with any emoji — drop any reaction (👀, 👍, ❤️, 🚀, …) on a comment and
   it stops counting.
 - The PR is not a draft.
-- The PR's preview is deployed.
 - There are zero merge conflicts with the target branch.
+
+Preview deployment status is shown on each card but does not affect column
+placement. Watch notifications still wait for a preview URL (see **Watched
+PRs** above).
 
 (See **Features → What each card shows** above for the full card anatomy.)
 

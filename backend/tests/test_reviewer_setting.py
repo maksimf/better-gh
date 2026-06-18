@@ -61,6 +61,12 @@ class PRReviewerMethodsTests(unittest.TestCase):
         self.assertEqual(pr.column_for(""), "ready")
         self.assertEqual(pr.column_for(None), "ready")
 
+    def test_is_ready_without_preview_url(self) -> None:
+        pr = _pr()
+        pr_no_preview = pr.model_copy(update={"preview_url": None})
+        self.assertTrue(pr_no_preview.is_ready)
+        self.assertEqual(pr_no_preview.column_for(None), "ready")
+
 
 class StackNodeReviewerMethodTests(unittest.TestCase):
     def test_stack_node_column_for_mirrors_pr(self) -> None:

@@ -165,7 +165,6 @@ class PR(BaseModel):
             and self.checks.pending == 0
             and self.comments_human == 0
             and self.comments_bot == 0
-            and self.preview_url is not None
             and self.conflicts == 0
         )
 
