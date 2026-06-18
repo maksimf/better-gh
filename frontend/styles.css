@@ -12,6 +12,8 @@
     --approved-bg: #effaf1;
     --draft-text: #3a3a3a;
     --backdrop: rgba(17, 17, 17, 0.55);
+    /* Outer height of .checks (2px border + 4px padding + 12px label + padding + border). */
+    --pill-height: calc(2px + 4px + 12px * 1.25 + 4px + 2px);
     color-scheme: light;
 }
 
@@ -658,8 +660,9 @@ button {
 .pr-number {
     display: inline-flex;
     align-items: center;
-    align-self: stretch;
+    align-self: center;
     flex-shrink: 0;
+    height: var(--pill-height);
     font-weight: 900;
     font-size: 12px;
     letter-spacing: 0.06em;
@@ -762,14 +765,19 @@ a.pr-number:hover {
 .pr-primary {
     margin-left: auto;
     display: inline-flex;
-    align-self: stretch;
+    align-items: center;
+    align-self: center;
     flex-shrink: 0;
 }
 
 .pr-primary .merge-button,
-.pr-primary .ready-button,
-.pr-primary .review-request {
+.pr-primary .ready-button {
     height: 100%;
+    box-sizing: border-box;
+}
+
+.pr-primary .review-request {
+    height: var(--pill-height);
     box-sizing: border-box;
 }
 
@@ -955,21 +963,28 @@ a.pr-number:hover {
 .checks {
     display: inline-flex;
     align-items: stretch;
+    height: var(--pill-height);
     border: 2px solid var(--black);
     font-weight: 900;
     font-size: 12px;
     letter-spacing: 0.04em;
+    box-sizing: border-box;
 }
 
 .checks-label {
+    display: flex;
+    align-items: center;
     background: var(--black);
     color: var(--white);
-    padding: 4px 6px;
+    padding: 0 6px;
     text-transform: uppercase;
 }
 
 .checks-cell {
-    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
     border-left: 2px solid var(--black);
     min-width: 26px;
     text-align: center;
@@ -1286,9 +1301,10 @@ button.comments-cell--btn:hover {
 .review-request {
     display: inline-flex;
     align-items: center;
+    height: var(--pill-height);
     gap: 6px;
     border: 2px solid var(--black);
-    padding: 4px 8px;
+    padding: 0 8px;
     font-weight: 800;
     font-size: 12px;
     letter-spacing: 0.04em;
@@ -3077,6 +3093,10 @@ button.comments-cell--btn:hover {
 
 /* ---------- Mobile: tighten chrome and bump touch targets ---------- */
 @media (max-width: 640px) {
+    :root {
+        --pill-height: 40px;
+    }
+
     .topbar {
         padding: 12px 14px;
         gap: 10px;
@@ -3269,8 +3289,10 @@ button.comments-cell--btn:hover {
     .preview,
     .linear-link,
     .cloud-agent-link,
-    .cloud-agent-video {
-        height: 40px;
+    .cloud-agent-video,
+    .pr-number,
+    .review-request {
+        height: var(--pill-height);
         box-sizing: border-box;
     }
     /* .checks / .comments stay align-items: stretch so their cells fill the
