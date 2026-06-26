@@ -1,4 +1,4 @@
-import { SquareIcon } from "./icons";
+import { PauseIcon } from "./icons";
 
 export function DeferredToggle({
   pressed,
@@ -20,7 +20,7 @@ export function DeferredToggle({
       onClick={onToggle}
     >
       <span className="card-toggle-icon" aria-hidden="true">
-        <SquareIcon />
+        <PauseIcon />
       </span>
     </button>
   );
