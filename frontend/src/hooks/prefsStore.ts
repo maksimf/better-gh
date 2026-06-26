@@ -23,6 +23,7 @@ import { readString, removeKey, writeString } from "./storage";
 // ALLOWED_KEYS whitelist in ``backend/app/prefs.py``.
 export const SYNCED_KEYS = [
   "better-gh.manually-reviewed",
+  "better-gh.deferred",
   "better-gh.watched",
   "better-gh.selected-repos",
   "better-gh.reviewer-login",

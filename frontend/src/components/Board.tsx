@@ -2,6 +2,7 @@ import { Fragment } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
 import { Column } from "./Column";
+import { DeferredSection } from "./DeferredSection";
 import { PrCard } from "./PrCard";
 
 const COLUMNS: ColumnKey[] = ["progress", "ready", "approved"];
@@ -54,17 +55,23 @@ function EmptyState() {
 
 export function Board({
   prs,
+  deferredPrs,
   reviewer,
   reviewedHas,
   onToggleReviewed,
+  deferredHas,
+  onToggleDeferred,
   watchedHas,
   onToggleWatch,
   watchDisabled,
 }: {
   prs: Pr[];
+  deferredPrs: Pr[];
   reviewer: string;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
+  deferredHas: (key: string) => boolean;
+  onToggleDeferred: (key: string) => void;
   watchedHas: (key: string) => boolean;
   onToggleWatch: (key: string) => void;
   watchDisabled: boolean;
@@ -83,7 +90,7 @@ export function Board({
   };
   const visibleCols = COLUMNS.filter((c) => counts[c] > 0).length;
 
-  if (visibleCols === 0) return <EmptyState />;
+  if (visibleCols === 0 && deferredPrs.length === 0) return <EmptyState />;
 
   const boardClass = [
     "board",
@@ -94,49 +101,67 @@ export function Board({
     .filter(Boolean)
     .join(" ");
 
+  const boardProps = {
+    reviewer,
+    reviewedHas,
+    onToggleReviewed,
+    deferredHas,
+    onToggleDeferred,
+    watchedHas,
+    onToggleWatch,
+    watchDisabled,
+  };
+
   function renderCard(pr: Pr) {
     return (
       <PrCard
         key={`${pr.repo}#${pr.number}`}
         pr={pr}
-        reviewer={reviewer}
-        reviewedHas={reviewedHas}
-        onToggleReviewed={onToggleReviewed}
-        watchedHas={watchedHas}
-        onToggleWatch={onToggleWatch}
-        watchDisabled={watchDisabled}
+        {...boardProps}
       />
     );
   }
 
+  const board =
+    visibleCols === 0 ? null : (
+      <div className={boardClass}>
+        {COLUMNS.map((column) => (
+          <Column
+            key={column}
+            column={column}
+            count={counts[column]}
+            hidden={counts[column] === 0}
+          >
+            {groupColumn(buckets[column]).map((item) =>
+              item.kind === "card" ? (
+                renderCard(item.pr)
+              ) : (
+                <div
+                  key={item.stackId}
+                  className="pr-stack-group"
+                  data-stack-id={item.stackId}
+                >
+                  {item.cards.map((pr) => (
+                    <Fragment key={`${pr.repo}#${pr.number}`}>
+                      {renderCard(pr)}
+                    </Fragment>
+                  ))}
+                </div>
+              ),
+            )}
+          </Column>
+        ))}
+      </div>
+    );
+
   return (
-    <div className={boardClass}>
-      {COLUMNS.map((column) => (
-        <Column
-          key={column}
-          column={column}
-          count={counts[column]}
-          hidden={counts[column] === 0}
-        >
-          {groupColumn(buckets[column]).map((item) =>
-            item.kind === "card" ? (
-              renderCard(item.pr)
-            ) : (
-              <div
-                key={item.stackId}
-                className="pr-stack-group"
-                data-stack-id={item.stackId}
-              >
-                {item.cards.map((pr) => (
-                  <Fragment key={`${pr.repo}#${pr.number}`}>
-                    {renderCard(pr)}
-                  </Fragment>
-                ))}
-              </div>
-            ),
-          )}
-        </Column>
-      ))}
-    </div>
+    <>
+      {board}
+      {deferredPrs.length > 0 && (
+        <DeferredSection count={deferredPrs.length}>
+          {deferredPrs.map((pr) => renderCard(pr))}
+        </DeferredSection>
+      )}
+    </>
   );
 }

@@ -2,6 +2,7 @@ import type { ReviewPr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { formatRelative } from "../hooks/useRelativeTime";
 import { ChecksPill, Conflicts } from "./ChecksPill";
+import { DeferredToggle } from "./DeferredToggle";
 import { PrLocStats } from "./PrLocStats";
 import { ReviewedToggle } from "./ReviewedToggle";
 
@@ -10,14 +11,19 @@ export function ReviewRow({
   now,
   reviewedHas,
   onToggleReviewed,
+  deferredHas,
+  onToggleDeferred,
 }: {
   pr: ReviewPr;
   now: number;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
+  deferredHas: (key: string) => boolean;
+  onToggleDeferred: (key: string) => void;
 }) {
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
+  const isDeferred = deferredHas(key);
   const classes = [
     "review-row",
     pr.is_draft && "is-draft",
@@ -60,6 +66,7 @@ export function ReviewRow({
           pressed={isReviewed}
           onToggle={() => onToggleReviewed(key)}
         />
+        <DeferredToggle pressed={isDeferred} onToggle={() => onToggleDeferred(key)} />
       </div>
     </article>
   );

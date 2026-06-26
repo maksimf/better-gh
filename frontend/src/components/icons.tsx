@@ -54,6 +54,14 @@ export function NoteIcon() {
   );
 }
 
+export function SquareIcon() {
+  return (
+    <svg className="check-icon" viewBox="0 0 16 16" focusable="false">
+      <rect x="3.5" y="3.5" width="9" height="9" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function EllipsisIcon() {
   return (
     <svg className="check-icon" viewBox="0 0 16 16" focusable="false">

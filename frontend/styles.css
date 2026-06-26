@@ -847,6 +847,73 @@ a.pr-number:hover {
     border-color: var(--black);
 }
 
+.card-toggle--deferred[aria-pressed="true"] {
+    background: var(--grey);
+    color: var(--black);
+    border-color: var(--black);
+}
+
+/* ---------- Deferred section (collapsed by default) ---------- */
+.deferred-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 28px 28px;
+}
+
+.deferred-section-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 2px solid var(--black);
+    background: var(--grey-2);
+    color: var(--black);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.deferred-section-summary::-webkit-details-marker {
+    display: none;
+}
+
+.deferred-section-summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.15s ease;
+}
+
+.deferred-section[open] > .deferred-section-summary::before {
+    transform: rotate(90deg);
+}
+
+.deferred-section-count {
+    font-weight: 700;
+    opacity: 0.7;
+}
+
+.deferred-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.board + .deferred-section {
+    padding-top: 0;
+}
+
+.reviews-list .deferred-section {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
 /* ---------- Overflow menu ("⋯") ---------- */
 .pr-overflow {
     position: relative;
@@ -2986,13 +3053,15 @@ button.comments-cell--btn:hover {
 [data-theme="dark"] a.pr-number,
 [data-theme="dark"] a.pr-number:hover,
 [data-theme="dark"] .card-toggle--note[aria-pressed="true"],
+[data-theme="dark"] .card-toggle--deferred[aria-pressed="true"],
 [data-theme="dark"] .settings-modal-close,
 [data-theme="dark"] .error-banner {
     color: #111111;
 }
 
-/* The pressed note toggle keeps a black border on yellow in dark mode. */
-[data-theme="dark"] .card-toggle--note[aria-pressed="true"] {
+/* The pressed note/deferred toggles keep a black border in dark mode. */
+[data-theme="dark"] .card-toggle--note[aria-pressed="true"],
+[data-theme="dark"] .card-toggle--deferred[aria-pressed="true"] {
     border-color: #111111;
 }
 

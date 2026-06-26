@@ -7,6 +7,7 @@ import { reviewedKey } from "../hooks/useReviewedKeys";
 import { ChecksPill, Conflicts } from "./ChecksPill";
 import { CloudAgentLink } from "./CloudAgentLink";
 import { CommentsPill } from "./CommentsPill";
+import { DeferredToggle } from "./DeferredToggle";
 import { DraftButton } from "./DraftButton";
 import { MergeButton } from "./MergeButton";
 import { NoteButton } from "./NoteButton";
@@ -29,6 +30,8 @@ export function PrCard({
   reviewer,
   reviewedHas,
   onToggleReviewed,
+  deferredHas,
+  onToggleDeferred,
   watchedHas,
   onToggleWatch,
   watchDisabled,
@@ -37,6 +40,8 @@ export function PrCard({
   reviewer: string;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
+  deferredHas: (key: string) => boolean;
+  onToggleDeferred: (key: string) => void;
   watchedHas: (key: string) => boolean;
   onToggleWatch: (key: string) => void;
   watchDisabled: boolean;
@@ -44,6 +49,7 @@ export function PrCard({
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
+  const isDeferred = deferredHas(key);
   const isWatched = watchedHas(key);
   const showInlineStack = pr.stack_nodes.length > 0 && !pr.stack_co_column;
 
@@ -143,6 +149,7 @@ export function PrCard({
             disabled={watchDisabled}
           />
           <NoteButton prKey={key} number={pr.number} />
+          <DeferredToggle pressed={isDeferred} onToggle={() => onToggleDeferred(key)} />
           {showOverflow && (
             <OverflowMenu>
               <CloudAgentLink prKey={key} repo={pr.repo} number={pr.number} />

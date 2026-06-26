@@ -30,6 +30,7 @@ log = logging.getLogger("better_gh.prefs")
 ALLOWED_KEYS: frozenset[str] = frozenset(
     {
         "better-gh.manually-reviewed",
+        "better-gh.deferred",
         "better-gh.watched",
         "better-gh.selected-repos",
         "better-gh.reviewer-login",
