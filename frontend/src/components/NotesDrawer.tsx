@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
+import { marked } from "marked";
 
 import { useNotes } from "../hooks/useNotes";
 
@@ -13,15 +14,16 @@ export function NotesDrawer({
 }) {
   const { notes, setNotes, clearNotes } = useNotes();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [preview, setPreview] = useState(false);
 
   const handleOpen = useCallback(() => {
     onOpen();
-    // Focus textarea after the drawer animates in
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, [onOpen]);
 
   const handleClear = useCallback(() => {
     clearNotes();
+    setPreview(false);
     textareaRef.current?.focus();
   }, [clearNotes]);
 
@@ -58,14 +60,22 @@ export function NotesDrawer({
           </button>
         </div>
 
-        <textarea
-          ref={textareaRef}
-          className="notes-drawer-textarea"
-          placeholder="Scratch pad — notes are synced across your devices…"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          tabIndex={open ? 0 : -1}
-        />
+        {preview ? (
+          <div
+            className="notes-drawer-preview"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: marked(notes) as string }}
+          />
+        ) : (
+          <textarea
+            ref={textareaRef}
+            className="notes-drawer-textarea"
+            placeholder="Scratch pad — notes are synced across your devices…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            tabIndex={open ? 0 : -1}
+          />
+        )}
 
         <div className="notes-drawer-footer">
           <button
@@ -75,6 +85,15 @@ export function NotesDrawer({
             disabled={notes === ""}
           >
             CLEAR
+          </button>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            className={`notes-drawer-btn${preview ? " notes-drawer-btn--active" : ""}`}
+            onClick={() => setPreview((p) => !p)}
+            disabled={notes === ""}
+          >
+            {preview ? "EDIT" : "PREVIEW"}
           </button>
         </div>
       </div>

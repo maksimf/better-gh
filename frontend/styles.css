@@ -2088,6 +2088,89 @@ button.comments-cell--btn:hover {
     border-color: var(--red);
 }
 
+.notes-drawer-btn--active {
+    background: var(--black);
+    color: var(--yellow);
+}
+
+.notes-drawer-preview {
+    flex: 1;
+    width: 100%;
+    overflow-y: auto;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--black);
+    box-sizing: border-box;
+    border-bottom: 3px solid var(--grey-2);
+}
+
+.notes-drawer-preview > * + * {
+    margin-top: 0.75em;
+}
+
+.notes-drawer-preview p { margin: 0; }
+.notes-drawer-preview p + p { margin-top: 0.6em; }
+
+.notes-drawer-preview h1,
+.notes-drawer-preview h2,
+.notes-drawer-preview h3,
+.notes-drawer-preview h4 {
+    font-weight: 900;
+    margin: 1em 0 0.3em;
+    line-height: 1.3;
+}
+
+.notes-drawer-preview h1 { font-size: 17px; }
+.notes-drawer-preview h2 { font-size: 15px; }
+.notes-drawer-preview h3,
+.notes-drawer-preview h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.notes-drawer-preview ul,
+.notes-drawer-preview ol {
+    margin: 0;
+    padding-left: 1.4em;
+}
+
+.notes-drawer-preview li + li { margin-top: 0.2em; }
+
+.notes-drawer-preview code {
+    font-family: ui-monospace, "Cascadia Code", monospace;
+    font-size: 0.9em;
+    background: var(--grey-1, #f4f4f4);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.notes-drawer-preview pre {
+    background: var(--grey-1, #f4f4f4);
+    border: 2px solid var(--grey-2);
+    padding: 10px 12px;
+    overflow-x: auto;
+    border-radius: 3px;
+}
+
+.notes-drawer-preview pre code {
+    background: none;
+    padding: 0;
+}
+
+.notes-drawer-preview blockquote {
+    border-left: 3px solid var(--yellow);
+    margin: 0;
+    padding-left: 10px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.notes-drawer-preview a {
+    color: var(--blue);
+    text-underline-offset: 2px;
+}
+
+.notes-drawer-preview strong { font-weight: 900; }
+.notes-drawer-preview em { font-style: italic; }
+
 /* QA walkthrough video modal. */
 .video-modal {
     padding: 0;

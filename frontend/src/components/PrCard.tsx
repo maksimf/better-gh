@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { marked } from "marked";
 
 import type { Pr } from "../api/types";
 import { useCloudAgents } from "../hooks/useCloudAgents";
@@ -122,9 +123,12 @@ export function PrCard({
             <PrLocStats additions={pr.additions} deletions={pr.deletions} />
           </h3>
           {note && (
-            <p className="pr-note" title={note}>
-              {note}
-            </p>
+            <p
+              className="pr-note"
+              title={note}
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: marked.parseInline(note) as string }}
+            />
           )}
         </div>
         {primaryAction && <div className="pr-primary">{primaryAction}</div>}
