@@ -24,6 +24,19 @@ export interface StackNode {
   is_self: boolean;
 }
 
+/** Per-reviewer status for one tracked reviewer on a PR. */
+export interface ReviewerStatus {
+  login: string;
+  approved: boolean;
+  review_requested: boolean;
+}
+
+/** A GitHub user returned by the reviewer-search typeahead. */
+export interface GhUser {
+  login: string;
+  avatar_url: string;
+}
+
 export interface Pr {
   number: number;
   title: string;
@@ -44,6 +57,7 @@ export interface Pr {
   column: Column;
   approved: boolean;
   review_requested: boolean;
+  reviewers: ReviewerStatus[];
   stack_id: string | null;
   stack_order: number | null;
   stack_depth: number | null;
@@ -80,7 +94,7 @@ export interface Dashboard {
   prs: Pr[];
   reviews: ReviewPr[];
   repos: RepoSummary[];
-  reviewer: string;
+  reviewers: string[];
   last_polled_at: string | null;
   error: DashboardError | null;
   poll_interval_seconds: number;

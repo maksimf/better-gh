@@ -56,7 +56,6 @@ function EmptyState() {
 export function Board({
   prs,
   deferredPrs,
-  reviewer,
   reviewedHas,
   onToggleReviewed,
   deferredHas,
@@ -67,7 +66,6 @@ export function Board({
 }: {
   prs: Pr[];
   deferredPrs: Pr[];
-  reviewer: string;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
   deferredHas: (key: string) => boolean;
@@ -102,7 +100,6 @@ export function Board({
     .join(" ");
 
   const boardProps = {
-    reviewer,
     reviewedHas,
     onToggleReviewed,
     deferredHas,

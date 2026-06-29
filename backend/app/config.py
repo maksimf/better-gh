@@ -117,8 +117,9 @@ class Settings(BaseSettings):
     REVIEWER_LOGIN: str = Field(
         default="nicoraga1",
         description=(
-            "GitHub login of the reviewer to track on each PR card. "
-            "Empty string disables the feature."
+            "Default GitHub login(s) to track on each PR card when the "
+            "viewer hasn't configured their own. Comma-separate to track "
+            "several reviewers. Empty string disables the feature."
         ),
     )
     MERGE_METHOD: str = Field(

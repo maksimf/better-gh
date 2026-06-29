@@ -34,6 +34,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "better-gh.watched",
         "better-gh.selected-repos",
         "better-gh.reviewer-login",
+        "better-gh.reviewer-logins",
         "better-gh.theme",
         "better-gh.cloud-agents",
         "better-gh.ntfy-channel",

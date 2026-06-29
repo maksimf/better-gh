@@ -68,6 +68,38 @@ class PRReviewerMethodsTests(unittest.TestCase):
         self.assertEqual(pr_no_preview.column_for(None), "ready")
 
 
+class MultiReviewerColumnTests(unittest.TestCase):
+    def test_column_promotes_when_any_tracked_reviewer_approves(self) -> None:
+        pr = _pr(approvers=("bob",))
+        # bob is one of several tracked reviewers -> approved.
+        self.assertEqual(pr.column_for(["alice", "bob", "carol"]), "approved")
+
+    def test_column_stays_ready_when_no_tracked_reviewer_approved(self) -> None:
+        pr = _pr(approvers=("dave",))
+        self.assertEqual(pr.column_for(["alice", "bob"]), "ready")
+
+    def test_empty_reviewer_list_never_approves(self) -> None:
+        pr = _pr(approvers=("alice",))
+        self.assertEqual(pr.column_for([]), "ready")
+
+    def test_list_matching_is_case_insensitive(self) -> None:
+        pr = _pr(approvers=("Alice",))
+        self.assertEqual(pr.column_for(["ALICE", "bob"]), "approved")
+
+
+class NormalizeReviewersTests(unittest.TestCase):
+    def test_handles_str_iterable_and_none(self) -> None:
+        from app.model import normalize_reviewers
+
+        self.assertEqual(normalize_reviewers(None), set())
+        self.assertEqual(normalize_reviewers(""), set())
+        self.assertEqual(normalize_reviewers("  Alice "), {"alice"})
+        self.assertEqual(
+            normalize_reviewers(["Alice", " bob", "", "ALICE"]),
+            {"alice", "bob"},
+        )
+
+
 class StackNodeReviewerMethodTests(unittest.TestCase):
     def test_stack_node_column_for_mirrors_pr(self) -> None:
         node = StackNode(

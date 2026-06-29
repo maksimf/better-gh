@@ -61,22 +61,31 @@ def _review(*, number: int, repo: str = "acme/widgets") -> ReviewPR:
     )
 
 
-class EffectiveReviewerTests(unittest.TestCase):
+class EffectiveReviewersTests(unittest.TestCase):
     def test_none_falls_back_to_env_default(self) -> None:
         with mock.patch.object(settings, "REVIEWER_LOGIN", "Default-Rev"):
-            self.assertEqual(serialize.effective_reviewer(None), "default-rev")
+            self.assertEqual(serialize.effective_reviewers(None), ["default-rev"])
+
+    def test_none_falls_back_to_multi_env_default(self) -> None:
+        with mock.patch.object(settings, "REVIEWER_LOGIN", "Alice, Bob"):
+            self.assertEqual(
+                serialize.effective_reviewers(None), ["alice", "bob"]
+            )
 
     def test_empty_string_means_no_reviewer(self) -> None:
-        self.assertEqual(serialize.effective_reviewer(""), "")
+        self.assertEqual(serialize.effective_reviewers(""), [])
 
-    def test_explicit_value_is_trimmed_and_lowered(self) -> None:
-        self.assertEqual(serialize.effective_reviewer("  Alice\n"), "alice")
+    def test_explicit_value_is_trimmed_lowered_and_deduped(self) -> None:
+        self.assertEqual(
+            serialize.effective_reviewers("  Alice\n, bob ,ALICE"),
+            ["alice", "bob"],
+        )
 
 
 class SerializePrTests(unittest.TestCase):
     def test_derives_column_and_reviewer_flags(self) -> None:
         pr = _pr(number=1, approvers=("alice",), requested=("alice",))
-        out = serialize.serialize_pr(pr, "alice")
+        out = serialize.serialize_pr(pr, ["alice"])
         self.assertEqual(out["column"], "approved")
         self.assertTrue(out["approved"])
         self.assertTrue(out["review_requested"])
@@ -88,9 +97,34 @@ class SerializePrTests(unittest.TestCase):
 
     def test_non_matching_reviewer_keeps_pr_out_of_approved(self) -> None:
         pr = _pr(number=1, approvers=("alice",))
-        out = serialize.serialize_pr(pr, "bob")
+        out = serialize.serialize_pr(pr, ["bob"])
         self.assertEqual(out["column"], "ready")
         self.assertFalse(out["approved"])
+
+    def test_per_reviewer_status_preserves_order_and_any_approval(self) -> None:
+        # bob approved, carol requested, alice neither. Any approval (bob)
+        # promotes the whole PR to APPROVED.
+        pr = _pr(number=1, approvers=("bob",), requested=("carol",))
+        out = serialize.serialize_pr(pr, ["alice", "bob", "carol"])
+        self.assertEqual(out["column"], "approved")
+        self.assertTrue(out["approved"])
+        self.assertTrue(out["review_requested"])
+        self.assertEqual(
+            out["reviewers"],
+            [
+                {"login": "alice", "approved": False, "review_requested": False},
+                {"login": "bob", "approved": True, "review_requested": False},
+                {"login": "carol", "approved": False, "review_requested": True},
+            ],
+        )
+
+    def test_no_reviewers_yields_empty_status_and_no_approval(self) -> None:
+        pr = _pr(number=1, approvers=("alice",))
+        out = serialize.serialize_pr(pr, [])
+        self.assertEqual(out["reviewers"], [])
+        self.assertEqual(out["column"], "ready")
+        self.assertFalse(out["approved"])
+        self.assertFalse(out["review_requested"])
 
 
 class SerializeDashboardTests(unittest.TestCase):
@@ -100,13 +134,13 @@ class SerializeDashboardTests(unittest.TestCase):
         payload = serialize.serialize_dashboard(
             prs=prs,
             reviews=reviews,
-            reviewer_login="alice",
+            reviewers_param="alice",
             last_polled_at=datetime(2026, 5, 20, 10, 0, tzinfo=timezone.utc),
             error_message="",
             error_reset_at=None,
             poll_interval_seconds=300,
         )
-        self.assertEqual(payload["reviewer"], "alice")
+        self.assertEqual(payload["reviewers"], ["alice"])
         self.assertEqual(payload["poll_interval_seconds"], 300)
         self.assertEqual(payload["last_polled_at"], "2026-05-20T10:00:00Z")
         self.assertIsNone(payload["error"])
@@ -119,7 +153,7 @@ class SerializeDashboardTests(unittest.TestCase):
         payload = serialize.serialize_dashboard(
             prs=[],
             reviews=[],
-            reviewer_login="",
+            reviewers_param="",
             last_polled_at=None,
             error_message="rate limited",
             error_reset_at=datetime(2026, 5, 20, 11, 0, tzinfo=timezone.utc),
@@ -127,7 +161,7 @@ class SerializeDashboardTests(unittest.TestCase):
         )
         self.assertEqual(payload["error"]["message"], "rate limited")
         self.assertEqual(payload["error"]["reset_at"], "2026-05-20T11:00:00Z")
-        self.assertEqual(payload["reviewer"], "")
+        self.assertEqual(payload["reviewers"], [])
 
     def test_stack_split_across_columns_serializes_nodes(self) -> None:
         # B (feature-b) stacks on A (feature-a). A is a draft (-> progress);
@@ -143,7 +177,7 @@ class SerializeDashboardTests(unittest.TestCase):
         payload = serialize.serialize_dashboard(
             prs=[a, b],
             reviews=[],
-            reviewer_login="alice",
+            reviewers_param="alice",
             last_polled_at=None,
             error_message="",
             error_reset_at=None,

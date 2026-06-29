@@ -335,6 +335,7 @@ async def put_prefs(
 @app.get("/api/dashboard")
 async def dashboard(
     request: Request,
+    reviewers: str | None = None,
     reviewer: str | None = None,
     session: Session = Depends(require_session),
 ) -> JSONResponse:
@@ -343,8 +344,10 @@ async def dashboard(
     Starts (idempotently) the viewer's background poller and touches
     their keep-alive timestamp. On a cold cache we poll synchronously
     once so the first paint has data instead of waiting a full interval.
-    ``reviewer`` is the viewer's tracked reviewer (sent by the client
-    from localStorage); omit it to fall back to the deploy-wide default.
+    ``reviewers`` is a comma-separated list of the viewer's tracked
+    reviewers (sent by the client from localStorage); omit it to fall
+    back to the deploy-wide default. ``reviewer`` is the legacy
+    single-login param, still honoured for older cached clients.
     """
     login = session.login
     http_client: httpx.AsyncClient = app.state.http_client
@@ -368,17 +371,49 @@ async def dashboard(
         finally:
             await gh.aclose()
 
+    # Prefer the multi-reviewer param; fall back to the legacy single-login
+    # one so a client that hasn't reloaded the new bundle still works.
+    reviewers_param = reviewers if reviewers is not None else reviewer
+
     snapshot = state.current_snapshot(login)
     payload = serialize_dashboard(
         prs=snapshot.prs,
         reviews=snapshot.incoming_reviews,
-        reviewer_login=reviewer,
+        reviewers_param=reviewers_param,
         last_polled_at=state.last_polled_at(login),
         error_message=state.current_error(login),
         error_reset_at=state.error_reset_at(login),
         poll_interval_seconds=settings.POLL_INTERVAL_SECONDS,
     )
     return JSONResponse(content=payload)
+
+
+@app.get("/api/users/search")
+async def search_users(
+    q: str,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Typeahead for the reviewer picker: search GitHub users by login/name.
+
+    Proxied through the backend so the viewer's OAuth token never reaches
+    the browser. The client debounces keystrokes before hitting this. A
+    blank query short-circuits to an empty list (no point querying GitHub
+    for nothing); transport/search failures degrade to an empty list so the
+    settings dialog never hard-errors mid-typing.
+    """
+    query = q.strip()
+    if not query:
+        return JSONResponse(content=[])
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        results = await gh.search_users(query, limit=8)
+    except GitHubRateLimitError:
+        return JSONResponse(content=[])
+    except Exception:
+        log.exception("user search failed for %r", query)
+        return JSONResponse(content=[])
+    return JSONResponse(content=results)
 
 
 # Cloud-agent ids look like ``bc-<uuid>`` (v1) or ``bc_<slug>`` (legacy
@@ -690,12 +725,35 @@ async def mark_ready_for_review(
 class RequestReviewBody(BaseModel):
     """Body for ``POST /pulls/.../request-review``.
 
-    The reviewer is supplied by the client (from localStorage); falls
-    back to ``settings.REVIEWER_LOGIN`` when absent/empty. Length cap
+    The reviewers are supplied by the client (from localStorage); falls
+    back to ``settings.REVIEWER_LOGIN`` when absent/empty. ``reviewers``
+    is the multi-reviewer list; ``reviewer`` is the legacy single-login
+    field, still accepted for older cached clients. Per-login length cap
     matches GitHub's own login limit.
     """
 
+    reviewers: list[str] | None = Field(default=None, max_length=50)
     reviewer: str | None = Field(default=None, max_length=39)
+
+
+def _resolve_request_reviewers(body: RequestReviewBody | None) -> list[str]:
+    """Pick the logins to request, layering body -> legacy field -> env."""
+    raw: list[str] = []
+    if body is not None and body.reviewers is not None:
+        raw = list(body.reviewers)
+    elif body is not None and body.reviewer:
+        raw = [body.reviewer]
+    if not raw and settings.REVIEWER_LOGIN:
+        raw = settings.REVIEWER_LOGIN.split(",")
+    seen: set[str] = set()
+    out: list[str] = []
+    for login in raw:
+        cleaned = (login or "").strip()
+        key = cleaned.lower()
+        if cleaned and key not in seen:
+            seen.add(key)
+            out.append(cleaned)
+    return out
 
 
 @app.post("/pulls/{owner}/{repo}/{number}/request-review", status_code=204)
@@ -706,28 +764,27 @@ async def request_review(
     body: RequestReviewBody | None = None,
     session: Session = Depends(require_session),
 ) -> Response:
-    """Add the viewer's tracked reviewer to the PR's requested reviewers."""
-    raw = (body.reviewer if body is not None else None) or settings.REVIEWER_LOGIN
-    reviewer = (raw or "").strip()
-    if not reviewer:
+    """Add the viewer's tracked reviewer(s) to the PR's requested reviewers."""
+    reviewers = _resolve_request_reviewers(body)
+    if not reviewers:
         raise HTTPException(
             status_code=400,
             detail=(
-                "No reviewer configured. Pick one in SETTINGS or set "
+                "No reviewers configured. Pick one in SETTINGS or set "
                 "REVIEWER_LOGIN on the server."
             ),
         )
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     try:
-        await gh.request_reviewer(owner, repo, number, reviewer)
+        await gh.request_reviewers(owner, repo, number, reviewers)
     except Exception as exc:
         log.exception(
-            "request-review failed for %s/%s#%s -> @%s",
+            "request-review failed for %s/%s#%s -> %s",
             owner,
             repo,
             number,
-            reviewer,
+            ", ".join(f"@{r}" for r in reviewers),
         )
         raise HTTPException(status_code=502, detail=str(exc))
 

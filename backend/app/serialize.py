@@ -20,21 +20,35 @@ from .model import PR, ReviewPR
 from .stack import attach_stacks
 
 
-def effective_reviewer(reviewer_login: str | None) -> str:
-    """Pick the reviewer login a serialization should use.
+def _split_logins(raw: str) -> list[str]:
+    """Parse a comma-separated login list into ordered, deduped logins."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for part in raw.split(","):
+        login = part.strip().lower()
+        if login and login not in seen:
+            seen.add(login)
+            out.append(login)
+    return out
+
+
+def effective_reviewers(reviewers_param: str | None) -> list[str]:
+    """Resolve the set of reviewer logins a serialization should track.
 
     Three-tier fallback so the per-viewer override layers cleanly on
-    top of the deploy-wide default:
+    top of the deploy-wide default. ``reviewers_param`` is a
+    comma-separated list of logins sent by the client:
 
     * ``None`` -> use ``settings.REVIEWER_LOGIN`` (the "I haven't
-      configured anything; show the default reviewer" case).
-    * Empty string -> empty (the explicit "no reviewer tracking, hide
-      the chip" case -- distinct from "unset").
-    * Anything else -> the trimmed, lower-cased login.
+      configured anything; show the default reviewer(s)" case). The env
+      default may itself be comma-separated.
+    * Empty string -> ``[]`` (the explicit "track nobody, hide the
+      chips" case -- distinct from "unset").
+    * Anything else -> the parsed, trimmed, lower-cased, deduped logins.
     """
-    if reviewer_login is None:
-        return (settings.REVIEWER_LOGIN or "").strip().lower()
-    return reviewer_login.strip().lower()
+    if reviewers_param is None:
+        return _split_logins(settings.REVIEWER_LOGIN or "")
+    return _split_logins(reviewers_param)
 
 
 def _serialize_checks(pr_checks) -> dict[str, object]:
@@ -48,7 +62,9 @@ def _serialize_checks(pr_checks) -> dict[str, object]:
     }
 
 
-def _serialize_stack_nodes(pr: PR, reviewer: str) -> list[dict[str, object]]:
+def _serialize_stack_nodes(
+    pr: PR, reviewers: list[str]
+) -> list[dict[str, object]]:
     if pr.stack is None:
         return []
     return [
@@ -57,17 +73,29 @@ def _serialize_stack_nodes(pr: PR, reviewer: str) -> list[dict[str, object]]:
             "title": node.title,
             "url": node.url,
             "depth": node.depth,
-            "column": node.column_for(reviewer),
+            "column": node.column_for(reviewers),
             "is_self": node.number == pr.number,
         }
         for node in pr.stack.nodes
     ]
 
 
-def serialize_pr(pr: PR, reviewer: str) -> dict[str, object]:
+def serialize_pr(pr: PR, reviewers: list[str]) -> dict[str, object]:
     stack_id = (
         f"{pr.repo}#{pr.stack.nodes[0].number}" if pr.stack is not None else None
     )
+    # Per-reviewer status, preserving the viewer's configured order, so the
+    # card can render one chip per tracked reviewer. The aggregate
+    # ``approved`` / ``review_requested`` booleans stay for the column
+    # bucketing and any consumer that only cares "did anyone act?".
+    reviewer_status = [
+        {
+            "login": login,
+            "approved": pr.is_approved_by(login),
+            "review_requested": pr.is_review_requested_from(login),
+        }
+        for login in reviewers
+    ]
     return {
         "number": pr.number,
         "title": pr.title,
@@ -85,14 +113,15 @@ def serialize_pr(pr: PR, reviewer: str) -> dict[str, object]:
         "deletions": pr.deletions,
         "linear_url": pr.linear_url,
         "updated_at": pr.updated_at,
-        "column": pr.column_for(reviewer),
-        "approved": pr.is_approved_by(reviewer),
-        "review_requested": pr.is_review_requested_from(reviewer),
+        "column": pr.column_for(reviewers),
+        "approved": any(s["approved"] for s in reviewer_status),
+        "review_requested": any(s["review_requested"] for s in reviewer_status),
+        "reviewers": reviewer_status,
         "stack_id": stack_id,
         "stack_order": pr.stack_order,
         "stack_depth": pr.stack_depth,
         "stack_co_column": pr.stack_co_column,
-        "stack_nodes": _serialize_stack_nodes(pr, reviewer),
+        "stack_nodes": _serialize_stack_nodes(pr, reviewers),
     }
 
 
@@ -135,7 +164,7 @@ def serialize_dashboard(
     *,
     prs: list[PR],
     reviews: list[ReviewPR],
-    reviewer_login: str | None,
+    reviewers_param: str | None,
     last_polled_at: datetime | None,
     error_message: str,
     error_reset_at: datetime | None,
@@ -144,10 +173,10 @@ def serialize_dashboard(
     """Build the full ``/api/dashboard`` payload for one viewer.
 
     Stack attachment happens here (not in the poller) because the
-    co-column layout decision depends on the viewer's tracked reviewer.
+    co-column layout decision depends on the viewer's tracked reviewers.
     """
-    reviewer = effective_reviewer(reviewer_login)
-    stacked = attach_stacks(prs, reviewer)
+    reviewers = effective_reviewers(reviewers_param)
+    stacked = attach_stacks(prs, reviewers)
     error = None
     if error_message:
         error = {
@@ -155,10 +184,10 @@ def serialize_dashboard(
             "reset_at": _iso_z(error_reset_at) if error_reset_at else None,
         }
     return {
-        "prs": [serialize_pr(pr, reviewer) for pr in stacked],
+        "prs": [serialize_pr(pr, reviewers) for pr in stacked],
         "reviews": [serialize_review(pr) for pr in reviews],
         "repos": _serialize_repos(prs, reviews),
-        "reviewer": reviewer,
+        "reviewers": reviewers,
         "last_polled_at": _iso_z(last_polled_at) if last_polled_at else None,
         "error": error,
         "poll_interval_seconds": poll_interval_seconds,

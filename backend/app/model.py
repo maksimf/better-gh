@@ -1,9 +1,30 @@
 """Domain models for PRs and their derived rendering state."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Iterable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+def normalize_reviewers(reviewers: str | Iterable[str] | None) -> set[str]:
+    """Coerce a reviewer spec into a set of lower-cased, non-empty logins.
+
+    Accepts the historical single-login string (so existing single-reviewer
+    call sites keep working unchanged), an iterable of logins (the
+    multi-reviewer case), or ``None``. A blank/whitespace login is dropped
+    so ``""`` cleanly means "track nobody".
+    """
+    if reviewers is None:
+        return set()
+    if isinstance(reviewers, str):
+        rl = reviewers.strip().lower()
+        return {rl} if rl else set()
+    out: set[str] = set()
+    for r in reviewers:
+        rl = (r or "").strip().lower()
+        if rl:
+            out.add(rl)
+    return out
 
 
 class FailedCheck(BaseModel):
@@ -40,18 +61,25 @@ Column = Literal["approved", "ready", "progress"]
 
 
 def _column_for(
-    *, is_ready: bool, approver_logins: tuple[str, ...], reviewer: str | None
+    *,
+    is_ready: bool,
+    approver_logins: tuple[str, ...],
+    reviewers: str | Iterable[str] | None,
 ) -> Column:
     """Compute which Trello column a PR belongs in for a given viewer.
 
     Lives at module scope (not on the model) so both :class:`PR` and
     :class:`StackNode` can share the same definition without duplicating
     the rule -- and so the rule shows up exactly once in tests.
+
+    ``reviewers`` may be a single login (the legacy single-reviewer case)
+    or an iterable of logins (multi-reviewer tracking). A PR lands in
+    ``approved`` when *any* tracked reviewer has approved it.
     """
-    rl = (reviewer or "").lower().strip()
-    if rl:
+    tracked = normalize_reviewers(reviewers)
+    if tracked:
         for approver in approver_logins:
-            if approver.lower() == rl:
+            if approver.lower() in tracked:
                 return "approved"
     return "ready" if is_ready else "progress"
 
@@ -79,11 +107,11 @@ class StackNode(BaseModel):
     is_ready: bool = False
     approver_logins: tuple[str, ...] = ()
 
-    def column_for(self, reviewer: str | None) -> Column:
+    def column_for(self, reviewers: str | Iterable[str] | None) -> Column:
         return _column_for(
             is_ready=self.is_ready,
             approver_logins=self.approver_logins,
-            reviewer=reviewer,
+            reviewers=reviewers,
         )
 
 
@@ -182,11 +210,11 @@ class PR(BaseModel):
             return False
         return any(r.lower() == rl for r in self.requested_reviewers)
 
-    def column_for(self, reviewer: str | None) -> Column:
+    def column_for(self, reviewers: str | Iterable[str] | None) -> Column:
         return _column_for(
             is_ready=self.is_ready,
             approver_logins=self.approver_logins,
-            reviewer=reviewer,
+            reviewers=reviewers,
         )
 
     def fingerprint(self) -> tuple:

@@ -17,14 +17,18 @@ import { useActiveTab } from "./hooks/useActiveTab";
 import { useDeferredKeys, deferredKey } from "./hooks/useDeferredKeys";
 import { useReviewedKeys } from "./hooks/useReviewedKeys";
 import { useNtfyChannel } from "./hooks/useNtfyChannel";
-import { useReviewer } from "./hooks/useReviewer";
+import { useReviewers } from "./hooks/useReviewers";
 import { useSelectedRepos } from "./hooks/useSelectedRepos";
 import { useWatchedKeys } from "./hooks/useWatchedKeys";
 
 const TAB_LABELS = { mine: "MY PRs", reviews: "REVIEWING" } as const;
 
 export function App() {
-  const { reviewer, setReviewer } = useReviewer();
+  const {
+    reviewers,
+    param: reviewersParam,
+    setReviewers,
+  } = useReviewers();
   const repoStore = useSelectedRepos();
   const reviewed = useReviewedKeys();
   const deferred = useDeferredKeys();
@@ -34,8 +38,12 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
-  const dashboard = useDashboard(reviewer);
+  const dashboard = useDashboard(reviewersParam);
   const data = dashboard.data;
+
+  // Effective reviewers shown in SETTINGS: the viewer's local config, or
+  // the server's resolved default while they haven't configured their own.
+  const effectiveReviewers = reviewers ?? data?.reviewers ?? [];
 
   // Fold the server's synced preferences into the local store whenever they
   // (re)load -- this is how another device's changes show up here.
@@ -129,7 +137,6 @@ export function App() {
               <Board
                 prs={activePrs}
                 deferredPrs={deferredPrs}
-                reviewer={data?.reviewer ?? ""}
                 reviewedHas={reviewed.has}
                 onToggleReviewed={reviewed.toggle}
                 deferredHas={deferred.has}
@@ -160,8 +167,8 @@ export function App() {
         repos={data?.repos ?? []}
         has={repoStore.has}
         onToggleRepo={repoStore.toggle}
-        reviewerInitial={reviewer ?? data?.reviewer ?? ""}
-        onReviewerChange={setReviewer}
+        reviewers={effectiveReviewers}
+        onReviewersChange={setReviewers}
         ntfyChannel={ntfyChannel}
         onNtfyChannelChange={setNtfyChannel}
       />

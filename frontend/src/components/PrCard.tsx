@@ -17,7 +17,7 @@ import { PrLocStats } from "./PrLocStats";
 import { PrStack } from "./PrStack";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
-import { ReviewerChip } from "./ReviewerChip";
+import { RequestReviewAction, ReviewerChips } from "./ReviewerChip";
 import { WatchToggle } from "./WatchToggle";
 
 function splitRepo(repo: string): { owner: string; name: string } {
@@ -28,7 +28,6 @@ function splitRepo(repo: string): { owner: string; name: string } {
 
 export function PrCard({
   pr,
-  reviewer,
   reviewedHas,
   onToggleReviewed,
   deferredHas,
@@ -38,7 +37,6 @@ export function PrCard({
   watchDisabled,
 }: {
   pr: Pr;
-  reviewer: string;
   reviewedHas: (key: string) => boolean;
   onToggleReviewed: (key: string) => void;
   deferredHas: (key: string) => boolean;
@@ -78,13 +76,11 @@ export function PrCard({
   } else if (pr.is_draft) {
     primaryAction = <DraftButton owner={owner} repo={name} number={pr.number} />;
   } else {
-    // Null unless the PR is genuinely awaiting a review request.
+    // Null unless the PR is genuinely awaiting a review request from at
+    // least one tracked reviewer.
     primaryAction = (
-      <ReviewerChip
-        variant="action"
-        reviewer={reviewer}
-        approved={pr.approved}
-        reviewRequested={pr.review_requested}
+      <RequestReviewAction
+        reviewers={pr.reviewers}
         owner={owner}
         repo={name}
         number={pr.number}
@@ -160,11 +156,8 @@ export function PrCard({
             </OverflowMenu>
           )}
         </div>
-        <ReviewerChip
-          variant="chip"
-          reviewer={reviewer}
-          approved={pr.approved}
-          reviewRequested={pr.review_requested}
+        <ReviewerChips
+          reviewers={pr.reviewers}
           owner={owner}
           repo={name}
           number={pr.number}

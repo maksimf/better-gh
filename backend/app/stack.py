@@ -20,19 +20,21 @@ from typing import Iterable
 from .model import PR, Stack, StackNode
 
 
-def attach_stacks(prs: list[PR], reviewer: str | None = None) -> list[PR]:
+def attach_stacks(
+    prs: list[PR], reviewer: str | Iterable[str] | None = None
+) -> list[PR]:
     """Return PRs with ``.stack`` populated for every PR in a 2+ stack.
 
     Preserves input ordering. PRs that end up in a stack of size 1 (or
     that hit a cycle, see below) get ``stack=None`` so the template
     treats them as standalone cards.
 
-    ``reviewer`` is the GitHub login the viewer has configured to
-    track approvals from. It only affects ``stack_co_column``: an
-    approval by ``reviewer`` flips one node into the APPROVED column,
-    which can split a previously co-column stack. The stack
-    *structure* (parent/child links, depth, pre-order) is
-    reviewer-agnostic.
+    ``reviewer`` is the GitHub login (or set of logins, for multi-reviewer
+    tracking) the viewer has configured to track approvals from. It only
+    affects ``stack_co_column``: an approval by any tracked reviewer flips
+    one node into the APPROVED column, which can split a previously
+    co-column stack. The stack *structure* (parent/child links, depth,
+    pre-order) is reviewer-agnostic.
 
     Cycle handling: a real branch can't be the base of itself, but two
     PRs could theoretically reference each other's heads if someone

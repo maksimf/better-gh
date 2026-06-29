@@ -97,13 +97,18 @@ A full tour of what the app does, grouped by area.
 
 ### Reviewer tracking
 
-- **Track a reviewer by GitHub login** (configurable per-browser in
-  Settings, with a deploy-wide default). Their approval promotes a PR into
-  the **Approved** column.
-- **Per-card reviewer chip with three states:** approved (green
-  double-check), review-requested (blue single-check), or a **Request
-  review** button that adds them to the PR's reviewers in one click
-  (optimistically updated).
+- **Track one or more reviewers by GitHub login** (configured in Settings
+  and synced across your devices, with a deploy-wide default). An approval
+  from **any** tracked reviewer promotes a PR into the **Approved** column.
+- **Add reviewers via a search-as-you-type picker:** Settings shows the
+  tracked reviewers as removable chips and a debounced typeahead that
+  searches GitHub users (proxied through the backend so your token never
+  reaches the browser). Leave it empty to hide the chips entirely.
+- **Per-card chip per reviewer, with three states each:** approved (green
+  double-check), review-requested (blue single-check), or a yellow
+  initial chip you can click to request that one reviewer. The card's
+  primary **Request review(s)** button asks everyone still pending in one
+  click (optimistically updated).
 
 ### Per-card actions
 
@@ -301,7 +306,7 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 | `PREFS_DB_PATH` | `data/better-gh.sqlite3` | SQLite file holding synced per-user preferences (relative to the backend working dir). Mount a volume here in prod so settings survive restarts; `:memory:` for an ephemeral store. |
 | `BOT_LOGINS` | `cursor,cursor[bot],coderabbitai,coderabbitai[bot]` | Comma-separated. |
 | `PREVIEW_COMMENT_PREFIX` | `Preview Environment URL:` | Marker for the preview comment. |
-| `REVIEWER_LOGIN` | `nicoraga1` | Reviewer tracked on each card. Empty disables the chip + per-card request-review button. |
+| `REVIEWER_LOGIN` | `nicoraga1` | Default reviewer login(s) tracked on each card when a viewer hasn't configured their own. Comma-separate for several. Empty disables the chips + per-card request-review button. |
 | `MERGE_METHOD` | `merge` | `merge` / `squash` / `rebase` for the per-card MERGE button. |
 | `LINEAR_TICKET_PREFIX` | `ENG-` | Ticket prefix scanned in PR title/body (`<PREFIX>` + 3+ digits). Empty disables the Linear button. |
 | `LINEAR_WORKSPACE_URL` | `https://linear.app/clearest` | Base URL; the Linear button links to `{base}/issue/{TICKET}`. |
@@ -316,16 +321,23 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
 - `POST /logout` — clears the session cookie + drops in-memory state.
 - `GET /me` — `{login, avatar_url}` for the topbar chip (auth-gated).
 - `GET /styles.css` — serves the stylesheet (used by the login page).
-- `GET /api/dashboard?reviewer=<login>` — the full JSON snapshot the SPA
+- `GET /api/dashboard?reviewers=<a,b,c>` — the full JSON snapshot the SPA
   renders (PRs, reviews, repo counts, last-updated, error); warms the
-  per-user poller and touches the keep-alive on every call.
+  per-user poller and touches the keep-alive on every call. `reviewers`
+  is a comma-separated list of tracked logins (omit to use the deploy
+  default; empty string to track nobody). The legacy single-login
+  `?reviewer=` param is still accepted.
+- `GET /api/users/search?q=<term>` — GitHub user typeahead for the
+  reviewer picker, proxied with the viewer's token (returns
+  `[{login, avatar_url}]`).
 - `GET /api/prefs` — the signed-in viewer's synced preferences as a flat
   `{ key: value }` map (only keys they've set).
 - `PUT /api/prefs` — upsert one or more preferences (`{ key: value }`;
   a `null` value deletes the key). Last-write-wins.
 - `POST /refresh` — force a synchronous poll for the signed-in viewer.
 - `POST /pulls/{owner}/{repo}/{number}/merge` · `…/ready-for-review` ·
-  `…/request-review` — per-card mutations (then refresh the snapshot).
+  `…/request-review` (`{ reviewers: [...] }`) — per-card mutations (then
+  refresh the snapshot).
 
 ## Stack
 

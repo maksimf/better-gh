@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RepoSummary } from "../api/types";
 import { BrandMark } from "./icons";
 import { RepoPicker } from "./RepoPicker";
+import { ReviewerPicker } from "./ReviewerPicker";
 
 export function SettingsModal({
   open,
@@ -10,8 +11,8 @@ export function SettingsModal({
   repos,
   has,
   onToggleRepo,
-  reviewerInitial,
-  onReviewerChange,
+  reviewers,
+  onReviewersChange,
   ntfyChannel,
   onNtfyChannelChange,
 }: {
@@ -20,18 +21,12 @@ export function SettingsModal({
   repos: RepoSummary[];
   has: (repo: string) => boolean;
   onToggleRepo: (repo: string, checked: boolean) => void;
-  reviewerInitial: string;
-  onReviewerChange: (value: string) => void;
+  reviewers: string[];
+  onReviewersChange: (next: string[]) => void;
   ntfyChannel: string;
   onNtfyChannelChange: (value: string) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [reviewer, setReviewer] = useState(reviewerInitial);
-  const [status, setStatus] = useState<{ text: string; cls: string }>({
-    text: "",
-    cls: "",
-  });
-  const timerRef = useRef<number | null>(null);
   const [ntfy, setNtfy] = useState(ntfyChannel);
   const [ntfyStatus, setNtfyStatus] = useState<{ text: string; cls: string }>({
     text: "",
@@ -47,29 +42,10 @@ export function SettingsModal({
     else if (!open && el.open) el.close();
   }, [open]);
 
-  // Keep the input synced when the effective reviewer changes while the
-  // modal is closed (e.g. first dashboard load resolves the default).
-  useEffect(() => {
-    if (!open) setReviewer(reviewerInitial);
-  }, [reviewerInitial, open]);
-
   // Keep the ntfy input synced with the persisted value while closed.
   useEffect(() => {
     if (!open) setNtfy(ntfyChannel);
   }, [ntfyChannel, open]);
-
-  function commit(value: string) {
-    onReviewerChange(value.trim());
-    setStatus({ text: "Saved", cls: "is-saved" });
-    window.setTimeout(() => setStatus({ text: "", cls: "" }), 1500);
-  }
-
-  function onInput(value: string) {
-    setReviewer(value);
-    setStatus({ text: "Saving\u2026", cls: "is-saving" });
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => commit(value), 600);
-  }
 
   function commitNtfy(value: string) {
     onNtfyChannelChange(value.trim());
@@ -117,36 +93,16 @@ export function SettingsModal({
           aria-labelledby="settings-reviewer-label"
         >
           <h3 id="settings-reviewer-label" className="settings-section-title">
-            REVIEWER TO TRACK
+            REVIEWERS TO TRACK
           </h3>
           <p className="settings-section-hint">
-            GitHub login of the reviewer whose approval moves a PR into the{" "}
+            GitHub users whose approval moves a PR into the{" "}
             <strong>APPROVED</strong> column and unlocks the per-card{" "}
-            <em>Request review</em> button. Leave empty to hide the chip
-            entirely.
+            <em>Request review</em> button. Track several &mdash; an approval
+            from <em>any</em> of them counts. Search to add, or remove a chip
+            to stop tracking. Leave empty to hide the chips entirely.
           </p>
-          <label className="settings-reviewer-input">
-            <span className="settings-reviewer-at" aria-hidden="true">
-              @
-            </span>
-            <input
-              type="text"
-              name="reviewer"
-              autoComplete="off"
-              spellCheck={false}
-              autoCapitalize="off"
-              maxLength={39}
-              placeholder="github-login"
-              value={reviewer}
-              onChange={(e) => onInput(e.target.value)}
-            />
-            <span
-              className={`settings-reviewer-status ${status.cls}`}
-              aria-live="polite"
-            >
-              {status.text}
-            </span>
-          </label>
+          <ReviewerPicker reviewers={reviewers} onChange={onReviewersChange} />
         </section>
         <section
           className="settings-section"
@@ -202,9 +158,6 @@ export function SettingsModal({
           <RepoPicker repos={repos} has={has} onToggle={onToggleRepo} />
         </section>
       </div>
-      <footer className="settings-modal-footer">
-        Stored in your browser. No server-side state.
-      </footer>
     </dialog>
   );
 }

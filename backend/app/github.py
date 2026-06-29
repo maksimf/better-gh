@@ -381,14 +381,18 @@ class GitHubClient:
                 f"ready for review: {body['errors']}"
             )
 
-    async def request_reviewer(
-        self, owner: str, repo: str, pr_number: int, reviewer_login: str
+    async def request_reviewers(
+        self, owner: str, repo: str, pr_number: int, reviewer_logins: list[str]
     ) -> None:
-        """Add ``reviewer_login`` to the requested-reviewers of a PR.
+        """Add ``reviewer_logins`` to the requested-reviewers of a PR.
 
-        Wraps ``POST /repos/{owner}/{repo}/pulls/{pr_number}/requested_reviewers``.
-        Raises on HTTP error so the caller can surface the failure.
+        Wraps ``POST /repos/{owner}/{repo}/pulls/{pr_number}/requested_reviewers``,
+        which already accepts a list of logins in one call. Raises on HTTP
+        error so the caller can surface the failure. A no-op when the list
+        is empty (nothing to request).
         """
+        if not reviewer_logins:
+            return
         if not self._token:
             raise RuntimeError(
                 "No GitHub access token on session; cannot request reviewers."
@@ -403,13 +407,58 @@ class GitHubClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
         resp = await self._client.post(
-            url, headers=headers, json={"reviewers": [reviewer_login]}
+            url, headers=headers, json={"reviewers": reviewer_logins}
         )
         if resp.status_code >= 400:
+            joined = ", ".join(f"@{r}" for r in reviewer_logins)
             raise RuntimeError(
                 f"GitHub returned {resp.status_code} when requesting "
-                f"@{reviewer_login} on {owner}/{repo}#{pr_number}: {resp.text}"
+                f"{joined} on {owner}/{repo}#{pr_number}: {resp.text}"
             )
+
+    async def search_users(self, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        """Search GitHub users by login/name for the reviewer autocomplete.
+
+        Wraps ``GET /search/users?q={query} type:user``. Proxied through the
+        backend so the viewer's OAuth token never reaches the browser.
+        Returns a slim ``[{login, avatar_url, name}]`` list (name is only
+        present on GitHub's detailed user payloads, so it's left ``None``
+        here -- the search endpoint doesn't return it). Raises on HTTP error.
+        """
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot search users."
+            )
+        url = f"{self._api_url}/search/users"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        params = {
+            "q": f"{query} type:user",
+            "per_page": str(max(1, min(limit, 25))),
+        }
+        resp = await self._client.get(url, headers=headers, params=params)
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} searching users "
+                f"for {query!r}: {resp.text}"
+            )
+        body = resp.json() or {}
+        items = body.get("items") or []
+        out: list[dict[str, Any]] = []
+        for item in items:
+            login = item.get("login")
+            if not login:
+                continue
+            out.append(
+                {
+                    "login": login,
+                    "avatar_url": item.get("avatar_url") or "",
+                }
+            )
+        return out
 
     async def fetch_human_comments(
         self,

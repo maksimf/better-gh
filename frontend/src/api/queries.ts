@@ -5,7 +5,13 @@ import {
 } from "@tanstack/react-query";
 
 import { getJson, postJson, putJson } from "./client";
-import type { CloudAgentStatus, Dashboard, Me, PrComment } from "./types";
+import type {
+  CloudAgentStatus,
+  Dashboard,
+  GhUser,
+  Me,
+  PrComment,
+} from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 export const PREFS_KEY = ["prefs"] as const;
@@ -36,19 +42,37 @@ export function usePrefs() {
   });
 }
 
-function dashboardUrl(reviewer: string | null): string {
-  // reviewer === null  -> unconfigured: let the server use its default.
-  // reviewer === ""    -> explicitly "no reviewer": send the empty param.
-  if (reviewer === null) return "/api/dashboard";
-  return `/api/dashboard?reviewer=${encodeURIComponent(reviewer)}`;
+function dashboardUrl(reviewers: string | null): string {
+  // reviewers === null -> unconfigured: let the server use its default.
+  // reviewers === ""   -> explicitly "track nobody": send the empty param.
+  // "a,b"              -> track those comma-separated logins.
+  if (reviewers === null) return "/api/dashboard";
+  return `/api/dashboard?reviewers=${encodeURIComponent(reviewers)}`;
 }
 
-export function useDashboard(reviewer: string | null) {
+export function useDashboard(reviewers: string | null) {
   return useQuery({
-    queryKey: [...DASHBOARD_KEY, reviewer],
-    queryFn: () => getJson<Dashboard>(dashboardUrl(reviewer)),
+    queryKey: [...DASHBOARD_KEY, reviewers],
+    queryFn: () => getJson<Dashboard>(dashboardUrl(reviewers)),
     refetchInterval: (query) =>
       (query.state.data?.poll_interval_seconds ?? 300) * 1000,
+  });
+}
+
+/**
+ * Debounced-friendly GitHub user search for the reviewer picker. The
+ * caller is expected to pass an already-debounced query string; the query
+ * is disabled (and never hits the network) for a blank term.
+ */
+export function useUserSearch(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ["user-search", q],
+    enabled: q.length > 0,
+    queryFn: () =>
+      getJson<GhUser[]>(`/api/users/search?q=${encodeURIComponent(q)}`),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -183,8 +207,13 @@ export function useMarkReady() {
 export function useRequestReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ref, reviewer }: { ref: PrRef; reviewer: string | null }) =>
-      postJson(pullPath(ref, "request-review"), { reviewer }),
+    mutationFn: ({
+      ref,
+      reviewers,
+    }: {
+      ref: PrRef;
+      reviewers: string[];
+    }) => postJson(pullPath(ref, "request-review"), { reviewers }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   });
 }
