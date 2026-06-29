@@ -38,6 +38,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "better-gh.cloud-agents",
         "better-gh.ntfy-channel",
         "better-gh.pr-notes",
+        "better-gh.notes",
     }
 )
 

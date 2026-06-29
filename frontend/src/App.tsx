@@ -5,6 +5,7 @@ import { Board } from "./components/Board";
 import { Loader } from "./components/Loader";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { FooterMeta } from "./components/FooterMeta";
+import { NotesDrawer } from "./components/NotesDrawer";
 import { PageTitleRow } from "./components/PageTitleRow";
 import { PickerEmptyState } from "./components/PickerEmptyState";
 import { ReviewsList } from "./components/ReviewsList";
@@ -31,6 +32,7 @@ export function App() {
   const { channel: ntfyChannel, setChannel: setNtfyChannel } = useNtfyChannel();
   const { tab, setTab } = useActiveTab();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const dashboard = useDashboard(reviewer);
   const data = dashboard.data;
@@ -162,6 +164,12 @@ export function App() {
         onReviewerChange={setReviewer}
         ntfyChannel={ntfyChannel}
         onNtfyChannelChange={setNtfyChannel}
+      />
+
+      <NotesDrawer
+        open={notesOpen}
+        onOpen={() => setNotesOpen(true)}
+        onClose={() => setNotesOpen(false)}
       />
     </>
   );

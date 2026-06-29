@@ -1913,6 +1913,181 @@ button.comments-cell--btn:hover {
     outline-offset: 2px;
 }
 
+/* ---------- Notes drawer ---------- */
+
+/* The "NOTES" tab button pinned to the right edge, vertically centred. */
+.notes-tab {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%) rotate(90deg);
+    transform-origin: center center;
+    /* Pull the rotated button back so it sits flush at the edge. */
+    translate: calc(50% - 14px) 0;
+    background: var(--yellow);
+    color: var(--black);
+    border: 2px solid var(--black);
+    border-bottom: none;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-family: inherit;
+    cursor: pointer;
+    z-index: 200;
+    white-space: nowrap;
+    /* Shadow on what is visually the bottom of the tab (left when rotated). */
+    box-shadow: -3px 0 0 var(--black);
+}
+
+.notes-tab:hover {
+    background: var(--black);
+    color: var(--yellow);
+}
+
+.notes-tab:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+/* Slide-in drawer panel. */
+.notes-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100vh;
+    background: var(--white);
+    border-left: 4px solid var(--black);
+    display: flex;
+    flex-direction: column;
+    z-index: 300;
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Clip the tab button when drawer is open (tab is inside the drawer boundary) */
+    overflow: visible;
+}
+
+.notes-drawer--open {
+    transform: translateX(0);
+    box-shadow: -6px 0 0 var(--black);
+}
+
+.notes-drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--black);
+    color: var(--white);
+    padding: 12px 16px;
+    border-bottom: 4px solid var(--yellow);
+    flex-shrink: 0;
+}
+
+.notes-drawer-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.notes-drawer-close {
+    background: var(--yellow);
+    color: var(--black);
+    border: 2px solid var(--black);
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 900;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+
+.notes-drawer-close:hover {
+    background: var(--red);
+    color: var(--white);
+    border-color: var(--red);
+}
+
+.notes-drawer-close:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.notes-drawer-textarea {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: none;
+    border-bottom: 3px solid var(--grey-2);
+    padding: 14px 16px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    background: var(--white);
+    color: var(--black);
+    box-sizing: border-box;
+}
+
+.notes-drawer-textarea:focus-visible {
+    outline: none;
+    border-bottom-color: var(--blue);
+}
+
+.notes-drawer-footer {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    border-top: 2px solid var(--grey-2);
+}
+
+.notes-drawer-btn {
+    border: 2px solid var(--black);
+    padding: 7px 14px;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    background: var(--white);
+    color: var(--black);
+}
+
+.notes-drawer-btn:hover:not(:disabled) {
+    background: var(--black);
+    color: var(--yellow);
+}
+
+.notes-drawer-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+.notes-drawer-btn:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.notes-drawer-btn--clear {
+    color: var(--red);
+    border-color: var(--red);
+}
+
+.notes-drawer-btn--clear:hover:not(:disabled) {
+    background: var(--red);
+    color: var(--white);
+    border-color: var(--red);
+}
+
 /* QA walkthrough video modal. */
 .video-modal {
     padding: 0;

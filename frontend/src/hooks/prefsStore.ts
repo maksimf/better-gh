@@ -31,6 +31,7 @@ export const SYNCED_KEYS = [
   "better-gh.cloud-agents",
   "better-gh.ntfy-channel",
   "better-gh.pr-notes",
+  "better-gh.notes",
 ] as const;
 
 const SYNCED = new Set<string>(SYNCED_KEYS);
