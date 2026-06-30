@@ -6,6 +6,7 @@ import {
 
 import { getJson, postJson, putJson } from "./client";
 import type {
+  CloudAgentModel,
   CloudAgentStatus,
   Dashboard,
   GhUser,
@@ -103,6 +104,18 @@ export function useCloudAgentStatus(agentId: string | null) {
   });
 }
 
+export function useCloudAgentModels(enabled: boolean) {
+  return useQuery({
+    queryKey: ["cloud-agent-models"],
+    queryFn: () =>
+      getJson<{ items: CloudAgentModel[] }>("/api/cloud-agent/models").then(
+        (res) => res.items,
+      ),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export interface StartCloudAgentResult {
   id: string;
   url: string;
@@ -111,8 +124,20 @@ export interface StartCloudAgentResult {
 
 export function useStartCloudAgent() {
   return useMutation({
-    mutationFn: ({ prompt, repo }: { prompt: string; repo: string }) =>
-      postJson<StartCloudAgentResult>("/api/cloud-agent", { prompt, repo }),
+    mutationFn: ({
+      prompt,
+      repo,
+      modelId,
+    }: {
+      prompt: string;
+      repo: string;
+      modelId?: string | null;
+    }) =>
+      postJson<StartCloudAgentResult>("/api/cloud-agent", {
+        prompt,
+        repo,
+        ...(modelId ? { model_id: modelId } : {}),
+      }),
   });
 }
 

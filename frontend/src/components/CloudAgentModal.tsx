@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
+import { useCloudAgentModels } from "../api/queries";
+import { readString, removeKey, writeString } from "../hooks/storage";
+
+const QA_MODEL_KEY = "better-gh.qa-agent-model";
+
 export function defaultQaPrompt(number: number): string {
   return `Launch a browser automation to QA PR #${number}. Your goal is to verify the feature/bug end to end manually in the browser and produce a video of the step by step verification. Save the screen recording to artifacts/walkthrough.mp4 so it can be retrieved afterwards.`;
+}
+
+export interface QaAgentLaunch {
+  prompt: string;
+  modelId: string | null;
 }
 
 /**
@@ -21,11 +31,13 @@ export function CloudAgentModal({
   number: number;
   pending: boolean;
   error: string | null;
-  onLaunch: (prompt: string) => void;
+  onLaunch: (launch: QaAgentLaunch) => void;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [prompt, setPrompt] = useState(() => defaultQaPrompt(number));
+  const [modelId, setModelId] = useState(() => readString(QA_MODEL_KEY) ?? "");
+  const { data: models, isLoading: modelsLoading } = useCloudAgentModels(open);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -36,8 +48,25 @@ export function CloudAgentModal({
 
   // Reset to the default prompt each time the modal is (re)opened.
   useEffect(() => {
-    if (open) setPrompt(defaultQaPrompt(number));
+    if (open) {
+      setPrompt(defaultQaPrompt(number));
+      setModelId(readString(QA_MODEL_KEY) ?? "");
+    }
   }, [open, number]);
+
+  // Drop a stale saved model if it no longer appears in the list.
+  useEffect(() => {
+    if (!modelId || !models) return;
+    if (!models.some((m) => m.id === modelId)) {
+      setModelId("");
+      removeKey(QA_MODEL_KEY);
+    }
+  }, [modelId, models]);
+
+  function handleModelChange(next: string) {
+    setModelId(next);
+    if (next) writeString(QA_MODEL_KEY, next);
+  }
 
   return (
     <dialog
@@ -70,6 +99,25 @@ export function CloudAgentModal({
           <span className="qa-modal-pr">#{number}</span>. Edit the prompt
           below, then launch.
         </p>
+        <label className="qa-modal-label" htmlFor="qa-modal-model">
+          MODEL
+        </label>
+        <select
+          id="qa-modal-model"
+          className="qa-modal-select"
+          value={modelId}
+          disabled={pending || modelsLoading}
+          onChange={(e) => handleModelChange(e.target.value)}
+        >
+          <option value="">
+            {modelsLoading ? "Loading models\u2026" : "Default (configured)"}
+          </option>
+          {models?.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.displayName}
+            </option>
+          ))}
+        </select>
         <label className="qa-modal-label" htmlFor="qa-modal-prompt">
           PROMPT
         </label>
@@ -101,7 +149,9 @@ export function CloudAgentModal({
           type="button"
           className="qa-modal-btn qa-modal-btn--launch"
           disabled={pending || prompt.trim().length === 0}
-          onClick={() => onLaunch(prompt.trim())}
+          onClick={() =>
+            onLaunch({ prompt: prompt.trim(), modelId: modelId || null })
+          }
         >
           {pending ? "Launching\u2026" : "Launch agent \u2192"}
         </button>

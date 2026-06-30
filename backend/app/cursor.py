@@ -187,18 +187,32 @@ class CursorClient:
         )
         return body
 
+    async def list_models(self) -> list[dict[str, Any]]:
+        """Return recommended models for ``create_agent``'s ``model.id`` field."""
+        body = await self._get("/v1/models")
+        items = body.get("items")
+        if not isinstance(items, list):
+            return []
+        return [
+            it
+            for it in items
+            if isinstance(it, dict) and isinstance(it.get("id"), str) and it["id"]
+        ]
+
     async def create_agent(
         self,
         *,
         prompt: str,
         env_name: str,
+        model_id: str | None = None,
     ) -> dict[str, Any]:
         """Launch a cloud agent in the named Cursor-hosted environment.
 
         ``env_name`` is the repo's configured cloud environment (by
         convention its ``owner/name``), which carries the repo, setup, and
         any preview env the QA run needs. Using a named ``env`` is mutually
-        exclusive with explicit ``repos`` per the Cloud Agents API. Returns
+        exclusive with explicit ``repos`` per the Cloud Agents API. Pass
+        ``model_id`` to override the configured default model. Returns
         ``{id, url, name}`` for the freshly created agent; raises
         :class:`CursorError` on failure.
         """
@@ -206,6 +220,8 @@ class CursorClient:
             "prompt": {"text": prompt},
             "env": {"type": "cloud", "name": env_name},
         }
+        if model_id:
+            payload["model"] = {"id": model_id}
         body = await self._post("/v1/agents", payload)
         agent = body.get("agent")
         if not isinstance(agent, dict) or not agent.get("id"):

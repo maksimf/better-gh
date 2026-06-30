@@ -148,3 +148,9 @@ export interface CloudAgentStatus {
   video_path?: string | null;
   error?: string | null;
 }
+
+export interface CloudAgentModel {
+  id: string;
+  displayName: string;
+  description?: string | null;
+}

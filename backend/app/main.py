@@ -422,6 +422,46 @@ async def search_users(
 _AGENT_ID_RE = re.compile(r"^bc[-_][A-Za-z0-9-]{1,128}$")
 
 
+@app.get("/api/cloud-agent/models")
+async def cloud_agent_models(
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """List Cursor models available when launching a QA cloud agent."""
+    if not settings.CURSOR_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Cursor isn't configured on the server (CURSOR_API_KEY unset).",
+        )
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    client = CursorClient(
+        settings.CURSOR_API_KEY,
+        http_client=http_client,
+        base_url=settings.CURSOR_API_URL,
+    )
+    try:
+        models = await client.list_models()
+    except CursorError as exc:
+        log.warning("cloud-agent model list failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.exception("unexpected error listing cloud-agent models")
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    return JSONResponse(
+        content={
+            "items": [
+                {
+                    "id": m["id"],
+                    "displayName": m.get("displayName") or m["id"],
+                    "description": m.get("description"),
+                }
+                for m in models
+            ]
+        }
+    )
+
+
 @app.get("/api/cloud-agent/{agent_id}")
 async def cloud_agent_status(
     agent_id: str,
@@ -534,6 +574,7 @@ class StartCloudAgentBody(BaseModel):
 
     prompt: str = Field(min_length=1, max_length=10_000)
     repo: str = Field(max_length=140)
+    model_id: str | None = Field(default=None, max_length=200)
 
 
 @app.post("/api/cloud-agent")
@@ -562,6 +603,7 @@ async def start_cloud_agent(
     prompt = body.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt is required.")
+    model_id = (body.model_id or "").strip() or None
 
     http_client: httpx.AsyncClient = app.state.http_client
     client = CursorClient(
@@ -570,7 +612,9 @@ async def start_cloud_agent(
         base_url=settings.CURSOR_API_URL,
     )
     try:
-        result = await client.create_agent(prompt=prompt, env_name=repo)
+        result = await client.create_agent(
+            prompt=prompt, env_name=repo, model_id=model_id
+        )
     except CursorError as exc:
         log.warning("cloud-agent launch failed for %s: %s", repo, exc)
         raise HTTPException(status_code=502, detail=str(exc))
