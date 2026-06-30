@@ -1418,17 +1418,27 @@ button.comments-cell--btn:hover {
 }
 
 .reviewer-chip {
-    padding: 3px 6px;
+    /* Match the fixed pill height used by .checks / .comments / .pr-number
+       in the status bar. Approved/review chips used to look taller only
+       because of their check icons; pending (button-only) read as short. */
+    height: var(--pill-height);
+    box-sizing: border-box;
+    padding: 0 8px;
     gap: 4px;
+    align-items: center;
 }
 
 .reviewer-chip .chip-key {
     font-size: 11px;
+    line-height: 1;
 }
 
 button.reviewer-chip {
     font-family: inherit;
     cursor: pointer;
+    line-height: 1;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .reviewer-chip--pending {
