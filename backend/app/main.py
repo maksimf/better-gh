@@ -567,6 +567,7 @@ async def cloud_agent_video_url(
 
 # Owner/name guard for the repo we hand to the Cursor API.
 _REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_DEFAULT_QA_MODEL_ID = "composer-2.5"
 
 
 class StartCloudAgentBody(BaseModel):
@@ -603,7 +604,7 @@ async def start_cloud_agent(
     prompt = body.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt is required.")
-    model_id = (body.model_id or "").strip() or None
+    model_id = (body.model_id or "").strip() or _DEFAULT_QA_MODEL_ID
 
     http_client: httpx.AsyncClient = app.state.http_client
     client = CursorClient(

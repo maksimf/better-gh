@@ -82,6 +82,7 @@ export function useUserSearch(query: string) {
 // the GitHub dashboard cadence since QA runs are short-lived; we stop
 // entirely once the run reaches a terminal state.
 const CLOUD_AGENT_POLL_MS = 15 * 1000;
+const DEFAULT_QA_MODEL_ID = "composer-2.5";
 
 export function useCloudAgentStatus(agentId: string | null) {
   return useQuery({
@@ -136,7 +137,7 @@ export function useStartCloudAgent() {
       postJson<StartCloudAgentResult>("/api/cloud-agent", {
         prompt,
         repo,
-        ...(modelId ? { model_id: modelId } : {}),
+        model_id: modelId ?? DEFAULT_QA_MODEL_ID,
       }),
   });
 }

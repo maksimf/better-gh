@@ -61,7 +61,7 @@ function CloudAgentStarter({
   const [error, setError] = useState<string | null>(null);
   const start = useStartCloudAgent();
 
-  function launch({ prompt, modelId }: { prompt: string; modelId: string | null }) {
+  function launch({ prompt, modelId }: { prompt: string; modelId: string }) {
     setError(null);
     start.mutate(
       { prompt, repo, modelId },
