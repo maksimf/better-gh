@@ -801,21 +801,23 @@ async def pr_diff(
 ) -> JSONResponse:
     """Return a PR's per-file diffs for the read-only review panel.
 
-    Each entry: ``{filename, status, additions, deletions, patch,
-    previous_filename}`` where ``patch`` is GitHub's unified-diff hunk
-    text (``None`` for binaries / undiffable files). The viewer's own
-    token is used so private repos resolve.
+    Returns ``{body, files}``. ``body`` is the PR's markdown description
+    (``None`` when empty); each file entry is ``{filename, status,
+    additions, deletions, patch, previous_filename}`` where ``patch`` is
+    GitHub's unified-diff hunk text (``None`` for binaries / undiffable
+    files). The viewer's own token is used so private repos resolve.
     """
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     try:
+        body = await gh.fetch_pr_body(owner, repo, number)
         files = await gh.fetch_pr_diff(owner, repo, number)
     except Exception as exc:
         log.exception("fetch_pr_diff failed for %s/%s#%s", owner, repo, number)
         raise HTTPException(status_code=502, detail=str(exc))
     finally:
         await gh.aclose()
-    return JSONResponse(content={"files": files})
+    return JSONResponse(content={"body": body, "files": files})
 
 
 class ApproveBody(BaseModel):

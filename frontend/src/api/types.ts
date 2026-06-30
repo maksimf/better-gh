@@ -132,6 +132,7 @@ export interface DiffFile {
 }
 
 export interface PrDiff {
+  body: string | null;
   files: DiffFile[];
 }
 

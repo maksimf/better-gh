@@ -135,6 +135,54 @@ class FetchPrDiffTests(unittest.IsolatedAsyncioTestCase):
         await client.aclose()
 
 
+class FetchPrBodyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_body(self) -> None:
+        client, transport = _make_client(
+            [(200, {"body": "## Summary\nDoes a thing."})]
+        )
+
+        body = await client.fetch_pr_body("acme", "widgets", 42)
+
+        self.assertEqual(body, "## Summary\nDoes a thing.")
+        req = transport.requests[0]
+        self.assertEqual(req.method, "GET")
+        self.assertEqual(
+            str(req.url), "https://api.github.com/repos/acme/widgets/pulls/42"
+        )
+        await client.aclose()
+
+    async def test_returns_none_when_body_empty(self) -> None:
+        client, _ = _make_client([(200, {"body": ""})])
+
+        self.assertIsNone(await client.fetch_pr_body("acme", "widgets", 42))
+        await client.aclose()
+
+    async def test_returns_none_when_body_missing(self) -> None:
+        client, _ = _make_client([(200, {"number": 42})])
+
+        self.assertIsNone(await client.fetch_pr_body("acme", "widgets", 42))
+        await client.aclose()
+
+    async def test_raises_when_token_missing(self) -> None:
+        client, _ = _make_client([])
+        client._token = ""
+
+        with self.assertRaises(RuntimeError) as ctx:
+            await client.fetch_pr_body("acme", "widgets", 42)
+
+        self.assertIn("access token", str(ctx.exception))
+        await client.aclose()
+
+    async def test_raises_on_http_error(self) -> None:
+        client, _ = _make_client([(404, "Not Found")])
+
+        with self.assertRaises(RuntimeError) as ctx:
+            await client.fetch_pr_body("acme", "widgets", 42)
+
+        self.assertIn("404", str(ctx.exception))
+        await client.aclose()
+
+
 class ApprovePrTests(unittest.IsolatedAsyncioTestCase):
     async def test_posts_approve_event(self) -> None:
         client, transport = _make_client([(200, {"id": 1, "state": "APPROVED"})])

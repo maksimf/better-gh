@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { marked } from "marked";
 
 import { usePrDiff } from "../api/queries";
 import type { DiffFile } from "../api/types";
@@ -145,6 +146,13 @@ export function DiffPanel({
           <p className="diff-panel-state diff-panel-state--err">
             {error instanceof Error ? error.message : "Failed to load diff"}
           </p>
+        )}
+        {data && data.body && (
+          <section
+            className="diff-description"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: marked(data.body) as string }}
+          />
         )}
         {data && data.files.length === 0 && (
           <p className="diff-panel-state">No files changed.</p>

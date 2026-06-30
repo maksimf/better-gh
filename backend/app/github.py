@@ -676,6 +676,36 @@ class GitHubClient:
             page += 1
         return files[:max_files]
 
+    async def fetch_pr_body(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+    ) -> str | None:
+        """Fetch a PR's description (markdown ``body``) for the review panel.
+
+        Wraps ``GET /repos/{owner}/{repo}/pulls/{n}``. Returns the raw
+        markdown body, or ``None`` when the PR has no description.
+        """
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot fetch PR details."
+            )
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.get(url, headers=headers)
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} fetching "
+                f"{owner}/{repo}#{pr_number}: {resp.text}"
+            )
+        body = (resp.json() or {}).get("body")
+        return body or None
+
     async def approve_pr(
         self,
         owner: str,
