@@ -113,6 +113,28 @@ export interface PrComment {
   url: string;
 }
 
+export type DiffFileStatus =
+  | "added"
+  | "removed"
+  | "modified"
+  | "renamed"
+  | "copied"
+  | "changed"
+  | "unchanged";
+
+export interface DiffFile {
+  filename: string;
+  status: DiffFileStatus | string;
+  additions: number;
+  deletions: number;
+  patch: string | null;
+  previous_filename: string | null;
+}
+
+export interface PrDiff {
+  files: DiffFile[];
+}
+
 export type CloudAgentState = "running" | "done" | "error" | "unknown";
 
 export interface CloudAgentStatus {

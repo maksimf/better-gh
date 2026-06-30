@@ -1,10 +1,17 @@
 import type { ReviewPr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { formatRelative } from "../hooks/useRelativeTime";
+import { ApproveButton } from "./ApproveButton";
 import { ChecksPill, Conflicts } from "./ChecksPill";
 import { DeferredToggle } from "./DeferredToggle";
 import { PrLocStats } from "./PrLocStats";
 import { ReviewedToggle } from "./ReviewedToggle";
+
+function splitRepo(repo: string): { owner: string; name: string } {
+  const slash = repo.indexOf("/");
+  if (slash < 0) return { owner: repo, name: "" };
+  return { owner: repo.slice(0, slash), name: repo.slice(slash + 1) };
+}
 
 export function ReviewRow({
   pr,
@@ -13,6 +20,8 @@ export function ReviewRow({
   onToggleReviewed,
   deferredHas,
   onToggleDeferred,
+  selected = false,
+  onSelect,
 }: {
   pr: ReviewPr;
   now: number;
@@ -20,20 +29,37 @@ export function ReviewRow({
   onToggleReviewed: (key: string) => void;
   deferredHas: (key: string) => boolean;
   onToggleDeferred: (key: string) => void;
+  selected?: boolean;
+  onSelect?: () => void;
 }) {
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
   const isDeferred = deferredHas(key);
+  const { owner, name } = splitRepo(pr.repo);
   const classes = [
     "review-row",
     pr.is_draft && "is-draft",
     isReviewed && "is-manually-reviewed",
+    selected && "is-selected",
   ]
     .filter(Boolean)
     .join(" ");
 
+  // Select the row to open the diff, but let real links/buttons inside
+  // the row do their own thing (open GitHub, toggle markers, approve).
+  function handleRowClick(e: React.MouseEvent<HTMLElement>) {
+    if (!onSelect) return;
+    if ((e.target as HTMLElement).closest("a, button")) return;
+    onSelect();
+  }
+
   return (
-    <article className={classes} data-repo={pr.repo}>
+    <article
+      className={classes}
+      data-repo={pr.repo}
+      aria-current={selected || undefined}
+      onClick={handleRowClick}
+    >
       <div className="review-main">
         <a className="review-number" href={pr.url} target="_blank" rel="noopener">
           #{pr.number}
@@ -60,6 +86,18 @@ export function ReviewRow({
         )}
       </div>
       <div className="review-meta">
+        {onSelect && (
+          <button
+            type="button"
+            className={`review-diff-toggle${selected ? " is-active" : ""}`}
+            title={selected ? "Hide diff" : "Review diff"}
+            aria-pressed={selected}
+            onClick={onSelect}
+          >
+            {selected ? "VIEWING" : "REVIEW"}
+          </button>
+        )}
+        <ApproveButton owner={owner} repo={name} number={pr.number} />
         <ChecksPill checks={pr.checks} />
         <Conflicts conflicts={pr.conflicts} />
         <ReviewedToggle

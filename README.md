@@ -80,6 +80,10 @@ A full tour of what the app does, grouped by area.
   lists PRs where you've been requested as a reviewer, with a "requested
   N ago" hint. Each tab shows a live count and is reflected in the
   document title.
+- **Inline review on the REVIEWING tab.** Selecting a PR you've been asked
+  to review opens its diff in a read-only panel to the right (per-file
+  hunks with line numbers, add/remove coloring), and each row carries an
+  **Approve** button to sign off without leaving the dashboard.
 - **Inbox-zero empty state** when there's nothing open.
 
 ### What each card shows
@@ -336,8 +340,12 @@ All defined in `backend/.env.example` — copy to `backend/.env` and fill in.
   a `null` value deletes the key). Last-write-wins.
 - `POST /refresh` — force a synchronous poll for the signed-in viewer.
 - `POST /pulls/{owner}/{repo}/{number}/merge` · `…/ready-for-review` ·
-  `…/request-review` (`{ reviewers: [...] }`) — per-card mutations (then
-  refresh the snapshot).
+  `…/request-review` (`{ reviewers: [...] }`) · `…/approve` — per-card
+  mutations (then refresh the snapshot). `…/approve` submits an APPROVE
+  review on a PR you've been asked to review.
+- `GET /pulls/{owner}/{repo}/{number}/diff` — the PR's per-file diffs
+  (`{files: [{filename, status, additions, deletions, patch, …}]}`) for
+  the read-only review panel on the REVIEWING tab.
 
 ## Stack
 

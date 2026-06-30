@@ -618,6 +618,98 @@ class GitHubClient:
                 f"on {owner}/{repo}#{number}: {resp.text}"
             )
 
+    async def fetch_pr_diff(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        *,
+        max_files: int = 300,
+    ) -> list[dict[str, Any]]:
+        """Fetch a PR's per-file diffs for the read-only review panel.
+
+        Wraps ``GET /repos/{owner}/{repo}/pulls/{n}/files`` (paginated,
+        100 per page) and returns one dict per changed file:
+        ``{filename, status, additions, deletions, patch, previous_filename}``.
+        ``patch`` is GitHub's unified-diff hunk text, or ``None`` for files
+        GitHub doesn't diff inline (binaries, very large files). We cap at
+        ``max_files`` so a monster PR can't balloon the response.
+        """
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot fetch PR diffs."
+            )
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        files: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            url = (
+                f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/files"
+                f"?per_page=100&page={page}"
+            )
+            resp = await self._client.get(url, headers=headers)
+            if resp.status_code >= 400:
+                raise RuntimeError(
+                    f"GitHub returned {resp.status_code} fetching files for "
+                    f"{owner}/{repo}#{pr_number}: {resp.text}"
+                )
+            batch = resp.json() or []
+            for f in batch:
+                if not f:
+                    continue
+                files.append(
+                    {
+                        "filename": f.get("filename") or "",
+                        "status": f.get("status") or "modified",
+                        "additions": int(f.get("additions") or 0),
+                        "deletions": int(f.get("deletions") or 0),
+                        "patch": f.get("patch"),
+                        "previous_filename": f.get("previous_filename"),
+                    }
+                )
+            if len(batch) < 100 or len(files) >= max_files:
+                break
+            page += 1
+        return files[:max_files]
+
+    async def approve_pr(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        body: str = "",
+    ) -> None:
+        """Submit an APPROVE review on a PR.
+
+        Wraps ``POST /repos/{owner}/{repo}/pulls/{n}/reviews`` with
+        ``event: APPROVE``. ``body`` is an optional review summary comment.
+        Raises on HTTP error so the caller can surface GitHub's reason
+        (e.g. 422 when you try to approve your own PR).
+        """
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot approve PRs."
+            )
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        payload: dict[str, Any] = {"event": "APPROVE"}
+        if body.strip():
+            payload["body"] = body.strip()
+        resp = await self._client.post(url, headers=headers, json=payload)
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} approving "
+                f"{owner}/{repo}#{pr_number}: {resp.text}"
+            )
+
     async def fetch_dashboard_snapshot(
         self,
     ) -> tuple[list[PR], list[ReviewPR], dict[str, Any] | None]:

@@ -11,6 +11,7 @@ import type {
   GhUser,
   Me,
   PrComment,
+  PrDiff,
 } from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
@@ -251,6 +252,30 @@ export function useAckComment() {
         comment_id: commentId,
         comment_type: commentType,
       }),
+  });
+}
+
+export function usePrDiff(
+  owner: string,
+  repo: string,
+  number: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["pr-diff", owner, repo, number],
+    queryFn: () => getJson<PrDiff>(pullPath({ owner, repo, number }, "diff")),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useApprovePr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ref, body }: { ref: PrRef; body?: string }) =>
+      postJson(pullPath(ref, "approve"), { body: body ?? "" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   });
 }
 

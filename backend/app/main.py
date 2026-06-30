@@ -792,6 +792,61 @@ async def request_review(
     return Response(status_code=204)
 
 
+@app.get("/pulls/{owner}/{repo}/{number}/diff")
+async def pr_diff(
+    owner: str,
+    repo: str,
+    number: int,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Return a PR's per-file diffs for the read-only review panel.
+
+    Each entry: ``{filename, status, additions, deletions, patch,
+    previous_filename}`` where ``patch`` is GitHub's unified-diff hunk
+    text (``None`` for binaries / undiffable files). The viewer's own
+    token is used so private repos resolve.
+    """
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        files = await gh.fetch_pr_diff(owner, repo, number)
+    except Exception as exc:
+        log.exception("fetch_pr_diff failed for %s/%s#%s", owner, repo, number)
+        raise HTTPException(status_code=502, detail=str(exc))
+    finally:
+        await gh.aclose()
+    return JSONResponse(content={"files": files})
+
+
+class ApproveBody(BaseModel):
+    """Body for ``POST /pulls/.../approve`` (optional review summary)."""
+
+    body: str = Field(default="", max_length=10_000)
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/approve", status_code=204)
+async def approve_pr_endpoint(
+    owner: str,
+    repo: str,
+    number: int,
+    body: ApproveBody | None = None,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Submit an APPROVE review on a PR, then refresh the snapshot."""
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.approve_pr(
+            owner, repo, number, body=body.body if body is not None else ""
+        )
+    except Exception as exc:
+        log.exception("approve failed for %s/%s#%s", owner, repo, number)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    await _safe_poll_once(session.token, session.login)
+    return Response(status_code=204)
+
+
 @app.get("/pulls/{owner}/{repo}/{number}/comments")
 async def pr_human_comments(
     owner: str,
