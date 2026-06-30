@@ -2556,16 +2556,19 @@ button.reviewer-chip {
 .reviews-layout--split {
     display: flex;
     align-items: stretch;
-    gap: 24px;
-    padding: 24px 28px;
-    max-width: 1700px;
-    margin: 0 auto;
+    gap: 20px;
+    /* Span the full viewport width -- no centered max-width / auto margins
+       so the diff and the card column get every available pixel. */
+    width: 100%;
+    padding: 20px;
     height: calc(100vh - 210px);
     min-height: 460px;
 }
 
 .reviews-layout--split .reviews-column {
-    flex: 0 0 430px;
+    /* Scale the card rail with the freed-up width so the per-card buttons
+       have room instead of overflowing a fixed narrow column. */
+    flex: 0 0 clamp(420px, 32vw, 640px);
     min-width: 0;
     overflow-y: auto;
     padding-right: 4px;
@@ -2575,6 +2578,13 @@ button.reviewer-chip {
     padding: 0;
     max-width: none;
     margin: 0;
+}
+
+/* Let the action cluster wrap onto a second line when the rail is tight,
+   so buttons never spill outside the card. */
+.reviews-layout--split .review-meta {
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 /* ---------- Diff panel ---------- */
