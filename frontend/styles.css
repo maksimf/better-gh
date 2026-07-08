@@ -2759,13 +2759,14 @@ button.reviewer-chip {
 .diff-description img,
 .diff-description video,
 .diff-description .diff-media {
-    max-width: 100%;
+    display: block;
+    width: auto;
+    max-width: min(100%, 760px);
     height: auto;
+    margin: 8px 0;
 }
 
 .diff-description .diff-media {
-    display: block;
-    margin: 8px 0;
     border: 2px solid var(--black);
     background: var(--black);
 }
