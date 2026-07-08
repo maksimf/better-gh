@@ -15,6 +15,7 @@ import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import (
@@ -863,6 +864,55 @@ async def pr_diff(
     finally:
         await gh.aclose()
     return JSONResponse(content={"body": body, "files": files})
+
+
+@app.get("/attachments")
+async def proxy_attachment(
+    url: str,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Resolve a GitHub ``user-attachments`` asset with the viewer's token.
+
+    Images/videos uploaded into PR bodies live at
+    ``https://github.com/user-attachments/assets/<uuid>``. Those require
+    authentication and GitHub sets its session cookie ``SameSite=Lax``, so a
+    cross-origin ``<img>``/``<video>`` from the SPA never sends it and the
+    asset 404s. We fetch it server-side with the viewer's OAuth token;
+    GitHub answers with a 302 to a short-lived *signed* S3 URL that the
+    browser can then load directly (it also supports range requests, so
+    ``<video>`` seeking works). The host/path allowlist keeps this from
+    doubling as an open proxy/SSRF vector.
+    """
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "github.com"
+        or not parsed.path.startswith("/user-attachments/")
+    ):
+        raise HTTPException(status_code=400, detail="Unsupported attachment URL.")
+
+    http_client: httpx.AsyncClient = app.state.http_client
+    headers = {"Authorization": f"bearer {session.token}"}
+    try:
+        resp = await http_client.get(url, headers=headers, follow_redirects=False)
+    except httpx.HTTPError as exc:
+        log.warning("attachment proxy failed for %s: %s", url, exc)
+        raise HTTPException(status_code=502, detail="Failed to fetch attachment.")
+
+    location = resp.headers.get("location")
+    if resp.is_redirect and location:
+        # Hand the browser the signed asset URL; don't stream bytes through us.
+        return RedirectResponse(location, status_code=302)
+    if resp.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"GitHub returned {resp.status_code} for attachment.",
+        )
+    # Rare: GitHub served the asset inline. Pass the bytes straight through.
+    return Response(
+        content=resp.content,
+        media_type=resp.headers.get("content-type"),
+    )
 
 
 class ApproveBody(BaseModel):

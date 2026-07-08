@@ -11,6 +11,7 @@ const PROXY_PATHS = [
   "/api",
   "/me",
   "/pulls",
+  "/attachments",
   "/refresh",
   "/logout",
   "/auth",

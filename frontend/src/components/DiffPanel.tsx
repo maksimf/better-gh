@@ -17,6 +17,54 @@ interface DiffLine {
 
 const HUNK_RE = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
+/** GitHub-hosted PR upload assets (images & videos) that need our token. */
+const ATTACHMENT_RE = /^https:\/\/github\.com\/user-attachments\//i;
+
+/** Route an authed GitHub asset through our same-origin token proxy. */
+function proxyAttachment(src: string): string {
+  return `/attachments?url=${encodeURIComponent(src)}`;
+}
+
+/**
+ * Render a PR's markdown body the way GitHub does for uploaded media.
+ *
+ * `marked` alone turns a bare `user-attachments` URL into a plain link and
+ * leaves `<img>` srcs pointing at an asset the browser can't load (GitHub's
+ * session cookie is `SameSite=Lax`, so cross-origin subresource requests are
+ * unauthenticated and 404). We post-process the HTML to:
+ *   - proxy every `<img>/<video>/<source>` asset src through the backend, and
+ *   - promote bare autolinked attachment URLs to inline `<video>` players
+ *     (GitHub uploads videos as bare URLs; images use `![]()`/`<img>`).
+ */
+function renderPrBody(markdown: string): string {
+  const html = marked(markdown) as string;
+  if (typeof DOMParser === "undefined") return html;
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  doc.querySelectorAll("img[src], video[src], source[src]").forEach((el) => {
+    const src = el.getAttribute("src") ?? "";
+    if (ATTACHMENT_RE.test(src)) el.setAttribute("src", proxyAttachment(src));
+  });
+
+  doc.querySelectorAll("a[href]").forEach((anchor) => {
+    const href = anchor.getAttribute("href") ?? "";
+    // Only bare autolinks (link text === url) are uploaded videos; a linked
+    // image has an <img> child (empty text) and must stay an image.
+    if (!ATTACHMENT_RE.test(href)) return;
+    if ((anchor.textContent ?? "").trim() !== href) return;
+
+    const video = doc.createElement("video");
+    video.setAttribute("src", proxyAttachment(href));
+    video.setAttribute("controls", "");
+    video.setAttribute("preload", "metadata");
+    video.className = "diff-media";
+    anchor.replaceWith(video);
+  });
+
+  return doc.body.innerHTML;
+}
+
 /** Parse a GitHub unified-diff `patch` blob into renderable, numbered lines. */
 function parsePatch(patch: string): DiffLine[] {
   const lines: DiffLine[] = [];
@@ -113,6 +161,10 @@ export function DiffPanel({
   canApprove?: boolean;
 }) {
   const { data, isLoading, error } = usePrDiff(owner, repo, number, true);
+  const bodyHtml = useMemo(
+    () => (data?.body ? renderPrBody(data.body) : ""),
+    [data?.body],
+  );
 
   return (
     <aside className="diff-panel" aria-label={`Diff for #${number}`}>
@@ -149,11 +201,11 @@ export function DiffPanel({
             {error instanceof Error ? error.message : "Failed to load diff"}
           </p>
         )}
-        {data && data.body && (
+        {bodyHtml && (
           <section
             className="diff-description"
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: marked(data.body) as string }}
+            dangerouslySetInnerHTML={{ __html: bodyHtml }}
           />
         )}
         {data && data.files.length === 0 && (
