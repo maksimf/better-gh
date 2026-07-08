@@ -102,6 +102,7 @@ export function DiffPanel({
   title,
   url,
   onClose,
+  canApprove = true,
 }: {
   owner: string;
   repo: string;
@@ -109,6 +110,7 @@ export function DiffPanel({
   title: string;
   url: string;
   onClose: () => void;
+  canApprove?: boolean;
 }) {
   const { data, isLoading, error } = usePrDiff(owner, repo, number, true);
 
@@ -127,7 +129,7 @@ export function DiffPanel({
           <h2 className="diff-panel-name">{title}</h2>
         </div>
         <div className="diff-panel-actions">
-          <ApproveButton owner={owner} repo={repo} number={number} />
+          {canApprove && <ApproveButton owner={owner} repo={repo} number={number} />}
           <button
             type="button"
             className="diff-panel-close"

@@ -1,11 +1,22 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
 import { Column } from "./Column";
 import { DeferredSection } from "./DeferredSection";
+import { DiffPanel } from "./DiffPanel";
 import { PrCard } from "./PrCard";
 
 const COLUMNS: ColumnKey[] = ["progress", "ready", "approved"];
+
+function rowKey(pr: Pr): string {
+  return `${pr.repo}#${pr.number}`;
+}
+
+function splitRepo(repo: string): { owner: string; name: string } {
+  const slash = repo.indexOf("/");
+  if (slash < 0) return { owner: repo, name: "" };
+  return { owner: repo.slice(0, slash), name: repo.slice(slash + 1) };
+}
 
 type GroupItem =
   | { kind: "card"; pr: Pr }
@@ -74,12 +85,35 @@ export function Board({
   onToggleWatch: (key: string) => void;
   watchDisabled: boolean;
 }) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const selectedPr = useMemo(() => {
+    if (!selectedKey) return null;
+    return (
+      [...prs, ...deferredPrs].find((pr) => rowKey(pr) === selectedKey) ?? null
+    );
+  }, [selectedKey, prs, deferredPrs]);
+
   const buckets: Record<ColumnKey, Pr[]> = {
     progress: [],
     ready: [],
     approved: [],
   };
   for (const pr of prs) buckets[pr.column].push(pr);
+
+  const allCardsFlat = useMemo(() => {
+    const flat: Pr[] = [];
+    for (const column of COLUMNS) {
+      for (const item of groupColumn(buckets[column])) {
+        if (item.kind === "card") {
+          flat.push(item.pr);
+        } else {
+          flat.push(...item.cards);
+        }
+      }
+    }
+    return flat;
+  }, [prs]);
 
   const counts: Record<ColumnKey, number> = {
     progress: buckets.progress.length,
@@ -110,12 +144,41 @@ export function Board({
   };
 
   function renderCard(pr: Pr) {
+    const key = rowKey(pr);
     return (
       <PrCard
-        key={`${pr.repo}#${pr.number}`}
+        key={key}
         pr={pr}
+        selected={key === selectedKey}
+        onSelect={() => setSelectedKey((cur) => (cur === key ? null : key))}
         {...boardProps}
       />
+    );
+  }
+
+  if (selectedPr) {
+    const { owner, name } = splitRepo(selectedPr.repo);
+    return (
+      <div className="reviews-layout reviews-layout--split">
+        <div className="reviews-column">
+          {allCardsFlat.map((pr) => renderCard(pr))}
+          {deferredPrs.length > 0 && (
+            <DeferredSection count={deferredPrs.length}>
+              {deferredPrs.map((pr) => renderCard(pr))}
+            </DeferredSection>
+          )}
+        </div>
+        <DiffPanel
+          key={rowKey(selectedPr)}
+          owner={owner}
+          repo={name}
+          number={selectedPr.number}
+          title={selectedPr.title}
+          url={selectedPr.url}
+          canApprove={false}
+          onClose={() => setSelectedKey(null)}
+        />
+      </div>
     );
   }
 

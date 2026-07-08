@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { marked } from "marked";
 
 import type { Pr } from "../api/types";
@@ -35,6 +35,8 @@ export function PrCard({
   watchedHas,
   onToggleWatch,
   watchDisabled,
+  selected,
+  onSelect,
 }: {
   pr: Pr;
   reviewedHas: (key: string) => boolean;
@@ -44,6 +46,8 @@ export function PrCard({
   watchedHas: (key: string) => boolean;
   onToggleWatch: (key: string) => void;
   watchDisabled: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
@@ -97,6 +101,7 @@ export function PrCard({
     pr.stack_id && "is-stacked",
     pr.stack_co_column && "is-stack-co-column",
     isReviewed && "is-manually-reviewed",
+    selected && "is-selected",
   ]
     .filter(Boolean)
     .join(" ");
@@ -105,8 +110,19 @@ export function PrCard({
     ? ({ "--stack-depth": pr.stack_depth ?? 0 } as CSSProperties)
     : undefined;
 
+  function handleCardClick(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest("a, button, input, [role='button']")) return;
+    onSelect();
+  }
+
   return (
-    <article className={classes} data-repo={pr.repo} data-column={pr.column} style={style}>
+    <article
+      className={classes}
+      data-repo={pr.repo}
+      data-column={pr.column}
+      style={style}
+      onClick={handleCardClick}
+    >
       <header className={`pr-head${note ? " pr-head--has-note" : ""}`}>
         <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
           #{pr.number}

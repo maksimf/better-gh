@@ -602,6 +602,12 @@ button {
     flex-direction: column;
     gap: 10px;
     position: relative;
+    cursor: pointer;
+}
+
+.pr-card.is-selected {
+    border-color: var(--blue);
+    box-shadow: 6px 6px 0 var(--blue);
 }
 
 .pr-card.is-ready {
@@ -2606,6 +2612,9 @@ button.reviewer-chip {
     min-width: 0;
     overflow-y: auto;
     padding-right: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .reviews-layout--split .reviews-list {
@@ -2616,7 +2625,8 @@ button.reviewer-chip {
 
 /* Let the action cluster wrap onto a second line when the rail is tight,
    so buttons never spill outside the card. */
-.reviews-layout--split .review-meta {
+.reviews-layout--split .review-meta,
+.reviews-layout--split .pr-bar {
     flex-wrap: wrap;
     justify-content: flex-end;
 }
