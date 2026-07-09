@@ -676,16 +676,18 @@ class GitHubClient:
             page += 1
         return files[:max_files]
 
-    async def fetch_pr_body(
+    async def fetch_pr_details(
         self,
         owner: str,
         repo: str,
         pr_number: int,
-    ) -> str | None:
-        """Fetch a PR's description (markdown ``body``) for the review panel.
+    ) -> dict[str, Any]:
+        """Fetch a PR's description and head SHA for the review panel.
 
-        Wraps ``GET /repos/{owner}/{repo}/pulls/{n}``. Returns the raw
-        markdown body, or ``None`` when the PR has no description.
+        Wraps ``GET /repos/{owner}/{repo}/pulls/{n}``. Returns
+        ``{body, head_sha}`` where ``body`` is the raw markdown description
+        (``None`` when empty) and ``head_sha`` is the tip commit of the PR
+        branch (needed as ``commit_id`` for standalone inline comments).
         """
         if not self._token:
             raise RuntimeError(
@@ -703,8 +705,61 @@ class GitHubClient:
                 f"GitHub returned {resp.status_code} fetching "
                 f"{owner}/{repo}#{pr_number}: {resp.text}"
             )
-        body = (resp.json() or {}).get("body")
-        return body or None
+        data = resp.json() or {}
+        body = data.get("body") or None
+        head = data.get("head") or {}
+        head_sha = head.get("sha") or None
+        return {"body": body, "head_sha": head_sha}
+
+    async def fetch_pr_body(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+    ) -> str | None:
+        """Fetch a PR's description (markdown ``body``) for the review panel.
+
+        Thin wrapper around :meth:`fetch_pr_details` kept for callers that
+        only need the body.
+        """
+        details = await self.fetch_pr_details(owner, repo, pr_number)
+        return details["body"]
+
+    async def submit_review(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        event: str,
+        body: str = "",
+    ) -> None:
+        """Submit a review verdict on a PR.
+
+        Wraps ``POST /repos/{owner}/{repo}/pulls/{n}/reviews`` with
+        ``event`` one of ``APPROVE``, ``REQUEST_CHANGES``, or ``COMMENT``.
+        ``body`` is an optional review summary comment. Raises on HTTP
+        error so the caller can surface GitHub's reason (e.g. 422 when
+        you try to approve your own PR).
+        """
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot submit reviews."
+            )
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        payload: dict[str, Any] = {"event": event}
+        if body.strip():
+            payload["body"] = body.strip()
+        resp = await self._client.post(url, headers=headers, json=payload)
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} submitting {event} "
+                f"on {owner}/{repo}#{pr_number}: {resp.text}"
+            )
 
     async def approve_pr(
         self,
@@ -713,31 +768,55 @@ class GitHubClient:
         pr_number: int,
         body: str = "",
     ) -> None:
-        """Submit an APPROVE review on a PR.
+        """Submit an APPROVE review on a PR. Thin wrapper over submit_review."""
+        await self.submit_review(owner, repo, pr_number, "APPROVE", body=body)
 
-        Wraps ``POST /repos/{owner}/{repo}/pulls/{n}/reviews`` with
-        ``event: APPROVE``. ``body`` is an optional review summary comment.
-        Raises on HTTP error so the caller can surface GitHub's reason
-        (e.g. 422 when you try to approve your own PR).
+    async def post_review_comment(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        *,
+        commit_id: str,
+        path: str,
+        body: str,
+        line: int,
+        side: str,
+        start_line: int | None = None,
+        start_side: str | None = None,
+    ) -> None:
+        """Post a standalone inline review comment on a PR diff line/range.
+
+        Wraps ``POST /repos/{owner}/{repo}/pulls/{n}/comments``. ``commit_id``
+        must be the PR head SHA. ``side`` is ``LEFT`` (deleted) or ``RIGHT``
+        (added/context). Multi-line comments also send ``start_line`` /
+        ``start_side``.
         """
         if not self._token:
             raise RuntimeError(
-                "No GitHub access token on session; cannot approve PRs."
+                "No GitHub access token on session; cannot post review comments."
             )
-        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}/comments"
         headers = {
             "Authorization": f"bearer {self._token}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-        payload: dict[str, Any] = {"event": "APPROVE"}
-        if body.strip():
-            payload["body"] = body.strip()
+        payload: dict[str, Any] = {
+            "body": body,
+            "commit_id": commit_id,
+            "path": path,
+            "line": line,
+            "side": side,
+        }
+        if start_line is not None:
+            payload["start_line"] = start_line
+            payload["start_side"] = start_side or side
         resp = await self._client.post(url, headers=headers, json=payload)
         if resp.status_code >= 400:
             raise RuntimeError(
-                f"GitHub returned {resp.status_code} approving "
-                f"{owner}/{repo}#{pr_number}: {resp.text}"
+                f"GitHub returned {resp.status_code} posting review comment "
+                f"on {owner}/{repo}#{pr_number}: {resp.text}"
             )
 
     async def fetch_dashboard_snapshot(

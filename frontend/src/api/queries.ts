@@ -9,10 +9,12 @@ import type {
   CloudAgentModel,
   CloudAgentStatus,
   Dashboard,
+  DiffSide,
   GhUser,
   Me,
   PrComment,
   PrDiff,
+  ReviewEvent,
 } from "./types";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
@@ -300,8 +302,88 @@ export function useApprovePr() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ref, body }: { ref: PrRef; body?: string }) =>
-      postJson(pullPath(ref, "approve"), { body: body ?? "" }),
+      postJson(pullPath(ref, "review"), {
+        event: "APPROVE",
+        body: body ?? "",
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  });
+}
+
+export function useSubmitReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ref,
+      event,
+      body,
+    }: {
+      ref: PrRef;
+      event: ReviewEvent;
+      body?: string;
+    }) =>
+      postJson(pullPath(ref, "review"), {
+        event,
+        body: body ?? "",
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  });
+}
+
+export function useAddPrComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ref, body }: { ref: PrRef; body: string }) =>
+      postJson(pullPath(ref, "comment"), { body }),
+    onSuccess: (_data, { ref }) => {
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      qc.invalidateQueries({
+        queryKey: ["pr-comments", ref.owner, ref.repo, ref.number],
+      });
+    },
+  });
+}
+
+export function useAddLineComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ref,
+      commitId,
+      path,
+      body,
+      line,
+      side,
+      startLine,
+      startSide,
+    }: {
+      ref: PrRef;
+      commitId: string;
+      path: string;
+      body: string;
+      line: number;
+      side: DiffSide;
+      startLine?: number;
+      startSide?: DiffSide;
+    }) =>
+      postJson(pullPath(ref, "line-comment"), {
+        commit_id: commitId,
+        path,
+        body,
+        line,
+        side,
+        start_line: startLine ?? null,
+        start_side: startSide ?? null,
+      }),
+    onSuccess: (_data, { ref }) => {
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      qc.invalidateQueries({
+        queryKey: ["pr-diff", ref.owner, ref.repo, ref.number],
+      });
+      qc.invalidateQueries({
+        queryKey: ["pr-comments", ref.owner, ref.repo, ref.number],
+      });
+    },
   });
 }
 

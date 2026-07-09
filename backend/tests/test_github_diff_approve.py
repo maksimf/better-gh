@@ -135,15 +135,24 @@ class FetchPrDiffTests(unittest.IsolatedAsyncioTestCase):
         await client.aclose()
 
 
-class FetchPrBodyTests(unittest.IsolatedAsyncioTestCase):
-    async def test_returns_body(self) -> None:
+class FetchPrDetailsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_body_and_head_sha(self) -> None:
         client, transport = _make_client(
-            [(200, {"body": "## Summary\nDoes a thing."})]
+            [
+                (
+                    200,
+                    {
+                        "body": "## Summary\nDoes a thing.",
+                        "head": {"sha": "abc123"},
+                    },
+                )
+            ]
         )
 
-        body = await client.fetch_pr_body("acme", "widgets", 42)
+        details = await client.fetch_pr_details("acme", "widgets", 42)
 
-        self.assertEqual(body, "## Summary\nDoes a thing.")
+        self.assertEqual(details["body"], "## Summary\nDoes a thing.")
+        self.assertEqual(details["head_sha"], "abc123")
         req = transport.requests[0]
         self.assertEqual(req.method, "GET")
         self.assertEqual(
@@ -152,15 +161,27 @@ class FetchPrBodyTests(unittest.IsolatedAsyncioTestCase):
         await client.aclose()
 
     async def test_returns_none_when_body_empty(self) -> None:
-        client, _ = _make_client([(200, {"body": ""})])
+        client, _ = _make_client([(200, {"body": "", "head": {"sha": "abc"}})])
 
-        self.assertIsNone(await client.fetch_pr_body("acme", "widgets", 42))
+        details = await client.fetch_pr_details("acme", "widgets", 42)
+        self.assertIsNone(details["body"])
+        self.assertEqual(details["head_sha"], "abc")
         await client.aclose()
 
-    async def test_returns_none_when_body_missing(self) -> None:
+    async def test_returns_none_when_body_and_sha_missing(self) -> None:
         client, _ = _make_client([(200, {"number": 42})])
 
-        self.assertIsNone(await client.fetch_pr_body("acme", "widgets", 42))
+        details = await client.fetch_pr_details("acme", "widgets", 42)
+        self.assertIsNone(details["body"])
+        self.assertIsNone(details["head_sha"])
+        await client.aclose()
+
+    async def test_fetch_pr_body_wrapper(self) -> None:
+        client, _ = _make_client(
+            [(200, {"body": "hi", "head": {"sha": "abc"}})]
+        )
+
+        self.assertEqual(await client.fetch_pr_body("acme", "widgets", 42), "hi")
         await client.aclose()
 
     async def test_raises_when_token_missing(self) -> None:
@@ -168,7 +189,7 @@ class FetchPrBodyTests(unittest.IsolatedAsyncioTestCase):
         client._token = ""
 
         with self.assertRaises(RuntimeError) as ctx:
-            await client.fetch_pr_body("acme", "widgets", 42)
+            await client.fetch_pr_details("acme", "widgets", 42)
 
         self.assertIn("access token", str(ctx.exception))
         await client.aclose()
@@ -177,13 +198,13 @@ class FetchPrBodyTests(unittest.IsolatedAsyncioTestCase):
         client, _ = _make_client([(404, "Not Found")])
 
         with self.assertRaises(RuntimeError) as ctx:
-            await client.fetch_pr_body("acme", "widgets", 42)
+            await client.fetch_pr_details("acme", "widgets", 42)
 
         self.assertIn("404", str(ctx.exception))
         await client.aclose()
 
 
-class ApprovePrTests(unittest.IsolatedAsyncioTestCase):
+class SubmitReviewTests(unittest.IsolatedAsyncioTestCase):
     async def test_posts_approve_event(self) -> None:
         client, transport = _make_client([(200, {"id": 1, "state": "APPROVED"})])
 
@@ -200,6 +221,28 @@ class ApprovePrTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("body", body)
         await client.aclose()
 
+    async def test_posts_request_changes(self) -> None:
+        client, transport = _make_client([(200, {"id": 1})])
+
+        await client.submit_review(
+            "acme", "widgets", 42, "REQUEST_CHANGES", body="Please fix"
+        )
+
+        body = json.loads(transport.requests[0].content.decode("utf-8"))
+        self.assertEqual(body["event"], "REQUEST_CHANGES")
+        self.assertEqual(body["body"], "Please fix")
+        await client.aclose()
+
+    async def test_posts_comment_event(self) -> None:
+        client, transport = _make_client([(200, {"id": 1})])
+
+        await client.submit_review("acme", "widgets", 42, "COMMENT", body="nits")
+
+        body = json.loads(transport.requests[0].content.decode("utf-8"))
+        self.assertEqual(body["event"], "COMMENT")
+        self.assertEqual(body["body"], "nits")
+        await client.aclose()
+
     async def test_includes_body_when_provided(self) -> None:
         client, transport = _make_client([(200, {"id": 1})])
 
@@ -214,7 +257,7 @@ class ApprovePrTests(unittest.IsolatedAsyncioTestCase):
         client._token = ""
 
         with self.assertRaises(RuntimeError) as ctx:
-            await client.approve_pr("acme", "widgets", 42)
+            await client.submit_review("acme", "widgets", 42, "APPROVE")
 
         self.assertIn("access token", str(ctx.exception))
         await client.aclose()
@@ -226,6 +269,81 @@ class ApprovePrTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError) as ctx:
             await client.approve_pr("acme", "widgets", 42)
+
+        self.assertIn("422", str(ctx.exception))
+        await client.aclose()
+
+
+class PostReviewCommentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_posts_single_line_comment(self) -> None:
+        client, transport = _make_client([(201, {"id": 99})])
+
+        await client.post_review_comment(
+            "acme",
+            "widgets",
+            42,
+            commit_id="abc123",
+            path="app/main.py",
+            body="nit",
+            line=10,
+            side="RIGHT",
+        )
+
+        req = transport.requests[0]
+        self.assertEqual(req.method, "POST")
+        self.assertEqual(
+            str(req.url),
+            "https://api.github.com/repos/acme/widgets/pulls/42/comments",
+        )
+        body = json.loads(req.content.decode("utf-8"))
+        self.assertEqual(
+            body,
+            {
+                "body": "nit",
+                "commit_id": "abc123",
+                "path": "app/main.py",
+                "line": 10,
+                "side": "RIGHT",
+            },
+        )
+        await client.aclose()
+
+    async def test_posts_multi_line_comment(self) -> None:
+        client, transport = _make_client([(201, {"id": 99})])
+
+        await client.post_review_comment(
+            "acme",
+            "widgets",
+            42,
+            commit_id="abc123",
+            path="app/main.py",
+            body="range nit",
+            line=15,
+            side="RIGHT",
+            start_line=10,
+            start_side="RIGHT",
+        )
+
+        body = json.loads(transport.requests[0].content.decode("utf-8"))
+        self.assertEqual(body["start_line"], 10)
+        self.assertEqual(body["start_side"], "RIGHT")
+        self.assertEqual(body["line"], 15)
+        await client.aclose()
+
+    async def test_raises_on_http_error(self) -> None:
+        client, _ = _make_client([(422, "Validation Failed")])
+
+        with self.assertRaises(RuntimeError) as ctx:
+            await client.post_review_comment(
+                "acme",
+                "widgets",
+                42,
+                commit_id="abc",
+                path="a.py",
+                body="x",
+                line=1,
+                side="RIGHT",
+            )
 
         self.assertIn("422", str(ctx.exception))
         await client.aclose()

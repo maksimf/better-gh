@@ -134,7 +134,12 @@ export interface DiffFile {
 export interface PrDiff {
   body: string | null;
   files: DiffFile[];
+  head_sha: string | null;
 }
+
+export type ReviewEvent = "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+
+export type DiffSide = "LEFT" | "RIGHT";
 
 export type CloudAgentState = "running" | "done" | "error" | "unknown";
 

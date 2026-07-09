@@ -175,7 +175,7 @@ export function Board({
           number={selectedPr.number}
           title={selectedPr.title}
           url={selectedPr.url}
-          canApprove={false}
+          author={selectedPr.author}
           onClose={() => setSelectedKey(null)}
         />
       </div>

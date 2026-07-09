@@ -2920,7 +2920,7 @@ button.reviewer-chip {
     font-style: italic;
 }
 
-/* ---------- Approve button ---------- */
+/* ---------- Approve / review buttons ---------- */
 .approve-button {
     display: inline-flex;
     align-items: center;
@@ -2966,6 +2966,231 @@ button.reviewer-chip {
 .approve-button:focus-visible {
     outline: 2px solid var(--blue);
     outline-offset: 2px;
+}
+
+/* ---------- Review verdict bar ---------- */
+.review-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 2px solid var(--black);
+    background: var(--paper);
+    padding: 12px;
+}
+
+.review-actions-summary {
+    width: 100%;
+    resize: vertical;
+    min-height: 48px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+}
+
+.review-actions-summary:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: 1px;
+}
+
+.review-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.review-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 2px solid var(--black);
+    padding: 5px 12px;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: inherit;
+    cursor: pointer;
+    background: var(--white);
+    color: var(--black);
+}
+
+.review-button:disabled {
+    background: var(--grey);
+    color: var(--muted);
+    border-color: var(--grey);
+    cursor: not-allowed;
+}
+
+.review-button--changes {
+    background: var(--red);
+    color: var(--white);
+    border-color: var(--red);
+}
+
+.review-button--changes:hover:not(:disabled) {
+    background: var(--black);
+    color: var(--red);
+    border-color: var(--black);
+}
+
+.review-button--comment:hover:not(:disabled) {
+    background: var(--blue);
+    color: var(--white);
+    border-color: var(--blue);
+}
+
+.review-actions-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 2px solid var(--black);
+}
+
+.review-actions-done--approve {
+    background: var(--black);
+    color: var(--green);
+}
+
+.review-actions-done--request_changes {
+    background: var(--black);
+    color: var(--red);
+}
+
+.review-actions-done--comment {
+    background: var(--black);
+    color: var(--blue);
+}
+
+.review-actions-error {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+}
+
+/* ---------- Generic PR comment composer ---------- */
+.pr-comment-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    padding: 12px;
+}
+
+.pr-comment-input,
+.line-comment-input {
+    width: 100%;
+    resize: vertical;
+    min-height: 64px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+}
+
+.pr-comment-input:focus,
+.line-comment-input:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: 1px;
+}
+
+.pr-comment-actions,
+.line-comment-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.pr-comment-submit,
+.line-comment-submit {
+    border: 2px solid var(--blue);
+    background: var(--blue);
+    color: var(--white);
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: inherit;
+    padding: 5px 12px;
+    cursor: pointer;
+}
+
+.pr-comment-submit:hover:not(:disabled),
+.line-comment-submit:hover:not(:disabled) {
+    background: var(--black);
+    border-color: var(--black);
+}
+
+.pr-comment-submit:disabled,
+.line-comment-submit:disabled,
+.line-comment-cancel:disabled {
+    background: var(--grey);
+    color: var(--muted);
+    border-color: var(--grey);
+    cursor: not-allowed;
+}
+
+.line-comment-cancel {
+    border: 2px solid var(--black);
+    background: var(--white);
+    color: var(--black);
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: inherit;
+    padding: 5px 12px;
+    cursor: pointer;
+}
+
+.line-comment-cancel:hover:not(:disabled) {
+    background: var(--grey-2);
+}
+
+.pr-comment-error,
+.line-comment-error {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+}
+
+/* ---------- Clickable / selected diff lines ---------- */
+.diff-line--commentable {
+    cursor: pointer;
+}
+
+.diff-line--commentable:hover {
+    outline: 1px solid var(--blue);
+    outline-offset: -1px;
+}
+
+.diff-line.is-selected {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+.line-comment-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 2px solid var(--black);
+    border-bottom: 2px solid var(--black);
+    background: var(--paper);
 }
 
 @media (max-width: 900px) {

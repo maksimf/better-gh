@@ -1,9 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { marked } from "marked";
 
-import { usePrDiff } from "../api/queries";
-import type { DiffFile } from "../api/types";
-import { ApproveButton } from "./ApproveButton";
+import {
+  useAddLineComment,
+  useAddPrComment,
+  useMe,
+  usePrDiff,
+} from "../api/queries";
+import type { DiffFile, DiffSide } from "../api/types";
+import { ReviewActions } from "./ReviewActions";
 import { PrLocStats } from "./PrLocStats";
 
 type LineKind = "add" | "del" | "context" | "hunk" | "meta";
@@ -13,6 +18,19 @@ interface DiffLine {
   oldNo: number | null;
   newNo: number | null;
   text: string;
+}
+
+/** A commentable position on a diff line (GitHub side + line number). */
+interface LineAnchor {
+  side: DiffSide;
+  line: number;
+  /** Index into the parsed DiffLine[] for selection UI. */
+  index: number;
+}
+
+interface LineRange {
+  start: LineAnchor;
+  end: LineAnchor;
 }
 
 const HUNK_RE = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
@@ -98,11 +116,98 @@ function parsePatch(patch: string): DiffLine[] {
   return lines;
 }
 
-function FileDiff({ file }: { file: DiffFile }) {
+/** Map a parsed diff line to a GitHub review-comment anchor, or null. */
+function lineAnchor(line: DiffLine, index: number): LineAnchor | null {
+  if (line.kind === "del" && line.oldNo != null) {
+    return { side: "LEFT", line: line.oldNo, index };
+  }
+  if (
+    (line.kind === "add" || line.kind === "context") &&
+    line.newNo != null
+  ) {
+    return { side: "RIGHT", line: line.newNo, index };
+  }
+  return null;
+}
+
+/** Normalize a selection so start is the earlier index. */
+function normalizeRange(a: LineAnchor, b: LineAnchor): LineRange {
+  return a.index <= b.index ? { start: a, end: b } : { start: b, end: a };
+}
+
+function FileDiff({
+  file,
+  headSha,
+  owner,
+  repo,
+  number,
+}: {
+  file: DiffFile;
+  headSha: string | null;
+  owner: string;
+  repo: string;
+  number: number;
+}) {
   const lines = useMemo(
     () => (file.patch ? parsePatch(file.patch) : null),
     [file.patch],
   );
+  const addLine = useAddLineComment();
+  const [anchorStart, setAnchorStart] = useState<LineAnchor | null>(null);
+  const [range, setRange] = useState<LineRange | null>(null);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function clearComposer() {
+    setAnchorStart(null);
+    setRange(null);
+    setDraft("");
+    setError(null);
+  }
+
+  function onLineClick(line: DiffLine, index: number, shiftKey: boolean) {
+    const anchor = lineAnchor(line, index);
+    if (!anchor || !headSha) return;
+
+    if (shiftKey && anchorStart) {
+      // Extend selection from the previous click into a range.
+      setRange(normalizeRange(anchorStart, anchor));
+      setError(null);
+      return;
+    }
+
+    setAnchorStart(anchor);
+    setRange({ start: anchor, end: anchor });
+    setDraft("");
+    setError(null);
+  }
+
+  function submitLineComment() {
+    if (!range || !headSha || !draft.trim()) return;
+    setError(null);
+    const multi = range.start.index !== range.end.index;
+    addLine.mutate(
+      {
+        ref: { owner, repo, number },
+        commitId: headSha,
+        path: file.filename,
+        body: draft.trim(),
+        line: range.end.line,
+        side: range.end.side,
+        startLine: multi ? range.start.line : undefined,
+        startSide: multi ? range.start.side : undefined,
+      },
+      {
+        onSuccess: () => clearComposer(),
+        onError: (e) =>
+          setError(e instanceof Error ? e.message : String(e)),
+      },
+    );
+  }
+
+  const selectedLo = range?.start.index ?? -1;
+  const selectedHi = range?.end.index ?? -1;
+  const composerAfter = range?.end.index ?? -1;
 
   return (
     <section className="diff-file">
@@ -124,21 +229,143 @@ function FileDiff({ file }: { file: DiffFile }) {
       </header>
       {lines ? (
         <div className="diff-file-body">
-          {lines.map((line, i) => (
-            <div key={i} className={`diff-line diff-line--${line.kind}`}>
-              <span className="diff-gutter" aria-hidden="true">
-                {line.oldNo ?? ""}
-              </span>
-              <span className="diff-gutter" aria-hidden="true">
-                {line.newNo ?? ""}
-              </span>
-              <span className="diff-code">{line.text || "\u00A0"}</span>
-            </div>
-          ))}
+          {lines.map((line, i) => {
+            const commentable = lineAnchor(line, i) != null && headSha != null;
+            const selected = range != null && i >= selectedLo && i <= selectedHi;
+            return (
+              <div key={i}>
+                <div
+                  className={`diff-line diff-line--${line.kind}${
+                    commentable ? " diff-line--commentable" : ""
+                  }${selected ? " is-selected" : ""}`}
+                  role={commentable ? "button" : undefined}
+                  tabIndex={commentable ? 0 : undefined}
+                  title={
+                    commentable
+                      ? "Click to comment · Shift+click for range"
+                      : undefined
+                  }
+                  onClick={
+                    commentable
+                      ? (e) => onLineClick(line, i, e.shiftKey)
+                      : undefined
+                  }
+                  onKeyDown={
+                    commentable
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onLineClick(line, i, e.shiftKey);
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  <span className="diff-gutter" aria-hidden="true">
+                    {line.oldNo ?? ""}
+                  </span>
+                  <span className="diff-gutter" aria-hidden="true">
+                    {line.newNo ?? ""}
+                  </span>
+                  <span className="diff-code">{line.text || "\u00A0"}</span>
+                </div>
+                {composerAfter === i && range && (
+                  <div className="line-comment-composer">
+                    <textarea
+                      className="line-comment-input"
+                      placeholder="Leave a comment on this line…"
+                      rows={3}
+                      autoFocus
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      disabled={addLine.isPending}
+                    />
+                    <div className="line-comment-actions">
+                      <button
+                        type="button"
+                        className="line-comment-submit"
+                        disabled={addLine.isPending || !draft.trim()}
+                        onClick={submitLineComment}
+                      >
+                        {addLine.isPending ? "POSTING…" : "COMMENT"}
+                      </button>
+                      <button
+                        type="button"
+                        className="line-comment-cancel"
+                        disabled={addLine.isPending}
+                        onClick={clearComposer}
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                    {error && (
+                      <p className="line-comment-error">{error}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="diff-file-empty">No inline diff available (binary or too large).</p>
       )}
+    </section>
+  );
+}
+
+function PrCommentComposer({
+  owner,
+  repo,
+  number,
+}: {
+  owner: string;
+  repo: string;
+  number: number;
+}) {
+  const add = useAddPrComment();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [posted, setPosted] = useState(false);
+
+  function submit() {
+    if (!draft.trim()) return;
+    setError(null);
+    add.mutate(
+      { ref: { owner, repo, number }, body: draft.trim() },
+      {
+        onSuccess: () => {
+          setDraft("");
+          setPosted(true);
+          window.setTimeout(() => setPosted(false), 2000);
+        },
+        onError: (e) =>
+          setError(e instanceof Error ? e.message : String(e)),
+      },
+    );
+  }
+
+  return (
+    <section className="pr-comment-composer" aria-label="Leave a PR comment">
+      <textarea
+        className="pr-comment-input"
+        placeholder="Leave a comment on this PR…"
+        rows={3}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        disabled={add.isPending}
+      />
+      <div className="pr-comment-actions">
+        <button
+          type="button"
+          className="pr-comment-submit"
+          disabled={add.isPending || !draft.trim()}
+          onClick={submit}
+        >
+          {add.isPending ? "POSTING…" : posted ? "POSTED" : "COMMENT"}
+        </button>
+      </div>
+      {error && <p className="pr-comment-error">{error}</p>}
     </section>
   );
 }
@@ -149,17 +376,21 @@ export function DiffPanel({
   number,
   title,
   url,
+  author,
   onClose,
-  canApprove = true,
 }: {
   owner: string;
   repo: string;
   number: number;
   title: string;
   url: string;
+  author: string;
   onClose: () => void;
-  canApprove?: boolean;
 }) {
+  const { data: me } = useMe();
+  const isOwnPr =
+    me?.login != null &&
+    author.toLowerCase() === me.login.toLowerCase();
   const { data, isLoading, error } = usePrDiff(owner, repo, number, true);
   const bodyHtml = useMemo(
     () => (data?.body ? renderPrBody(data.body) : ""),
@@ -181,7 +412,6 @@ export function DiffPanel({
           <h2 className="diff-panel-name">{title}</h2>
         </div>
         <div className="diff-panel-actions">
-          {canApprove && <ApproveButton owner={owner} repo={repo} number={number} />}
           <button
             type="button"
             className="diff-panel-close"
@@ -195,6 +425,15 @@ export function DiffPanel({
       </header>
 
       <div className="diff-panel-body">
+        <ReviewActions
+          owner={owner}
+          repo={repo}
+          number={number}
+          isOwnPr={isOwnPr}
+        />
+
+        <PrCommentComposer owner={owner} repo={repo} number={number} />
+
         {isLoading && <p className="diff-panel-state">Loading diff…</p>}
         {error && (
           <p className="diff-panel-state diff-panel-state--err">
@@ -213,7 +452,14 @@ export function DiffPanel({
         )}
         {data &&
           data.files.map((file) => (
-            <FileDiff key={file.filename} file={file} />
+            <FileDiff
+              key={file.filename}
+              file={file}
+              headSha={data.head_sha}
+              owner={owner}
+              repo={repo}
+              number={number}
+            />
           ))}
       </div>
     </aside>

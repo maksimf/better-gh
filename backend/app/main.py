@@ -845,25 +845,33 @@ async def pr_diff(
     number: int,
     session: Session = Depends(require_session),
 ) -> JSONResponse:
-    """Return a PR's per-file diffs for the read-only review panel.
+    """Return a PR's per-file diffs for the review panel.
 
-    Returns ``{body, files}``. ``body`` is the PR's markdown description
-    (``None`` when empty); each file entry is ``{filename, status,
-    additions, deletions, patch, previous_filename}`` where ``patch`` is
-    GitHub's unified-diff hunk text (``None`` for binaries / undiffable
-    files). The viewer's own token is used so private repos resolve.
+    Returns ``{body, files, head_sha}``. ``body`` is the PR's markdown
+    description (``None`` when empty); ``head_sha`` is the tip commit of
+    the PR branch (needed as ``commit_id`` for inline comments); each
+    file entry is ``{filename, status, additions, deletions, patch,
+    previous_filename}`` where ``patch`` is GitHub's unified-diff hunk
+    text (``None`` for binaries / undiffable files). The viewer's own
+    token is used so private repos resolve.
     """
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     try:
-        body = await gh.fetch_pr_body(owner, repo, number)
+        details = await gh.fetch_pr_details(owner, repo, number)
         files = await gh.fetch_pr_diff(owner, repo, number)
     except Exception as exc:
         log.exception("fetch_pr_diff failed for %s/%s#%s", owner, repo, number)
         raise HTTPException(status_code=502, detail=str(exc))
     finally:
         await gh.aclose()
-    return JSONResponse(content={"body": body, "files": files})
+    return JSONResponse(
+        content={
+            "body": details["body"],
+            "files": files,
+            "head_sha": details["head_sha"],
+        }
+    )
 
 
 @app.get("/attachments")
@@ -921,6 +929,31 @@ class ApproveBody(BaseModel):
     body: str = Field(default="", max_length=10_000)
 
 
+class ReviewBody(BaseModel):
+    """Body for ``POST /pulls/.../review`` (verdict + optional summary)."""
+
+    event: str = Field(pattern="^(APPROVE|REQUEST_CHANGES|COMMENT)$")
+    body: str = Field(default="", max_length=10_000)
+
+
+class PrCommentBody(BaseModel):
+    """Body for ``POST /pulls/.../comment`` (generic conversation comment)."""
+
+    body: str = Field(min_length=1, max_length=10_000)
+
+
+class LineCommentBody(BaseModel):
+    """Body for ``POST /pulls/.../line-comment`` (inline diff comment)."""
+
+    commit_id: str = Field(min_length=1, max_length=64)
+    path: str = Field(min_length=1, max_length=4_096)
+    body: str = Field(min_length=1, max_length=10_000)
+    line: int = Field(ge=1)
+    side: str = Field(pattern="^(LEFT|RIGHT)$")
+    start_line: int | None = Field(default=None, ge=1)
+    start_side: str | None = Field(default=None, pattern="^(LEFT|RIGHT)$")
+
+
 @app.post("/pulls/{owner}/{repo}/{number}/approve", status_code=204)
 async def approve_pr_endpoint(
     owner: str,
@@ -933,11 +966,99 @@ async def approve_pr_endpoint(
     http_client: httpx.AsyncClient = app.state.http_client
     gh = build_user_client(session.token, http_client=http_client)
     try:
-        await gh.approve_pr(
-            owner, repo, number, body=body.body if body is not None else ""
+        await gh.submit_review(
+            owner,
+            repo,
+            number,
+            "APPROVE",
+            body=body.body if body is not None else "",
         )
     except Exception as exc:
         log.exception("approve failed for %s/%s#%s", owner, repo, number)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    await _safe_poll_once(session.token, session.login)
+    return Response(status_code=204)
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/review", status_code=204)
+async def submit_review_endpoint(
+    owner: str,
+    repo: str,
+    number: int,
+    body: ReviewBody,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Submit a review verdict (APPROVE / REQUEST_CHANGES / COMMENT)."""
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.submit_review(owner, repo, number, body.event, body=body.body)
+    except Exception as exc:
+        log.exception(
+            "submit_review (%s) failed for %s/%s#%s",
+            body.event,
+            owner,
+            repo,
+            number,
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    await _safe_poll_once(session.token, session.login)
+    return Response(status_code=204)
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/comment", status_code=204)
+async def post_pr_comment(
+    owner: str,
+    repo: str,
+    number: int,
+    body: PrCommentBody,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Post a generic conversation comment on a PR."""
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.post_issue_comment(owner, repo, number, body.body)
+    except Exception as exc:
+        log.exception(
+            "post_pr_comment failed for %s/%s#%s", owner, repo, number
+        )
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    await _safe_poll_once(session.token, session.login)
+    return Response(status_code=204)
+
+
+@app.post("/pulls/{owner}/{repo}/{number}/line-comment", status_code=204)
+async def post_line_comment(
+    owner: str,
+    repo: str,
+    number: int,
+    body: LineCommentBody,
+    session: Session = Depends(require_session),
+) -> Response:
+    """Post a standalone inline review comment on a PR diff line/range."""
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    try:
+        await gh.post_review_comment(
+            owner,
+            repo,
+            number,
+            commit_id=body.commit_id,
+            path=body.path,
+            body=body.body,
+            line=body.line,
+            side=body.side,
+            start_line=body.start_line,
+            start_side=body.start_side,
+        )
+    except Exception as exc:
+        log.exception(
+            "post_line_comment failed for %s/%s#%s", owner, repo, number
+        )
         raise HTTPException(status_code=502, detail=str(exc))
 
     await _safe_poll_once(session.token, session.login)

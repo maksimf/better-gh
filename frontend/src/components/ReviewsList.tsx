@@ -113,6 +113,7 @@ export function ReviewsList({
           number={selectedPr.number}
           title={selectedPr.title}
           url={selectedPr.url}
+          author={selectedPr.author}
           onClose={() => setSelectedKey(null)}
         />
       )}
