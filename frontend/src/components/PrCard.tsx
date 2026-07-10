@@ -111,7 +111,14 @@ export function PrCard({
     : undefined;
 
   function handleCardClick(e: MouseEvent) {
-    if ((e.target as HTMLElement).closest("a, button, input, [role='button']")) return;
+    // Modals/popovers (note, merge, QA, comments) render inside the card but
+    // bubble clicks through React's tree — ignore those interactive targets.
+    if (
+      (e.target as HTMLElement).closest(
+        "a, button, input, textarea, select, dialog, label, [role='button'], [role='dialog']",
+      )
+    )
+      return;
     onSelect();
   }
 

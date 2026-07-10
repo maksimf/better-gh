@@ -38,6 +38,7 @@ export function NoteModal({
       aria-labelledby="note-modal-title"
       onClose={onClose}
       onClick={(e) => {
+        e.stopPropagation();
         if (e.target === dialogRef.current) onClose();
       }}
     >
