@@ -1,7 +1,7 @@
 """Unit tests for ``GitHubClient._count_unresolved_comments``.
 
-Covers both review-thread counting (with the viewer's own threads
-filtered out) and the newer behaviour where generic PR conversation
+Covers both review-thread counting (including the viewer's / PR
+author's own threads) and the behaviour where generic PR conversation
 comments authored by humans count as "unresolved" unless the viewer
 has left *any* emoji reaction on them. The ack check uses GitHub's
 ``reactionGroups.viewerHasReacted`` flag rather than the full reactor
@@ -143,17 +143,25 @@ class CountUnresolvedCommentsTests(unittest.TestCase):
 
                 self.assertEqual((human, bot), (0, 0))
 
-    def test_viewers_own_generic_comment_is_skipped(self) -> None:
+    def test_viewers_own_generic_comment_counts_as_human(self) -> None:
+        # PR author / viewer comments should show on the human chip.
         node = _node(comments=[_comment(author=VIEWER)])
 
         human, bot = GitHubClient._count_unresolved_comments(node, VIEWER, BOTS)
 
-        self.assertEqual((human, bot), (0, 0))
+        self.assertEqual((human, bot), (1, 0))
 
-    def test_viewers_own_review_thread_is_skipped(self) -> None:
-        # Threads the viewer opened themselves shouldn't pad the human
-        # count -- those are notes-to-self, not feedback waiting on you.
+    def test_viewers_own_review_thread_counts_as_human(self) -> None:
         node = _node(threads=[_thread(author=VIEWER)])
+
+        human, bot = GitHubClient._count_unresolved_comments(node, VIEWER, BOTS)
+
+        self.assertEqual((human, bot), (1, 0))
+
+    def test_viewers_own_generic_comment_is_acked_by_reaction(self) -> None:
+        node = _node(
+            comments=[_comment(author=VIEWER, viewer_reacted_with="EYES")]
+        )
 
         human, bot = GitHubClient._count_unresolved_comments(node, VIEWER, BOTS)
 
@@ -212,7 +220,8 @@ class CountUnresolvedCommentsTests(unittest.TestCase):
 
         human, bot = GitHubClient._count_unresolved_comments(node, VIEWER, BOTS)
 
-        self.assertEqual((human, bot), (2, 1))
+        # alice thread + carol generic + VIEWER thread + VIEWER generic
+        self.assertEqual((human, bot), (4, 1))
 
 
 if __name__ == "__main__":
