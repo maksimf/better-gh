@@ -597,17 +597,66 @@ button {
 .pr-card {
     background: var(--white);
     border: 3px solid var(--black);
-    padding: 14px 14px 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    position: relative;
+}
+
+.pr-card-body {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    position: relative;
+    padding: 14px 14px 12px;
+}
+
+.pr-open-code {
+    flex: 0 0 36px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-left: 3px solid var(--black);
+    background: var(--grey-2);
+    color: var(--black);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
     cursor: pointer;
+}
+
+.pr-open-code:hover {
+    background: var(--yellow);
+}
+
+.pr-open-code:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: -4px;
+}
+
+.pr-open-code.is-active {
+    background: var(--blue);
+    color: var(--white);
+    border-left-color: var(--blue);
 }
 
 .pr-card.is-selected {
     border-color: var(--blue);
     box-shadow: 6px 6px 0 var(--blue);
+}
+
+.pr-card.is-selected .pr-open-code {
+    border-left-color: var(--blue);
+}
+
+.pr-card.is-ready .pr-open-code {
+    border-left-width: 4px;
 }
 
 .pr-card.is-ready {
@@ -4430,11 +4479,21 @@ button.reviewer-chip {
     }
 
     .pr-card {
-        padding: 12px;
         border-width: 2px;
+    }
+    .pr-card-body {
+        padding: 12px;
+    }
+    .pr-open-code {
+        flex-basis: 40px;
+        border-left-width: 2px;
+        font-size: 16px;
     }
     .pr-card.is-ready {
         border-width: 3px;
+    }
+    .pr-card.is-ready .pr-open-code {
+        border-left-width: 3px;
     }
 
     /* Mobile pr-head: title flexes; primary CTA stays compact top-right.
