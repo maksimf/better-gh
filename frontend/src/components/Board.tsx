@@ -1,6 +1,7 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
+import { BulkMergeButton } from "./BulkMergeButton";
 import { Column } from "./Column";
 import { DeferredSection } from "./DeferredSection";
 import { DiffPanel } from "./DiffPanel";
@@ -101,6 +102,57 @@ export function Board({
   };
   for (const pr of prs) buckets[pr.column].push(pr);
 
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(() => new Set());
+  const approvedKeys = buckets.approved.map(rowKey);
+  const approvedKeySignature = approvedKeys.join("\0");
+  useEffect(() => {
+    const visible = new Set(
+      approvedKeySignature ? approvedKeySignature.split("\0") : [],
+    );
+    setBulkSelected((current) => {
+      const next = new Set([...current].filter((key) => visible.has(key)));
+      return next.size === current.size ? current : next;
+    });
+  }, [approvedKeySignature]);
+
+  const selectedApprovedPrs = buckets.approved.filter((pr) =>
+    bulkSelected.has(rowKey(pr)),
+  );
+  const allApprovedSelected =
+    buckets.approved.length > 0 &&
+    selectedApprovedPrs.length === buckets.approved.length;
+
+  function toggleBulkPr(pr: Pr) {
+    const key = rowKey(pr);
+    setBulkSelected((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleAllApproved() {
+    setBulkSelected((current) => {
+      const next = new Set(current);
+      for (const pr of buckets.approved) {
+        const key = rowKey(pr);
+        if (allApprovedSelected) next.delete(key);
+        else next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function removeMergedSelections(keys: string[]) {
+    if (keys.length === 0) return;
+    setBulkSelected((current) => {
+      const next = new Set(current);
+      for (const key of keys) next.delete(key);
+      return next;
+    });
+  }
+
   const allCardsFlat = useMemo(() => {
     const flat: Pr[] = [];
     for (const column of COLUMNS) {
@@ -143,7 +195,7 @@ export function Board({
     watchDisabled,
   };
 
-  function renderCard(pr: Pr) {
+  function renderCard(pr: Pr, bulkSelectable = false) {
     const key = rowKey(pr);
     return (
       <PrCard
@@ -151,6 +203,8 @@ export function Board({
         pr={pr}
         selected={key === selectedKey}
         onSelect={() => setSelectedKey((cur) => (cur === key ? null : key))}
+        bulkSelected={bulkSelectable ? bulkSelected.has(key) : undefined}
+        onToggleBulkSelected={bulkSelectable ? () => toggleBulkPr(pr) : undefined}
         {...boardProps}
       />
     );
@@ -161,7 +215,9 @@ export function Board({
     return (
       <div className="reviews-layout reviews-layout--split">
         <div className="reviews-column">
-          {allCardsFlat.map((pr) => renderCard(pr))}
+          {allCardsFlat.map((pr) =>
+            renderCard(pr, pr.column === "approved"),
+          )}
           {deferredPrs.length > 0 && (
             <DeferredSection count={deferredPrs.length}>
               {deferredPrs.map((pr) => renderCard(pr))}
@@ -191,10 +247,28 @@ export function Board({
             column={column}
             count={counts[column]}
             hidden={counts[column] === 0}
+            actions={
+              column === "approved" ? (
+                <div className="bulk-merge-actions">
+                  <label className="bulk-select-all">
+                    <input
+                      type="checkbox"
+                      checked={allApprovedSelected}
+                      onChange={toggleAllApproved}
+                    />
+                    <span>ALL</span>
+                  </label>
+                  <BulkMergeButton
+                    prs={selectedApprovedPrs}
+                    onMerged={removeMergedSelections}
+                  />
+                </div>
+              ) : undefined
+            }
           >
             {groupColumn(buckets[column]).map((item) =>
               item.kind === "card" ? (
-                renderCard(item.pr)
+                renderCard(item.pr, column === "approved")
               ) : (
                 <div
                   key={item.stackId}
@@ -203,7 +277,7 @@ export function Board({
                 >
                   {item.cards.map((pr) => (
                     <Fragment key={`${pr.repo}#${pr.number}`}>
-                      {renderCard(pr)}
+                      {renderCard(pr, column === "approved")}
                     </Fragment>
                   ))}
                 </div>

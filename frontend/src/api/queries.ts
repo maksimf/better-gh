@@ -205,6 +205,15 @@ export interface MergeResult {
   linear_error: string | null;
 }
 
+export interface BulkMergeResult {
+  results: Array<
+    PrRef & {
+      merged: boolean;
+      error: string | null;
+    }
+  >;
+}
+
 export function useMergePr() {
   const qc = useQueryClient();
   return useMutation({
@@ -221,6 +230,15 @@ export function useMergePr() {
         mark_linear_done: markLinearDone,
         linear_ticket: linearTicket,
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  });
+}
+
+export function useBulkMergePr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (prs: PrRef[]) =>
+      postJson<BulkMergeResult>("/pulls/bulk-merge", { prs }),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   });
 }

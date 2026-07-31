@@ -12,11 +12,13 @@ export function Column({
   column,
   count,
   hidden,
+  actions,
   children,
 }: {
   column: ColumnKey;
   count: number;
   hidden: boolean;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -26,10 +28,13 @@ export function Column({
       hidden={hidden}
     >
       <header className="column-header">
-        <h2 id={`col-${column}-title`} className="column-title">
-          {TITLES[column]}
-        </h2>
-        <span className="column-count">{count}</span>
+        <div className="column-heading">
+          <h2 id={`col-${column}-title`} className="column-title">
+            {TITLES[column]}
+          </h2>
+          <span className="column-count">{count}</span>
+        </div>
+        {actions}
       </header>
       <div className="column-body">{children}</div>
     </section>

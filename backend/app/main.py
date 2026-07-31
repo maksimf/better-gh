@@ -700,6 +700,71 @@ class MergeBody(BaseModel):
     linear_ticket: str | None = Field(default=None, max_length=64)
 
 
+class BulkMergePr(BaseModel):
+    """A single pull request in a bulk-merge request."""
+
+    owner: str = Field(min_length=1, max_length=100)
+    repo: str = Field(min_length=1, max_length=100)
+    number: int = Field(gt=0)
+
+
+class BulkMergeBody(BaseModel):
+    """Body for ``POST /pulls/bulk-merge``."""
+
+    prs: list[BulkMergePr] = Field(min_length=1, max_length=50)
+
+
+@app.post("/pulls/bulk-merge")
+async def bulk_merge_prs_endpoint(
+    body: BulkMergeBody,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Merge selected PRs sequentially and report every outcome.
+
+    Failures are isolated to their PR so one blocked merge does not prevent
+    the rest of the selection from being attempted. The dashboard snapshot is
+    refreshed once after the batch instead of once per PR.
+    """
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    method = settings.MERGE_METHOD or "merge"
+    results: list[dict[str, Any]] = []
+    merged_any = False
+
+    for pr in body.prs:
+        try:
+            await gh.merge_pr(pr.owner, pr.repo, pr.number, method=method)
+        except Exception as exc:
+            log.exception(
+                "bulk merge failed for %s/%s#%s", pr.owner, pr.repo, pr.number
+            )
+            results.append(
+                {
+                    "owner": pr.owner,
+                    "repo": pr.repo,
+                    "number": pr.number,
+                    "merged": False,
+                    "error": str(exc),
+                }
+            )
+            continue
+
+        merged_any = True
+        results.append(
+            {
+                "owner": pr.owner,
+                "repo": pr.repo,
+                "number": pr.number,
+                "merged": True,
+                "error": None,
+            }
+        )
+
+    if merged_any:
+        await _safe_poll_once(session.token, session.login)
+    return JSONResponse(content={"results": results})
+
+
 @app.post("/pulls/{owner}/{repo}/{number}/merge")
 async def merge_pr_endpoint(
     owner: str,

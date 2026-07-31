@@ -37,6 +37,8 @@ export function PrCard({
   watchDisabled,
   selected,
   onSelect,
+  bulkSelected,
+  onToggleBulkSelected,
 }: {
   pr: Pr;
   reviewedHas: (key: string) => boolean;
@@ -48,6 +50,8 @@ export function PrCard({
   watchDisabled: boolean;
   selected: boolean;
   onSelect: () => void;
+  bulkSelected?: boolean;
+  onToggleBulkSelected?: () => void;
 }) {
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
@@ -102,6 +106,7 @@ export function PrCard({
     pr.stack_co_column && "is-stack-co-column",
     isReviewed && "is-manually-reviewed",
     selected && "is-selected",
+    bulkSelected && "is-bulk-selected",
   ]
     .filter(Boolean)
     .join(" ");
@@ -119,6 +124,16 @@ export function PrCard({
     >
       <div className="pr-card-body">
         <header className={`pr-head${note ? " pr-head--has-note" : ""}`}>
+          {bulkSelected !== undefined && onToggleBulkSelected && (
+            <label className="bulk-select-pr">
+              <input
+                type="checkbox"
+                checked={bulkSelected}
+                aria-label={`Select ${pr.repo} pull request ${pr.number} for bulk merge`}
+                onChange={onToggleBulkSelected}
+              />
+            </label>
+          )}
           <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
             #{pr.number}
           </a>
