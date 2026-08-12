@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { marked } from "marked";
 
+import { useMe } from "../api/queries";
 import type { Pr } from "../api/types";
 import { useCloudAgents } from "../hooks/useCloudAgents";
 import { usePrNotes } from "../hooks/usePrNotes";
@@ -17,7 +18,11 @@ import { PrLocStats } from "./PrLocStats";
 import { PrStack } from "./PrStack";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
-import { RequestReviewAction, ReviewerChips } from "./ReviewerChip";
+import {
+  NotifyReviewerAction,
+  RequestReviewAction,
+  ReviewerChips,
+} from "./ReviewerChip";
 import { WatchToggle } from "./WatchToggle";
 
 function splitRepo(repo: string): { owner: string; name: string } {
@@ -59,6 +64,11 @@ export function PrCard({
   const isDeferred = deferredHas(key);
   const isWatched = watchedHas(key);
   const showInlineStack = pr.stack_nodes.length > 0 && !pr.stack_co_column;
+  const { data: me } = useMe();
+  const isOwnPr =
+    me?.login == null
+      ? null
+      : pr.author.toLowerCase() === me.login.toLowerCase();
 
   // A QA agent that's already linked is meaningful status -> show its badge
   // inline. When none is linked the launch/link controls are tucked into the
@@ -69,7 +79,8 @@ export function PrCard({
   const note = getNote(key);
 
   // One primary call-to-action per card, by precedence: merge an approved PR,
-  // else promote a draft, else request review when it hasn't been asked for.
+  // else promote a draft, else request review for an authored PR or notify the
+  // tracked reviewers when the viewer is only the assignee.
   let primaryAction: ReactNode = null;
   if (pr.column === "approved") {
     primaryAction = (
@@ -83,7 +94,16 @@ export function PrCard({
     );
   } else if (pr.is_draft) {
     primaryAction = <DraftButton owner={owner} repo={name} number={pr.number} />;
-  } else {
+  } else if (isOwnPr === false) {
+    primaryAction = (
+      <NotifyReviewerAction
+        reviewers={pr.reviewers}
+        owner={owner}
+        repo={name}
+        number={pr.number}
+      />
+    );
+  } else if (isOwnPr) {
     // Null unless the PR is genuinely awaiting a review request from at
     // least one tracked reviewer.
     primaryAction = (

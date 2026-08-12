@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useRequestReview } from "../api/queries";
+import { useAddPrComment, useRequestReview } from "../api/queries";
 import type { ReviewerStatus } from "../api/types";
 import { CheckIcon } from "./icons";
 
@@ -177,6 +177,65 @@ export function RequestReviewAction({
       onClick={onClick}
     >
       {label}
+    </button>
+  );
+}
+
+/**
+ * The primary action for a PR assigned to the viewer but authored by
+ * somebody else. Mentions every tracked reviewer in a conversation comment
+ * instead of trying to change the PR's requested-reviewers list.
+ */
+export function NotifyReviewerAction({
+  reviewers,
+  owner,
+  repo,
+  number,
+}: {
+  reviewers: ReviewerStatus[];
+  owner: string;
+  repo: string;
+  number: number;
+}) {
+  const addComment = useAddPrComment();
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState(false);
+  const logins = reviewers.map((reviewer) => reviewer.login);
+
+  if (logins.length === 0 || done) return null;
+
+  function onClick() {
+    setError(false);
+    addComment.mutate(
+      {
+        ref: { owner, repo, number },
+        body: `${logins.map((login) => `@${login}`).join(" ")} this PR is now ready to be reviewed`,
+      },
+      {
+        onSuccess: () => setDone(true),
+        onError: () => {
+          setError(true);
+          window.setTimeout(() => setError(false), 2400);
+        },
+      },
+    );
+  }
+
+  const mentions = logins.map((login) => `@${login}`).join(", ");
+  return (
+    <button
+      type="button"
+      className={`review-request${error ? " is-error" : ""}`}
+      title={
+        error
+          ? "Couldn't notify reviewers."
+          : `Notify ${mentions} that this PR is ready for review`
+      }
+      aria-label={`Notify reviewers ${mentions}`}
+      disabled={addComment.isPending}
+      onClick={onClick}
+    >
+      Notify reviewer
     </button>
   );
 }

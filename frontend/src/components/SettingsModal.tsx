@@ -98,9 +98,10 @@ export function SettingsModal({
           <p className="settings-section-hint">
             GitHub users whose approval moves a PR into the{" "}
             <strong>APPROVED</strong> column and unlocks the per-card{" "}
-            <em>Request review</em> button. Track several &mdash; an approval
-            from <em>any</em> of them counts. Search to add, or remove a chip
-            to stop tracking. Leave empty to hide the chips entirely.
+            <em>Request review</em> or <em>Notify reviewer</em> button. Track
+            several &mdash; an approval from <em>any</em> of them counts.
+            Search to add, or remove a chip to stop tracking. Leave empty to
+            hide the chips entirely.
           </p>
           <ReviewerPicker reviewers={reviewers} onChange={onReviewersChange} />
         </section>

@@ -76,10 +76,10 @@ A full tour of what the app does, grouped by area.
   - **In Progress** — PRs you've opened that aren't ready for human review yet.
   - **Ready for review** — green-bordered column for PRs that are fully cooked.
   - **Approved** — PRs your tracked reviewer has approved (ready to merge).
-- **MY PRs / REVIEWING tabs.** "MY PRs" is your authored board; "REVIEWING"
-  lists PRs where you've been requested as a reviewer, with a "requested
-  N ago" hint. Each tab shows a live count and is reflected in the
-  document title.
+- **MY PRs / REVIEWING tabs.** "MY PRs" includes PRs you authored or are
+  assigned to; "REVIEWING" lists PRs where you've been requested as a
+  reviewer, with a "requested N ago" hint. Each tab shows a live count and
+  is reflected in the document title.
 - **Inline review on the REVIEWING tab.** Selecting a PR you've been asked
   to review opens its diff in a read-only panel to the right (per-file
   hunks with line numbers, add/remove coloring), and each row carries an
@@ -112,7 +112,8 @@ A full tour of what the app does, grouped by area.
   double-check), review-requested (blue single-check), or a yellow
   initial chip you can click to request that one reviewer. The card's
   primary **Request review(s)** button asks everyone still pending in one
-  click (optimistically updated).
+  click on PRs you authored. On PRs assigned to you, **Notify reviewer**
+  instead posts a comment mentioning every tracked reviewer.
 
 ### Per-card actions
 
