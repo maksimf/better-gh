@@ -8,8 +8,8 @@ function ThemeToggle() {
     <button
       type="button"
       className="btn btn--theme"
-      aria-label="Toggle dark mode"
-      title="Toggle dark mode"
+      aria-label="Toggle dark mode (follows system by default)"
+      title="Toggle dark mode (follows system by default)"
       onClick={toggle}
     >
       <svg

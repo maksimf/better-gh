@@ -18,20 +18,17 @@
     <link rel="stylesheet" href="/styles.css" />
     <script>
       // Apply theme BEFORE first paint to avoid a flash of the wrong
-      // colors. Saved choice wins; otherwise follow the OS preference.
+      // colors. Always follow the OS preference (prefers-color-scheme).
       (function () {
         try {
-          var saved = localStorage.getItem("better-gh.theme");
-          var dark =
-            saved === "dark" ||
-            (!saved &&
-              window.matchMedia &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (dark) {
+          if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ) {
             document.documentElement.setAttribute("data-theme", "dark");
           }
         } catch (e) {
-          /* localStorage blocked (private mode) -- fall back to light */
+          /* matchMedia unavailable -- leave light */
         }
       })();
     </script>

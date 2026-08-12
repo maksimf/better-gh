@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { peekRaw, setRaw, useRawPref } from "./prefsStore";
+import { removeRaw } from "./prefsStore";
 
 const KEY = "better-gh.theme";
 
 type Theme = "light" | "dark";
 
-function domTheme(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "dark"
+function osTheme(): Theme {
+  return window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
@@ -21,45 +22,34 @@ function applyToDom(t: Theme): void {
 }
 
 /**
- * Theme toggle. The pre-paint script in index.html's <head> applies the
- * saved / OS-preferred theme before first render (reading the same
- * localStorage cache the preference store keeps warm); this hook flips
- * and persists the user's choice (synced across devices), reflects a
- * choice synced in from another device, and follows OS changes while the
- * user hasn't made an explicit pick.
+ * Theme follows the OS (prefers-color-scheme). The toggle flips for this
+ * session only; when the OS theme changes, we re-sync to it. Legacy
+ * saved preferences (localStorage + synced prefs) are cleared so stuck
+ * overrides don't linger.
  */
 export function useTheme(): { theme: Theme; toggle: () => void } {
-  const raw = useRawPref(KEY);
-  const [theme, setTheme] = useState<Theme>(domTheme);
+  const [theme, setTheme] = useState<Theme>(osTheme);
 
-  // Reflect an explicit (persisted / cross-device synced) choice onto the
-  // DOM + local state. Skips the null case so the OS preference stands.
   useEffect(() => {
-    if (raw === "dark" || raw === "light") {
-      applyToDom(raw);
-      setTheme(raw);
-    }
-  }, [raw]);
+    removeRaw(KEY);
+  }, []);
+
+  const applyTheme = useCallback((t: Theme) => {
+    applyToDom(t);
+    setTheme(t);
+  }, []);
 
   const toggle = useCallback(() => {
-    const next: Theme = domTheme() === "dark" ? "light" : "dark";
-    applyToDom(next);
-    setTheme(next);
-    setRaw(KEY, next);
-  }, []);
+    applyTheme(theme === "dark" ? "light" : "dark");
+  }, [applyTheme, theme]);
 
   useEffect(() => {
     if (!window.matchMedia) return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => {
-      // Only follow the OS if the user hasn't picked a theme.
-      if (peekRaw(KEY)) return;
-      applyToDom(e.matches ? "dark" : "light");
-      setTheme(domTheme());
-    };
+    const onChange = () => applyTheme(osTheme());
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, []);
+  }, [applyTheme]);
 
   return { theme, toggle };
 }

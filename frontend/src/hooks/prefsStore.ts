@@ -113,6 +113,9 @@ export function removeRaw(key: string): void {
 export function hydrate(server: Record<string, unknown>): void {
   let changed = false;
   for (const key of SYNCED_KEYS) {
+    // Theme is session-only and follows the OS; never re-stick a saved
+    // value from another device (or this one).
+    if (key === "better-gh.theme") continue;
     if (key in server) {
       const raw = server[key];
       // Stored opaquely as strings; coerce defensively.
