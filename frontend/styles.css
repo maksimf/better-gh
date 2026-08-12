@@ -9,6 +9,7 @@
     --grey: #d9d9d9;
     --grey-2: #ececec;
     --muted: #7a7a7a;
+    --border: #111111;
     --approved-bg: #effaf1;
     --draft-text: #3a3a3a;
     --backdrop: rgba(17, 17, 17, 0.55);
@@ -20,9 +21,13 @@
 /* Dark theme: invert paper / surface / ink, brighten accents for contrast,
    keep yellow as-is. Specific selectors below restore the "always-dark"
    topbar, footer, and label-style pills, plus dark text on yellow and
-   light text on red/blue/green. */
+   light text on red/blue/green.
+
+   Ink (--black) is a soft off-white rather than pure #ededed so fills
+   and text feel less harsh; --border is dimmer still so buttons, cards,
+   tabs, and chrome edges don't glow against the dark paper. */
 [data-theme="dark"] {
-    --black: #ededed;
+    --black: #c8c8ca;
     --white: #18181a;
     --paper: #0e0e10;
     --red: #ff5046;
@@ -31,6 +36,7 @@
     --grey: #2a2a2c;
     --grey-2: #242426;
     --muted: #8a8a8a;
+    --border: #5c5c60;
     --approved-bg: #102016;
     --draft-text: #aaaaaa;
     --backdrop: rgba(0, 0, 0, 0.75);
@@ -132,7 +138,7 @@ button {
 .btn {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 8px 16px;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -202,14 +208,14 @@ button {
     display: flex;
     gap: 0;
     padding: 16px 28px 0;
-    border-bottom: 3px solid var(--black);
+    border-bottom: 3px solid var(--border);
     background: var(--paper);
 }
 
 .tab {
     background: var(--black);
     color: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     border-bottom: none;
     padding: 10px 18px;
     font-family: inherit;
@@ -438,7 +444,7 @@ button {
     width: min(520px, 100%);
     margin-top: 8px;
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     max-height: min(60vh, 480px);
     overflow-y: auto;
     text-align: left;
@@ -450,7 +456,7 @@ button {
 
 .column {
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     padding: 18px;
     min-height: 60vh;
     /* As a CSS-grid item, .column defaults to min-width: auto = min-content,
@@ -504,7 +510,7 @@ button {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 4px 7px;
     background: var(--white);
     color: var(--black);
@@ -524,7 +530,7 @@ button {
     height: 16px;
     flex-shrink: 0;
     margin: 0;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     cursor: pointer;
 }
@@ -553,7 +559,7 @@ button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 5px 8px;
     background: var(--green);
     color: var(--white);
@@ -699,7 +705,7 @@ button {
 /* ---------- PR card ---------- */
 .pr-card {
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     padding: 0;
     display: flex;
     flex-direction: row;
@@ -725,7 +731,7 @@ button {
     margin: 0;
     padding: 0;
     border: none;
-    border-left: 3px solid var(--black);
+    border-left: 3px solid var(--border);
     background: var(--grey-2);
     color: var(--black);
     font-size: 18px;
@@ -848,7 +854,7 @@ button {
     letter-spacing: 0.06em;
     color: var(--black);
     background: var(--yellow);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 0 6px;
     line-height: 1.25;
     box-sizing: border-box;
@@ -908,7 +914,7 @@ a.pr-number:hover {
     letter-spacing: 0.08em;
     font-size: 10px;
     padding: 2px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
 }
 
@@ -980,7 +986,7 @@ a.pr-number:hover {
     padding: 0;
     font-size: 14px;
     line-height: 0;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     cursor: pointer;
@@ -1024,13 +1030,13 @@ a.pr-number:hover {
 .card-toggle--note[aria-pressed="true"] {
     background: var(--yellow);
     color: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .card-toggle--deferred[aria-pressed="true"] {
     background: var(--grey);
     color: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 /* ---------- Deferred section (collapsed by default) ---------- */
@@ -1052,7 +1058,7 @@ a.pr-number:hover {
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--grey-2);
     color: var(--black);
     cursor: pointer;
@@ -1112,7 +1118,7 @@ a.pr-number:hover {
     padding: 0;
     font-size: 14px;
     line-height: 0;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     cursor: pointer;
@@ -1138,7 +1144,7 @@ a.pr-number:hover {
     max-width: 80vw;
     padding: 10px;
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     box-shadow: 5px 5px 0 var(--black);
 }
 
@@ -1176,7 +1182,7 @@ a.pr-number:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 6px 14px;
     font-weight: 900;
     font-size: 12px;
@@ -1215,7 +1221,7 @@ a.pr-number:hover {
     display: inline-flex;
     align-items: stretch;
     height: var(--pill-height);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     font-weight: 900;
     font-size: 12px;
     letter-spacing: 0.04em;
@@ -1236,7 +1242,7 @@ a.pr-number:hover {
     align-items: center;
     justify-content: center;
     padding: 0 8px;
-    border-left: 2px solid var(--black);
+    border-left: 2px solid var(--border);
     min-width: 26px;
     text-align: center;
     background: var(--white);
@@ -1274,7 +1280,7 @@ a.pr-number:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 4px 8px;
     font-weight: 800;
     font-size: 12px;
@@ -1288,7 +1294,7 @@ a.pr-number:hover {
 .comments {
     display: inline-flex;
     align-items: stretch;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     font-weight: 900;
     font-size: 12px;
     letter-spacing: 0.04em;
@@ -1304,7 +1310,7 @@ a.pr-number:hover {
 
 .comments-cell {
     padding: 4px 8px;
-    border-left: 2px solid var(--black);
+    border-left: 2px solid var(--border);
     min-width: 26px;
     text-align: center;
     background: var(--white);
@@ -1317,7 +1323,7 @@ button.comments-cell--btn {
     font-weight: inherit;
     letter-spacing: inherit;
     border: none;
-    border-left: 2px solid var(--black);
+    border-left: 2px solid var(--border);
     padding: 4px 8px;
     min-width: 26px;
     line-height: 1;
@@ -1355,7 +1361,7 @@ button.comments-cell--btn:hover {
     width: 380px;
     max-width: min(90vw, 440px);
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     box-shadow: 6px 6px 0 var(--black);
     font-size: 13px;
     font-weight: 400;
@@ -1407,7 +1413,7 @@ button.comments-cell--btn:hover {
 
 .hcp-comment {
     padding: 10px 12px;
-    border-top: 2px solid var(--black);
+    border-top: 2px solid var(--border);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1441,7 +1447,7 @@ button.comments-cell--btn:hover {
     color: var(--muted);
     background: var(--bg-subtle, #f0f0f0);
     padding: 1px 5px;
-    border: 1px solid var(--black);
+    border: 1px solid var(--border);
 }
 
 .hcp-comment-body {
@@ -1469,7 +1475,7 @@ button.comments-cell--btn:hover {
     font-weight: 900;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 3px 8px;
     cursor: pointer;
     background: var(--white);
@@ -1490,7 +1496,7 @@ button.comments-cell--btn:hover {
 .hcp-btn--ack {
     background: var(--blue);
     color: var(--white);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 .hcp-btn--ack:not(:disabled):hover {
     background: var(--black);
@@ -1516,7 +1522,7 @@ button.comments-cell--btn:hover {
     box-sizing: border-box;
     font: inherit;
     font-size: 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 6px 8px;
     resize: vertical;
     background: var(--white);
@@ -1554,7 +1560,7 @@ button.comments-cell--btn:hover {
     align-items: center;
     height: var(--pill-height);
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 0 8px;
     font-weight: 800;
     font-size: 12px;
@@ -1652,7 +1658,7 @@ button.reviewer-chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 6px 14px;
     font-weight: 900;
     font-size: 12px;
@@ -1698,7 +1704,7 @@ button.reviewer-chip {
    dark theme block) so we don't need explicit dark overrides. */
 .merge-modal {
     padding: 0;
-    border: 4px solid var(--black);
+    border: 4px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: min(440px, 92vw);
@@ -1731,7 +1737,7 @@ button.reviewer-chip {
 .merge-modal-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 28px;
     height: 28px;
     font-size: 18px;
@@ -1793,7 +1799,7 @@ button.reviewer-chip {
 }
 
 .merge-modal-btn {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 8px 14px;
     font-weight: 900;
     font-size: 12px;
@@ -1824,7 +1830,7 @@ button.reviewer-chip {
 .merge-modal-btn--linear:hover:not(:disabled) {
     background: var(--black);
     color: var(--blue);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .merge-modal-btn:disabled {
@@ -1847,7 +1853,7 @@ button.reviewer-chip {
     padding: 0;
     max-height: min(42vh, 320px);
     overflow-y: auto;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
 }
 
 .bulk-merge-list li {
@@ -1879,7 +1885,7 @@ button.reviewer-chip {
    tokens keep it dark-mode aware without explicit overrides). */
 .qa-modal {
     padding: 0;
-    border: 4px solid var(--black);
+    border: 4px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: min(560px, 94vw);
@@ -1912,7 +1918,7 @@ button.reviewer-chip {
 .qa-modal-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 28px;
     height: 28px;
     font-size: 18px;
@@ -1966,7 +1972,7 @@ button.reviewer-chip {
     font-size: 13px;
     line-height: 1.5;
     padding: 10px 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     margin: 0 0 14px;
@@ -1989,7 +1995,7 @@ button.reviewer-chip {
     font-size: 13px;
     line-height: 1.5;
     padding: 10px 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     resize: vertical;
@@ -2022,7 +2028,7 @@ button.reviewer-chip {
 }
 
 .qa-modal-btn {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 8px 14px;
     font-weight: 900;
     font-size: 12px;
@@ -2048,7 +2054,7 @@ button.reviewer-chip {
 .qa-modal-btn--launch:hover:not(:disabled) {
     background: var(--black);
     color: var(--blue);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .qa-modal-btn:disabled {
@@ -2064,7 +2070,7 @@ button.reviewer-chip {
 /* PR note modal. Mirrors qa-modal layout. */
 .note-modal {
     padding: 0;
-    border: 4px solid var(--black);
+    border: 4px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: min(560px, 94vw);
@@ -2097,7 +2103,7 @@ button.reviewer-chip {
 .note-modal-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 28px;
     height: 28px;
     font-size: 18px;
@@ -2145,7 +2151,7 @@ button.reviewer-chip {
     font-size: 13px;
     line-height: 1.5;
     padding: 10px 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     resize: vertical;
@@ -2170,7 +2176,7 @@ button.reviewer-chip {
 }
 
 .note-modal-btn {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 8px 14px;
     font-weight: 900;
     font-size: 12px;
@@ -2190,7 +2196,7 @@ button.reviewer-chip {
 .note-modal-btn--save {
     background: var(--yellow);
     color: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .note-modal-btn--save:hover:not(:disabled) {
@@ -2224,7 +2230,7 @@ button.reviewer-chip {
     bottom: 20px;
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 8px 18px;
     font-size: 11px;
     font-weight: 900;
@@ -2255,7 +2261,7 @@ button.reviewer-chip {
     width: 320px;
     height: 100vh;
     background: var(--white);
-    border-left: 4px solid var(--black);
+    border-left: 4px solid var(--border);
     display: flex;
     flex-direction: column;
     z-index: 300;
@@ -2292,7 +2298,7 @@ button.reviewer-chip {
 .notes-drawer-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 28px;
     height: 28px;
     font-size: 18px;
@@ -2346,7 +2352,7 @@ button.reviewer-chip {
 }
 
 .notes-drawer-btn {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 7px 14px;
     font-weight: 900;
     font-size: 11px;
@@ -2470,7 +2476,7 @@ button.reviewer-chip {
 /* QA walkthrough video modal. */
 .video-modal {
     padding: 0;
-    border: 4px solid var(--black);
+    border: 4px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: min(900px, 94vw);
@@ -2503,7 +2509,7 @@ button.reviewer-chip {
 .video-modal-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 28px;
     height: 28px;
     font-size: 18px;
@@ -2620,7 +2626,7 @@ button.reviewer-chip {
     gap: 6px;
     background: var(--red);
     color: var(--white);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 4px 8px;
     font-weight: 900;
     font-size: 12px;
@@ -2654,7 +2660,7 @@ button.reviewer-chip {
 
 .review-row {
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     padding: 12px 16px;
     display: flex;
     align-items: center;
@@ -2785,7 +2791,7 @@ button.reviewer-chip {
     letter-spacing: 0.08em;
     font-size: 11px;
     padding: 5px 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     cursor: pointer;
@@ -2850,7 +2856,7 @@ button.reviewer-chip {
     display: flex;
     flex-direction: column;
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     overflow: hidden;
 }
 
@@ -2860,7 +2866,7 @@ button.reviewer-chip {
     justify-content: space-between;
     gap: 16px;
     padding: 12px 16px;
-    border-bottom: 3px solid var(--black);
+    border-bottom: 3px solid var(--border);
     background: var(--paper);
     flex: 0 0 auto;
 }
@@ -2905,7 +2911,7 @@ button.reviewer-chip {
 }
 
 .diff-panel-close {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     font-weight: 900;
@@ -2939,7 +2945,7 @@ button.reviewer-chip {
 
 /* ---------- PR description ---------- */
 .diff-description {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     padding: 12px 16px;
     font-size: 13px;
@@ -2979,7 +2985,7 @@ button.reviewer-chip {
 }
 
 .diff-description .diff-media {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--black);
 }
 
@@ -3000,7 +3006,7 @@ button.reviewer-chip {
 }
 
 .diff-file {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
 }
 
 .diff-file-head {
@@ -3009,7 +3015,7 @@ button.reviewer-chip {
     gap: 10px;
     padding: 8px 12px;
     background: var(--grey-2);
-    border-bottom: 2px solid var(--black);
+    border-bottom: 2px solid var(--border);
     flex-wrap: wrap;
     /* Keep the file name pinned to the top while scrolling its diff,
        the way GitHub does. The diff-panel-body is the scroll container. */
@@ -3024,7 +3030,7 @@ button.reviewer-chip {
     letter-spacing: 0.06em;
     font-size: 10px;
     padding: 2px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
 }
@@ -3152,7 +3158,7 @@ button.reviewer-chip {
 .approve-button:hover:not(:disabled):not(.is-approved) {
     background: var(--black);
     color: var(--green);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .approve-button:disabled {
@@ -3171,7 +3177,7 @@ button.reviewer-chip {
 .approve-button.is-approved {
     background: var(--black);
     color: var(--green);
-    border-color: var(--black);
+    border-color: var(--border);
     cursor: default;
 }
 
@@ -3185,7 +3191,7 @@ button.reviewer-chip {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--paper);
     padding: 12px;
 }
@@ -3194,7 +3200,7 @@ button.reviewer-chip {
     width: 100%;
     resize: vertical;
     min-height: 48px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     font-family: inherit;
     font-size: 13px;
@@ -3218,7 +3224,7 @@ button.reviewer-chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     padding: 5px 12px;
     font-weight: 900;
     font-size: 11px;
@@ -3246,7 +3252,7 @@ button.reviewer-chip {
 .review-button--changes:hover:not(:disabled) {
     background: var(--black);
     color: var(--red);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .review-button--comment:hover:not(:disabled) {
@@ -3264,7 +3270,7 @@ button.reviewer-chip {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 5px 12px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
 }
 
 .review-actions-done--approve {
@@ -3294,7 +3300,7 @@ button.reviewer-chip {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     padding: 12px;
 }
@@ -3304,7 +3310,7 @@ button.reviewer-chip {
     width: 100%;
     resize: vertical;
     min-height: 64px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     font-family: inherit;
     font-size: 13px;
@@ -3342,7 +3348,7 @@ button.reviewer-chip {
 .pr-comment-submit:hover:not(:disabled),
 .line-comment-submit:hover:not(:disabled) {
     background: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 .pr-comment-submit:disabled,
@@ -3355,7 +3361,7 @@ button.reviewer-chip {
 }
 
 .line-comment-cancel {
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     font-weight: 900;
@@ -3400,8 +3406,8 @@ button.reviewer-chip {
     flex-direction: column;
     gap: 8px;
     padding: 10px 12px;
-    border-top: 2px solid var(--black);
-    border-bottom: 2px solid var(--black);
+    border-top: 2px solid var(--border);
+    border-bottom: 2px solid var(--border);
     background: var(--paper);
 }
 
@@ -3448,7 +3454,7 @@ button.reviewer-chip {
     letter-spacing: 0.08em;
     font-size: 10px;
     padding: 2px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--black);
     color: var(--white);
     cursor: pointer;
@@ -3502,7 +3508,7 @@ button.reviewer-chip {
     font-size: 11px;
     font-weight: 600;
     padding: 2px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: 190px;
@@ -3526,7 +3532,7 @@ button.reviewer-chip {
     letter-spacing: 0.06em;
     font-size: 10px;
     padding: 2px 8px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--black);
     color: var(--white);
     cursor: pointer;
@@ -3627,7 +3633,7 @@ button.reviewer-chip {
     letter-spacing: 0.06em;
     font-size: 10px;
     padding: 2px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
     cursor: pointer;
@@ -3692,7 +3698,7 @@ button.reviewer-chip {
     gap: 6px;
     padding: 8px 10px 10px;
     background: var(--grey-2);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     font-size: 12px;
 }
 
@@ -3772,7 +3778,7 @@ button.reviewer-chip {
     letter-spacing: 0.08em;
     font-size: 10px;
     padding: 1px 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     color: var(--black);
 }
@@ -3822,7 +3828,7 @@ button.reviewer-chip {
 /* ---------- Settings modal ---------- */
 .settings-modal {
     padding: 0;
-    border: 4px solid var(--black);
+    border: 4px solid var(--border);
     background: var(--white);
     color: var(--black);
     width: min(520px, 92vw);
@@ -3875,7 +3881,7 @@ button.reviewer-chip {
 .settings-modal-close {
     background: var(--yellow);
     color: var(--black);
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     width: 30px;
     height: 30px;
     font-size: 20px;
@@ -3925,7 +3931,7 @@ button.reviewer-chip {
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     padding: 6px 10px;
 }
@@ -3984,7 +3990,7 @@ button.reviewer-chip {
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     padding: 6px 8px;
 }
@@ -3993,7 +3999,7 @@ button.reviewer-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--green);
     color: var(--white);
     padding: 2px 4px 2px 6px;
@@ -4051,7 +4057,7 @@ button.reviewer-chip {
     z-index: 10;
     max-height: 220px;
     overflow-y: auto;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     box-shadow: 4px 4px 0 var(--black);
 }
@@ -4082,7 +4088,7 @@ button.reviewer-chip {
 }
 
 .reviewer-search-avatar {
-    border: 1px solid var(--black);
+    border: 1px solid var(--border);
     flex: none;
 }
 
@@ -4135,7 +4141,7 @@ button.reviewer-chip {
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid var(--black);
+    border: 2px solid var(--border);
     background: var(--white);
     display: inline-grid;
     place-items: center;
@@ -4192,7 +4198,7 @@ button.reviewer-chip {
     background: var(--black);
     color: var(--white);
     padding: 8px 18px;
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     border-bottom: none;
     font-size: 11px;
     font-weight: 800;
@@ -4242,7 +4248,7 @@ button.reviewer-chip {
 /* ---------- Error banner ---------- */
 .error-banner {
     margin: 18px 28px 0;
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     background: var(--yellow);
     color: var(--black);
 }
@@ -4327,7 +4333,7 @@ button.reviewer-chip {
 [data-theme="dark"] .ready-button,
 [data-theme="dark"] .settings-count {
     background: #111111;
-    color: #fafafa;
+    color: #e4e4e6;
 }
 
 [data-theme="dark"] .ready-button {
@@ -4337,29 +4343,29 @@ button.reviewer-chip {
 [data-theme="dark"] .ready-button:hover:not(:disabled) {
     background: var(--green);
     border-color: var(--green);
-    color: #fafafa;
+    color: #e4e4e6;
 }
 
 [data-theme="dark"] .ready-button.is-error {
     background: var(--red);
     border-color: var(--red);
-    color: #fafafa;
+    color: #e4e4e6;
 }
 
 [data-theme="dark"] .footer-meta {
-    border-color: #111111;
+    border-color: var(--border);
 }
 
 [data-theme="dark"] .me {
-    color: #d9d9d9;
+    color: #bdbdbf;
 }
 
 [data-theme="dark"] .btn--settings,
 [data-theme="dark"] .btn--signout,
 [data-theme="dark"] .btn--theme {
-    background: #ededed;
+    background: #c8c8ca;
     color: #111111;
-    border-color: #111111;
+    border-color: var(--border);
 }
 
 [data-theme="dark"] .btn--theme:hover {
@@ -4368,7 +4374,7 @@ button.reviewer-chip {
 }
 
 [data-theme="dark"] .btn:hover {
-    background: #ededed;
+    background: #c8c8ca;
 }
 
 /* Always-dark text on yellow */
@@ -4392,7 +4398,7 @@ button.reviewer-chip {
 }
 
 [data-theme="dark"] .error-banner {
-    border-color: #111111;
+    border-color: var(--border);
 }
 
 [data-theme="dark"] .error-banner-icon {
@@ -4419,7 +4425,7 @@ button.reviewer-chip {
 [data-theme="dark"] .card-toggle--watch[aria-pressed="true"],
 [data-theme="dark"] .conflicts,
 [data-theme="dark"] .settings-modal-close:hover {
-    color: #fafafa;
+    color: #e4e4e6;
 }
 
 /* Merge button "ink" hover/merged states need a dark bg in dark mode
@@ -4436,12 +4442,12 @@ button.reviewer-chip {
 
 /* Inner check-mark dot on the settings checkbox stays light on red. */
 [data-theme="dark"] .settings-row input[type="checkbox"]:checked::after {
-    background: #fafafa;
+    background: #e4e4e6;
 }
 
 [data-theme="dark"] .hcp {
     background: var(--white);
-    border-color: var(--black);
+    border-color: var(--border);
     box-shadow: 6px 6px 0 var(--black);
 }
 [data-theme="dark"] .hcp-comment-author,
@@ -4451,7 +4457,7 @@ button.reviewer-chip {
 [data-theme="dark"] .hcp-btn {
     background: var(--white);
     color: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 [data-theme="dark"] .hcp-btn:not(:disabled):hover {
     background: var(--black);
@@ -4459,12 +4465,12 @@ button.reviewer-chip {
 }
 [data-theme="dark"] .hcp-btn--ack {
     background: var(--blue);
-    color: #fafafa;
+    color: #e4e4e6;
 }
 [data-theme="dark"] .hcp-reply-input {
     background: var(--white);
     color: var(--black);
-    border-color: var(--black);
+    border-color: var(--border);
 }
 
 /* ---------- Tablet: collapse to single column ---------- */
@@ -4823,7 +4829,7 @@ button.reviewer-chip {
     width: 100%;
     max-width: 420px;
     background: var(--white);
-    border: 3px solid var(--black);
+    border: 3px solid var(--border);
     box-shadow: 8px 8px 0 var(--black);
     padding: 36px 28px 28px;
     text-align: center;
