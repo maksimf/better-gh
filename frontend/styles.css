@@ -9,6 +9,7 @@
   --grey: #d9d9d9;
   --grey-2: #ececec;
   --muted: #7a7a7a;
+  --border: #111111;
   --approved-bg: #effaf1;
   --draft-text: #3a3a3a;
   --backdrop: rgba(17, 17, 17, 0.55);
@@ -18,9 +19,13 @@
 /* Dark theme: invert paper / surface / ink, brighten accents for contrast,
    keep yellow as-is. Specific selectors below restore the "always-dark"
    topbar, footer, and label-style pills, plus dark text on yellow and
-   light text on red/blue/green. */
+   light text on red/blue/green.
+
+   Ink (--black) is a soft off-white rather than pure #ededed so fills
+   and text feel less harsh; --border is dimmer still so buttons, cards,
+   tabs, and chrome edges don't glow against the dark paper. */
 [data-theme="dark"] {
-  --black: #ededed;
+  --black: #c8c8ca;
   --white: #18181a;
   --paper: #0e0e10;
   --red: #ff5046;
@@ -29,6 +34,7 @@
   --grey: #2a2a2c;
   --grey-2: #242426;
   --muted: #8a8a8a;
+  --border: #5c5c60;
   --approved-bg: #102016;
   --draft-text: #aaaaaa;
   --backdrop: rgba(0, 0, 0, 0.75);
@@ -130,7 +136,7 @@ button {
 .btn {
   background: var(--yellow);
   color: var(--black);
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   padding: 8px 16px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -200,14 +206,14 @@ button {
   display: flex;
   gap: 0;
   padding: 16px 28px 0;
-  border-bottom: 3px solid var(--black);
+  border-bottom: 3px solid var(--border);
   background: var(--paper);
 }
 
 .tab {
   background: var(--black);
   color: var(--white);
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   border-bottom: none;
   padding: 10px 18px;
   font-family: inherit;
@@ -390,7 +396,7 @@ button {
 
 .column {
   background: var(--white);
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   padding: 18px;
   min-height: 60vh;
 }
@@ -485,7 +491,7 @@ button {
 /* ---------- PR card ---------- */
 .pr-card {
   background: var(--white);
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   padding: 14px 14px 12px;
   display: flex;
   flex-direction: column;
@@ -561,7 +567,7 @@ a.pr-number:hover {
   letter-spacing: 0.08em;
   font-size: 10px;
   padding: 2px 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   background: var(--white);
 }
 
@@ -582,7 +588,7 @@ a.pr-number:hover {
   letter-spacing: 0.08em;
   font-size: 10px;
   padding: 2px 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   background: var(--black);
   color: var(--white);
   cursor: pointer;
@@ -643,7 +649,7 @@ a.pr-number:hover {
 .checks {
   display: inline-flex;
   align-items: stretch;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   font-weight: 900;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -658,7 +664,7 @@ a.pr-number:hover {
 
 .checks-cell {
   padding: 4px 8px;
-  border-left: 2px solid var(--black);
+  border-left: 2px solid var(--border);
   min-width: 26px;
   text-align: center;
   background: var(--white);
@@ -688,7 +694,7 @@ a.pr-number:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   padding: 4px 8px;
   font-weight: 800;
   font-size: 12px;
@@ -702,7 +708,7 @@ a.pr-number:hover {
 .comments {
   display: inline-flex;
   align-items: stretch;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   font-weight: 900;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -717,7 +723,7 @@ a.pr-number:hover {
 
 .comments-cell {
   padding: 4px 8px;
-  border-left: 2px solid var(--black);
+  border-left: 2px solid var(--border);
   min-width: 26px;
   text-align: center;
   background: var(--white);
@@ -753,7 +759,7 @@ a.pr-number:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   padding: 4px 8px;
   font-weight: 800;
   font-size: 12px;
@@ -791,7 +797,7 @@ a.pr-number:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   padding: 6px 14px;
   font-weight: 900;
   font-size: 12px;
@@ -859,7 +865,7 @@ a.pr-number:hover {
   padding: 0;
   background: var(--white);
   color: var(--black);
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -932,7 +938,7 @@ a.pr-number:hover {
   gap: 6px;
   background: var(--red);
   color: var(--white);
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   padding: 4px 8px;
   font-weight: 900;
   font-size: 12px;
@@ -966,7 +972,7 @@ a.pr-number:hover {
 
 .review-row {
   background: var(--white);
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   padding: 12px 16px;
   display: flex;
   align-items: center;
@@ -1097,7 +1103,7 @@ a.pr-number:hover {
   gap: 6px;
   padding: 8px 10px 10px;
   background: var(--grey-2);
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   font-size: 12px;
 }
 
@@ -1176,7 +1182,7 @@ a.pr-number:hover {
   letter-spacing: 0.08em;
   font-size: 10px;
   padding: 1px 6px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   background: var(--white);
   color: var(--black);
 }
@@ -1226,7 +1232,7 @@ a.pr-number:hover {
 /* ---------- Settings modal ---------- */
 .settings-modal {
   padding: 0;
-  border: 4px solid var(--black);
+  border: 4px solid var(--border);
   background: var(--white);
   color: var(--black);
   width: min(520px, 92vw);
@@ -1279,7 +1285,7 @@ a.pr-number:hover {
 .settings-modal-close {
   background: var(--yellow);
   color: var(--black);
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   width: 30px;
   height: 30px;
   font-size: 20px;
@@ -1336,7 +1342,7 @@ a.pr-number:hover {
   -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  border: 2px solid var(--black);
+  border: 2px solid var(--border);
   background: var(--white);
   display: inline-grid;
   place-items: center;
@@ -1404,7 +1410,7 @@ a.pr-number:hover {
   background: var(--black);
   color: var(--white);
   padding: 8px 18px;
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   border-bottom: none;
   font-size: 11px;
   font-weight: 800;
@@ -1451,7 +1457,7 @@ a.pr-number:hover {
 /* ---------- Error banner ---------- */
 .error-banner {
   margin: 18px 28px 0;
-  border: 3px solid var(--black);
+  border: 3px solid var(--border);
   background: var(--yellow);
   color: var(--black);
 }
@@ -1536,7 +1542,7 @@ a.pr-number:hover {
 [data-theme="dark"] .draft-button,
 [data-theme="dark"] .settings-count {
   background: #111111;
-  color: #fafafa;
+  color: #e4e4e6;
 }
 
 [data-theme="dark"] .draft-button {
@@ -1546,28 +1552,28 @@ a.pr-number:hover {
 [data-theme="dark"] .draft-button:hover:not(:disabled) {
   background: var(--green);
   border-color: var(--green);
-  color: #fafafa;
+  color: #e4e4e6;
 }
 
 [data-theme="dark"] .draft-button.is-error {
   background: var(--red);
   border-color: var(--red);
-  color: #fafafa;
+  color: #e4e4e6;
 }
 
 [data-theme="dark"] .footer-meta {
-  border-color: #111111;
+  border-color: var(--border);
 }
 
 [data-theme="dark"] .me {
-  color: #d9d9d9;
+  color: #bdbdbf;
 }
 
 [data-theme="dark"] .btn--settings,
 [data-theme="dark"] .btn--theme {
-  background: #ededed;
+  background: #c8c8ca;
   color: #111111;
-  border-color: #111111;
+  border-color: var(--border);
 }
 
 [data-theme="dark"] .btn--theme:hover {
@@ -1576,7 +1582,7 @@ a.pr-number:hover {
 }
 
 [data-theme="dark"] .btn:hover {
-  background: #ededed;
+  background: #c8c8ca;
 }
 
 /* Always-dark text on yellow */
@@ -1590,7 +1596,7 @@ a.pr-number:hover {
 }
 
 [data-theme="dark"] .error-banner {
-  border-color: #111111;
+  border-color: var(--border);
 }
 
 [data-theme="dark"] .error-banner-icon {
@@ -1613,7 +1619,7 @@ a.pr-number:hover {
 [data-theme="dark"] .preview-copy.is-copied,
 [data-theme="dark"] .conflicts,
 [data-theme="dark"] .settings-modal-close:hover {
-  color: #fafafa;
+  color: #e4e4e6;
 }
 
 /* Merge button "ink" hover/merged states need a dark bg in dark mode
@@ -1630,7 +1636,7 @@ a.pr-number:hover {
 
 /* Inner check-mark dot on the settings checkbox stays light on red. */
 [data-theme="dark"] .settings-row input[type="checkbox"]:checked::after {
-  background: #fafafa;
+  background: #e4e4e6;
 }
 
 /* ---------- Tablet: collapse to single column ---------- */
