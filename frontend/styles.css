@@ -4377,6 +4377,40 @@ button.reviewer-chip {
     background: #c8c8ca;
 }
 
+[data-theme="dark"] .notes-tab {
+    background: var(--blue);
+    color: #e4e4e6;
+    border-color: var(--blue);
+    box-shadow: 3px 3px 0 #111111;
+}
+
+[data-theme="dark"] .notes-tab:hover {
+    background: #111111;
+    color: #e4e4e6;
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .tab {
+    background: #111111;
+    color: #e4e4e6;
+}
+
+[data-theme="dark"] .tab:hover:not(.is-active) {
+    background: #1c1c1e;
+    color: #e4e4e6;
+}
+
+[data-theme="dark"] .tab.is-active {
+    background: var(--blue);
+    color: #e4e4e6;
+}
+
+[data-theme="dark"] .tab.is-active .tab-count {
+    background: #111111;
+    color: #e4e4e6;
+    border-color: #111111;
+}
+
 /* Always-dark text on yellow */
 [data-theme="dark"] .btn,
 [data-theme="dark"] .checks-cell--pending,
