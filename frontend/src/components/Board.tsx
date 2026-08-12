@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
+import { EmptyState } from "../ui/EmptyState";
 import { BulkMergeButton } from "./BulkMergeButton";
 import { Column } from "./Column";
 import { DeferredSection } from "./DeferredSection";
@@ -49,20 +50,6 @@ function groupColumn(prs: Pr[]): GroupItem[] {
     bucket.sort((a, b) => (a.stack_order ?? 0) - (b.stack_order ?? 0));
   }
   return ordered;
-}
-
-function EmptyState() {
-  return (
-    <section className="empty-state" aria-live="polite">
-      <div className="empty-state-mark" aria-hidden="true">
-        <span className="shape shape--circle"></span>
-        <span className="shape shape--square"></span>
-        <span className="shape shape--triangle"></span>
-      </div>
-      <h2 className="empty-state-title">INBOX ZERO</h2>
-      <p className="empty-state-sub">No open pull requests. Go touch grass.</p>
-    </section>
-  );
 }
 
 export function Board({
@@ -174,7 +161,14 @@ export function Board({
   };
   const visibleCols = COLUMNS.filter((c) => counts[c] > 0).length;
 
-  if (visibleCols === 0 && deferredPrs.length === 0) return <EmptyState />;
+  if (visibleCols === 0 && deferredPrs.length === 0) {
+    return (
+      <EmptyState
+        title="INBOX ZERO"
+        subtitle="No open pull requests. Go touch grass."
+      />
+    );
+  }
 
   const boardClass = [
     "board",

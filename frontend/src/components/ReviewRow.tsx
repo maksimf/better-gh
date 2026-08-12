@@ -1,6 +1,8 @@
 import type { ReviewPr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { formatRelative } from "../hooks/useRelativeTime";
+import { Button } from "../ui/Button";
+import { Tag } from "../ui/Tag";
 import { ApproveButton } from "./ApproveButton";
 import { ChecksPill, Conflicts } from "./ChecksPill";
 import { DeferredToggle } from "./DeferredToggle";
@@ -72,7 +74,7 @@ export function ReviewRow({
         </h3>
         <span className="review-repo">{pr.repo}</span>
         <span className="review-author">@{pr.author}</span>
-        {pr.is_draft && <span className="pr-tag pr-tag--draft">Draft</span>}
+        {pr.is_draft && <Tag variant="draft">Draft</Tag>}
         {pr.requested_at && (
           <span
             className="review-requested-at"
@@ -87,15 +89,15 @@ export function ReviewRow({
       </div>
       <div className="review-meta">
         {onSelect && (
-          <button
-            type="button"
-            className={`review-diff-toggle${selected ? " is-active" : ""}`}
+          <Button
+            surface="toggle"
+            variant="diff"
+            active={selected}
             title={selected ? "Hide diff" : "Review diff"}
-            aria-pressed={selected}
             onClick={onSelect}
           >
             {selected ? "VIEWING" : "REVIEW"}
-          </button>
+          </Button>
         )}
         <ApproveButton owner={owner} repo={name} number={pr.number} />
         <ChecksPill checks={pr.checks} />

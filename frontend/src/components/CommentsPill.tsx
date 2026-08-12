@@ -1,19 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import type { PrRef } from "../api/queries";
+import { MetricCell, MetricPill } from "../ui/MetricPill";
+import { useDismissOnOutside } from "../ui/useDismissOnOutside";
 import { HumanCommentsPopover } from "./HumanCommentsPopover";
-
-function BotCell({ count }: { count: number }) {
-  const cls = count === 0 ? "comments-cell--zero" : "comments-cell--bot";
-  return (
-    <span
-      className={`comments-cell ${cls}`}
-      title="Unresolved bot comments (cursor + coderabbit)"
-    >
-      B {count}
-    </span>
-  );
-}
 
 export function CommentsPill({
   human,
@@ -26,64 +16,55 @@ export function CommentsPill({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
+  useDismissOnOutside(open, () => setOpen(false), wrapRef);
 
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const humanCls = human === 0 ? "comments-cell--zero" : "comments-cell--human";
   const clickable = prRef !== undefined && human > 0;
 
   return (
-    <span
-      className={`comments${open ? " is-open" : ""}`}
-      title="Unresolved comments: human / bot"
-      ref={wrapRef}
-    >
-      <span className="comments-label">Comments</span>
+    <span ref={wrapRef}>
+      <MetricPill
+        label="Comments"
+        title="Unresolved comments: human / bot"
+        open={open}
+        className="comments"
+      >
+        {clickable ? (
+          <MetricCell
+            family="comments"
+            tone={human === 0 ? "zero" : "human"}
+            as="button"
+            title="Click to view human comments"
+            ariaExpanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            H {human}
+          </MetricCell>
+        ) : (
+          <MetricCell
+            family="comments"
+            tone={human === 0 ? "zero" : "human"}
+            title="Unresolved human review-thread comments + un-acked generic comments (react with any emoji to ack)"
+          >
+            H {human}
+          </MetricCell>
+        )}
 
-      {clickable ? (
-        <button
-          type="button"
-          className={`comments-cell comments-cell--btn ${humanCls}`}
-          title="Click to view human comments"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+        <MetricCell
+          family="comments"
+          tone={bot === 0 ? "zero" : "bot"}
+          title="Unresolved bot comments (cursor + coderabbit)"
         >
-          H {human}
-        </button>
-      ) : (
-        <span
-          className={`comments-cell ${humanCls}`}
-          title="Unresolved human review-thread comments + un-acked generic comments (react with any emoji to ack)"
-        >
-          H {human}
-        </span>
-      )}
+          B {bot}
+        </MetricCell>
 
-      <BotCell count={bot} />
-
-      {open && prRef && (
-        <HumanCommentsPopover
-          owner={prRef.owner}
-          repo={prRef.repo}
-          number={prRef.number}
-        />
-      )}
+        {open && prRef && (
+          <HumanCommentsPopover
+            owner={prRef.owner}
+            repo={prRef.repo}
+            number={prRef.number}
+          />
+        )}
+      </MetricPill>
     </span>
   );
 }

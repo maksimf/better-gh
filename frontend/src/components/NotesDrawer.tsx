@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { marked } from "marked";
 
 import { useNotes } from "../hooks/useNotes";
+import { Button } from "../ui/Button";
 
 export function NotesDrawer({
   open,
@@ -78,23 +79,24 @@ export function NotesDrawer({
         )}
 
         <div className="notes-drawer-footer">
-          <button
-            type="button"
-            className="notes-drawer-btn notes-drawer-btn--clear"
+          <Button
+            surface="drawer"
+            variant="clear"
             onClick={handleClear}
             disabled={notes === ""}
           >
             CLEAR
-          </button>
+          </Button>
           <span style={{ flex: 1 }} />
-          <button
-            type="button"
-            className={`notes-drawer-btn${preview ? " notes-drawer-btn--active" : ""}`}
+          <Button
+            surface="drawer"
+            variant="toggle"
+            active={preview}
             onClick={() => setPreview((p) => !p)}
             disabled={notes === ""}
           >
             {preview ? "EDIT" : "PREVIEW"}
-          </button>
+          </Button>
         </div>
       </div>
     </>

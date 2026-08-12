@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-
 import { useCloudAgentVideo } from "../api/queries";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 
 /**
  * Plays a cloud agent's recorded walkthrough. The presigned URL is fetched
@@ -17,42 +17,31 @@ export function CloudAgentVideoModal({
   path: string | null;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const { data, isLoading, isError, error } = useCloudAgentVideo(
     agentId,
     path,
     open,
   );
 
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
-  }, [open]);
-
   return (
-    <dialog
-      ref={dialogRef}
-      className="video-modal"
-      aria-labelledby="video-modal-title"
+    <Dialog
+      open={open}
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === dialogRef.current) onClose();
-      }}
+      className="video-modal"
+      ariaLabelledBy="video-modal-title"
     >
       <header className="video-modal-header">
         <h2 id="video-modal-title" className="video-modal-title">
           QA WALKTHROUGH
         </h2>
-        <button
-          type="button"
-          className="video-modal-close"
-          aria-label="Close video"
+        <Button
+          surface="close"
+          modal="video"
+          ariaLabel="Close video"
           onClick={onClose}
         >
           &times;
-        </button>
+        </Button>
       </header>
       <div className="video-modal-body">
         {isLoading && <p className="video-modal-msg">Loading video&hellip;</p>}
@@ -74,6 +63,6 @@ export function CloudAgentVideoModal({
           />
         )}
       </div>
-    </dialog>
+    </Dialog>
   );
 }

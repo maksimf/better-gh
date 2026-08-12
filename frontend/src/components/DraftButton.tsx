@@ -1,6 +1,6 @@
-import { useState } from "react";
-
 import { useMarkReady } from "../api/queries";
+import { ActionButton } from "../ui/ActionButton";
+import { useTransientError } from "../ui/useTransientError";
 
 export function DraftButton({
   owner,
@@ -12,32 +12,31 @@ export function DraftButton({
   number: number;
 }) {
   const markReady = useMarkReady();
-  const [error, setError] = useState<string | null>(null);
+  const { error, showError, clearError } = useTransientError();
 
   function onClick() {
     if (!window.confirm(`Mark #${number} as ready for review?`)) return;
-    setError(null);
+    clearError();
     markReady.mutate(
       { owner, repo, number },
       {
         onError: (e) => {
-          setError(e instanceof Error ? e.message : String(e));
-          window.setTimeout(() => setError(null), 4000);
+          showError(e instanceof Error ? e.message : String(e));
         },
       },
     );
   }
 
   return (
-    <button
-      type="button"
-      className={`ready-button${error ? " is-error" : ""}`}
+    <ActionButton
+      kind="ready"
+      error={Boolean(error)}
       title={error ?? "Mark this PR as ready for review"}
       aria-label="Mark this PR as ready for review"
       disabled={markReady.isPending}
       onClick={onClick}
     >
       {markReady.isPending ? "Marking\u2026" : "Mark ready \u2192"}
-    </button>
+    </ActionButton>
   );
 }

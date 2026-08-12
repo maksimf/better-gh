@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { useMergePr } from "../api/queries";
+import { ActionButton } from "../ui/ActionButton";
+import { useTransientError } from "../ui/useTransientError";
 import { CheckIcon } from "./icons";
 import { MergeModal } from "./MergeModal";
 
@@ -31,28 +33,23 @@ export function MergeButton({
   const merge = useMergePr();
   const [merged, setMerged] = useState(false);
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { error, showError, clearError } = useTransientError();
 
   const linearTicket = ticketFromUrl(linearUrl);
 
   if (merged) {
     return (
-      <span className="merge-button is-merged" aria-disabled="true">
+      <ActionButton kind="merge" done>
         MERGED{" "}
         <span aria-hidden="true">
           <CheckIcon />
         </span>
-      </span>
+      </ActionButton>
     );
   }
 
-  function showError(message: string) {
-    setError(message);
-    window.setTimeout(() => setError(null), 4000);
-  }
-
   function doMerge(markLinearDone: boolean) {
-    setError(null);
+    clearError();
     merge.mutate(
       {
         ref: { owner, repo, number },
@@ -78,15 +75,15 @@ export function MergeButton({
 
   return (
     <>
-      <button
-        type="button"
-        className={`merge-button${error ? " is-error" : ""}`}
+      <ActionButton
+        kind="merge"
+        error={Boolean(error)}
         title={error ?? "Merge this PR into the base branch"}
         disabled={merge.isPending}
         onClick={() => setOpen(true)}
       >
         MERGE &rarr;
-      </button>
+      </ActionButton>
       <MergeModal
         open={open}
         title={title}

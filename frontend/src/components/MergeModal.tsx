@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 
 /**
  * Confirmation dialog for the per-card MERGE button.
@@ -27,39 +28,27 @@ export function MergeModal({
   onMergeAndLinear: () => void;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
-  }, [open]);
-
   return (
-    <dialog
-      ref={dialogRef}
-      className="merge-modal"
-      aria-labelledby="merge-modal-title"
+    <Dialog
+      open={open}
       onClose={onClose}
-      onClick={(e) => {
-        // Backdrop click (lands on the <dialog> itself) closes.
-        if (e.target === dialogRef.current && !pending) onClose();
-      }}
+      className="merge-modal"
+      ariaLabelledBy="merge-modal-title"
+      blockBackdropClose={pending}
     >
       <header className="merge-modal-header">
         <h2 id="merge-modal-title" className="merge-modal-title">
           MERGE PR
         </h2>
-        <button
-          type="button"
-          className="merge-modal-close"
-          aria-label="Cancel"
+        <Button
+          surface="close"
+          modal="merge"
+          ariaLabel="Cancel"
           disabled={pending}
           onClick={onClose}
         >
           &times;
-        </button>
+        </Button>
       </header>
 
       <div className="merge-modal-body">
@@ -77,33 +66,36 @@ export function MergeModal({
       </div>
 
       <footer className="merge-modal-footer">
-        <button
-          type="button"
-          className="merge-modal-btn merge-modal-btn--ghost"
+        <Button
+          surface="modal"
+          modal="merge"
+          variant="ghost"
           disabled={pending}
           onClick={onClose}
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          className="merge-modal-btn merge-modal-btn--merge"
+        </Button>
+        <Button
+          surface="modal"
+          modal="merge"
+          variant="merge"
           disabled={pending}
           onClick={onJustMerge}
         >
           Just merge
-        </button>
+        </Button>
         {linearTicket && (
-          <button
-            type="button"
-            className="merge-modal-btn merge-modal-btn--linear"
+          <Button
+            surface="modal"
+            modal="merge"
+            variant="linear"
             disabled={pending}
             onClick={onMergeAndLinear}
           >
             Merge &amp; mark {linearTicket} done
-          </button>
+          </Button>
         )}
       </footer>
-    </dialog>
+    </Dialog>
   );
 }

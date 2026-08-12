@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useCloudAgentModels } from "../api/queries";
 import { readString, writeString } from "../hooks/storage";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 
 const QA_MODEL_KEY = "better-gh.qa-agent-model";
 const DEFAULT_QA_MODEL_ID = "composer-2.5";
@@ -51,17 +53,9 @@ export function CloudAgentModal({
   onLaunch: (launch: QaAgentLaunch) => void;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [prompt, setPrompt] = useState(() => defaultQaPrompt(number));
   const [modelId, setModelId] = useState(() => initialModelId());
   const { data: models, isLoading: modelsLoading } = useCloudAgentModels(open);
-
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
-  }, [open]);
 
   // Reset to defaults each time the modal is (re)opened.
   useEffect(() => {
@@ -97,28 +91,26 @@ export function CloudAgentModal({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="qa-modal"
-      aria-labelledby="qa-modal-title"
+    <Dialog
+      open={open}
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === dialogRef.current && !pending) onClose();
-      }}
+      className="qa-modal"
+      ariaLabelledBy="qa-modal-title"
+      blockBackdropClose={pending}
     >
       <header className="qa-modal-header">
         <h2 id="qa-modal-title" className="qa-modal-title">
           START QA AGENT
         </h2>
-        <button
-          type="button"
-          className="qa-modal-close"
-          aria-label="Cancel"
+        <Button
+          surface="close"
+          modal="qa"
+          ariaLabel="Cancel"
           disabled={pending}
           onClick={onClose}
         >
           &times;
-        </button>
+        </Button>
       </header>
 
       <div className="qa-modal-body">
@@ -169,25 +161,25 @@ export function CloudAgentModal({
       </div>
 
       <footer className="qa-modal-footer">
-        <button
-          type="button"
-          className="qa-modal-btn qa-modal-btn--ghost"
+        <Button
+          surface="modal"
+          modal="qa"
+          variant="ghost"
           disabled={pending}
           onClick={onClose}
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          className="qa-modal-btn qa-modal-btn--launch"
+        </Button>
+        <Button
+          surface="modal"
+          modal="qa"
+          variant="launch"
           disabled={pending || prompt.trim().length === 0}
-          onClick={() =>
-            onLaunch({ prompt: prompt.trim(), modelId })
-          }
+          onClick={() => onLaunch({ prompt: prompt.trim(), modelId })}
         >
           {pending ? "Launching\u2026" : "Launch agent \u2192"}
-        </button>
+        </Button>
       </footer>
-    </dialog>
+    </Dialog>
   );
 }

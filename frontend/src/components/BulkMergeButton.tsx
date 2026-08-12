@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-
 import type { Pr } from "../api/types";
 import { useBulkMergePr } from "../api/queries";
 import { reviewedKey } from "../hooks/useReviewedKeys";
+import { ActionButton } from "../ui/ActionButton";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
+import { useTransientError } from "../ui/useTransientError";
+import { useState } from "react";
 
 function splitRepo(repo: string): { owner: string; repo: string } {
   const slash = repo.indexOf("/");
@@ -46,25 +49,12 @@ export function BulkMergeButton({
   onMerged: (keys: string[]) => void;
 }) {
   const merge = useBulkMergePr();
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { error, showError, clearError } = useTransientError(5000);
   const orderedPrs = orderForMerge(prs);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  function showError(message: string) {
-    setError(message);
-    window.setTimeout(() => setError(null), 5000);
-  }
-
   function doMerge() {
-    setError(null);
+    clearError();
     merge.mutate(
       orderedPrs.map((pr) => ({ ...splitRepo(pr.repo), number: pr.number })),
       {
@@ -72,7 +62,9 @@ export function BulkMergeButton({
           const results = result?.results ?? [];
           const mergedKeys = results
             .filter((item) => item.merged)
-            .map((item) => reviewedKey(`${item.owner}/${item.repo}`, item.number));
+            .map((item) =>
+              reviewedKey(`${item.owner}/${item.repo}`, item.number),
+            );
           const failed = results.filter((item) => !item.merged);
 
           onMerged(mergedKeys);
@@ -96,40 +88,38 @@ export function BulkMergeButton({
 
   return (
     <>
-      <button
-        type="button"
-        className={`bulk-merge-button${error ? " is-error" : ""}`}
+      <ActionButton
+        kind="bulk-merge"
+        error={Boolean(error)}
         title={error ?? "Merge all selected pull requests"}
         disabled={prs.length === 0 || merge.isPending}
         onClick={() => setOpen(true)}
       >
         MERGE ALL <span className="bulk-merge-count">{prs.length}</span>
-      </button>
+      </ActionButton>
 
-      <dialog
-        ref={dialogRef}
-        className="merge-modal bulk-merge-modal"
-        aria-labelledby="bulk-merge-modal-title"
+      <Dialog
+        open={open}
         onClose={() => {
           if (!merge.isPending) setOpen(false);
         }}
-        onClick={(event) => {
-          if (event.target === dialogRef.current && !merge.isPending) setOpen(false);
-        }}
+        className="merge-modal bulk-merge-modal"
+        ariaLabelledBy="bulk-merge-modal-title"
+        blockBackdropClose={merge.isPending}
       >
         <header className="merge-modal-header">
           <h2 id="bulk-merge-modal-title" className="merge-modal-title">
             MERGE SELECTED PRS
           </h2>
-          <button
-            type="button"
-            className="merge-modal-close"
-            aria-label="Cancel"
+          <Button
+            surface="close"
+            modal="merge"
+            ariaLabel="Cancel"
             disabled={merge.isPending}
             onClick={() => setOpen(false)}
           >
             &times;
-          </button>
+          </Button>
         </header>
 
         <div className="merge-modal-body">
@@ -140,7 +130,9 @@ export function BulkMergeButton({
           <ul className="bulk-merge-list">
             {orderedPrs.map((pr) => (
               <li key={reviewedKey(pr.repo, pr.number)}>
-                <strong>{pr.repo}#{pr.number}</strong>
+                <strong>
+                  {pr.repo}#{pr.number}
+                </strong>
                 <span>{pr.title}</span>
               </li>
             ))}
@@ -148,24 +140,26 @@ export function BulkMergeButton({
         </div>
 
         <footer className="merge-modal-footer">
-          <button
-            type="button"
-            className="merge-modal-btn merge-modal-btn--ghost"
+          <Button
+            surface="modal"
+            modal="merge"
+            variant="ghost"
             disabled={merge.isPending}
             onClick={() => setOpen(false)}
           >
             Cancel
-          </button>
-          <button
-            type="button"
-            className="merge-modal-btn merge-modal-btn--merge"
+          </Button>
+          <Button
+            surface="modal"
+            modal="merge"
+            variant="merge"
             disabled={merge.isPending}
             onClick={doMerge}
           >
             {merge.isPending ? "Merging…" : `Merge all ${prs.length}`}
-          </button>
+          </Button>
         </footer>
-      </dialog>
+      </Dialog>
     </>
   );
 }

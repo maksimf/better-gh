@@ -1,34 +1,30 @@
 import type { Checks } from "../api/types";
-
-function ChecksCell({
-  value,
-  modifier,
-  names,
-}: {
-  value: number;
-  modifier: "pass" | "pending" | "fail";
-  names?: { name: string }[];
-}) {
-  const cls = value === 0 ? "checks-cell--zero" : `checks-cell--${modifier}`;
-  if (modifier === "fail" && value > 0 && names && names.length > 0) {
-    const title = `Failed checks: ${names.map((n) => n.name).join(", ")}`;
-    return (
-      <span className={`checks-cell ${cls}`} title={title}>
-        {value}
-      </span>
-    );
-  }
-  return <span className={`checks-cell ${cls}`}>{value}</span>;
-}
+import { MetricCell, MetricPill } from "../ui/MetricPill";
 
 export function ChecksPill({ checks }: { checks: Checks }) {
   return (
-    <span className="checks" title="Checks: passed / pending / failed">
-      <span className="checks-label">Checks</span>
-      <ChecksCell value={checks.passed} modifier="pass" />
-      <ChecksCell value={checks.pending} modifier="pending" />
-      <ChecksCell value={checks.failed} modifier="fail" names={checks.failed_names} />
-    </span>
+    <MetricPill label="Checks" title="Checks: passed / pending / failed">
+      <MetricCell
+        family="checks"
+        tone={checks.passed === 0 ? "zero" : "pass"}
+        value={checks.passed}
+      />
+      <MetricCell
+        family="checks"
+        tone={checks.pending === 0 ? "zero" : "pending"}
+        value={checks.pending}
+      />
+      <MetricCell
+        family="checks"
+        tone={checks.failed === 0 ? "zero" : "fail"}
+        value={checks.failed}
+        title={
+          checks.failed > 0 && checks.failed_names.length > 0
+            ? `Failed checks: ${checks.failed_names.map((n) => n.name).join(", ")}`
+            : undefined
+        }
+      />
+    </MetricPill>
   );
 }
 

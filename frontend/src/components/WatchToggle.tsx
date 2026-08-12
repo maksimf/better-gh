@@ -1,3 +1,4 @@
+import { CardToggle } from "../ui/CardToggle";
 import { EyeIcon } from "./icons";
 
 export function WatchToggle({
@@ -15,18 +16,13 @@ export function WatchToggle({
       ? "Watching — the server will ntfy you when checks pass and the preview is ready"
       : "Watch — notify me when checks pass and the preview is ready";
   return (
-    <button
-      type="button"
-      className="card-toggle card-toggle--watch"
-      title={title}
-      aria-label={title}
-      aria-pressed={pressed}
+    <CardToggle
+      variant="watch"
+      pressed={pressed}
       disabled={disabled}
+      title={title}
       onClick={onToggle}
-    >
-      <span className="card-toggle-icon" aria-hidden="true">
-        <EyeIcon />
-      </span>
-    </button>
+      icon={<EyeIcon />}
+    />
   );
 }

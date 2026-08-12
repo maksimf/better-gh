@@ -1,3 +1,4 @@
+import { CardToggle } from "../ui/CardToggle";
 import { PauseIcon } from "./icons";
 
 export function DeferredToggle({
@@ -11,17 +12,12 @@ export function DeferredToggle({
     ? "Deferred — click to restore to the board"
     : "Defer — hide from the board for now";
   return (
-    <button
-      type="button"
-      className="card-toggle card-toggle--deferred"
+    <CardToggle
+      variant="deferred"
+      pressed={pressed}
       title={title}
-      aria-label={title}
-      aria-pressed={pressed}
       onClick={onToggle}
-    >
-      <span className="card-toggle-icon" aria-hidden="true">
-        <PauseIcon />
-      </span>
-    </button>
+      icon={<PauseIcon />}
+    />
   );
 }

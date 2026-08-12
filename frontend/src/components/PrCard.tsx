@@ -6,6 +6,8 @@ import type { Pr } from "../api/types";
 import { useCloudAgents } from "../hooks/useCloudAgents";
 import { usePrNotes } from "../hooks/usePrNotes";
 import { reviewedKey } from "../hooks/useReviewedKeys";
+import { Button } from "../ui/Button";
+import { Tag } from "../ui/Tag";
 import { ChecksPill, Conflicts } from "./ChecksPill";
 import { CloudAgentLink } from "./CloudAgentLink";
 import { CommentsPill } from "./CommentsPill";
@@ -179,7 +181,7 @@ export function PrCard({
         {showInlineStack && <PrStack nodes={pr.stack_nodes} />}
 
         <div className="pr-bar">
-          {pr.is_draft && <span className="pr-tag pr-tag--draft">Draft</span>}
+          {pr.is_draft && <Tag variant="draft">Draft</Tag>}
           <ChecksPill checks={pr.checks} />
           <Conflicts conflicts={pr.conflicts} />
           <CommentsPill
@@ -229,16 +231,16 @@ export function PrCard({
         </div>
       </div>
 
-      <button
-        type="button"
-        className={`pr-open-code${selected ? " is-active" : ""}`}
+      <Button
+        surface="toggle"
+        variant="code"
+        active={selected}
         title={selected ? "Hide code" : "Open code"}
-        aria-label={selected ? "Hide code" : "Open code"}
-        aria-pressed={selected}
+        ariaLabel={selected ? "Hide code" : "Open code"}
         onClick={onSelect}
       >
         <span aria-hidden="true">→</span>
-      </button>
+      </Button>
     </article>
   );
 }

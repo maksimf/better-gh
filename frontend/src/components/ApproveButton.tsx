@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { useApprovePr } from "../api/queries";
+import { ActionButton } from "../ui/ActionButton";
+import { useTransientError } from "../ui/useTransientError";
 import { CheckIcon } from "./icons";
 
 export function ApproveButton({
@@ -14,26 +16,21 @@ export function ApproveButton({
 }) {
   const approve = useApprovePr();
   const [approved, setApproved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { error, showError, clearError } = useTransientError();
 
   if (approved) {
     return (
-      <span className="approve-button is-approved" aria-disabled="true">
+      <ActionButton kind="approve" done>
         APPROVED{" "}
         <span aria-hidden="true">
           <CheckIcon />
         </span>
-      </span>
+      </ActionButton>
     );
   }
 
-  function showError(message: string) {
-    setError(message);
-    window.setTimeout(() => setError(null), 4000);
-  }
-
   function doApprove() {
-    setError(null);
+    clearError();
     approve.mutate(
       { ref: { owner, repo, number } },
       {
@@ -44,9 +41,9 @@ export function ApproveButton({
   }
 
   return (
-    <button
-      type="button"
-      className={`approve-button${error ? " is-error" : ""}`}
+    <ActionButton
+      kind="approve"
+      error={Boolean(error)}
       title={error ?? "Approve this PR"}
       disabled={approve.isPending}
       onClick={doApprove}
@@ -57,6 +54,6 @@ export function ApproveButton({
           <CheckIcon />
         </span>
       )}
-    </button>
+    </ActionButton>
   );
 }

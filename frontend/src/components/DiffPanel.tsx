@@ -8,6 +8,7 @@ import {
   usePrDiff,
 } from "../api/queries";
 import type { DiffFile, DiffSide } from "../api/types";
+import { Button } from "../ui/Button";
 import { ReviewActions } from "./ReviewActions";
 import { PrLocStats } from "./PrLocStats";
 
@@ -281,22 +282,22 @@ function FileDiff({
                       disabled={addLine.isPending}
                     />
                     <div className="line-comment-actions">
-                      <button
-                        type="button"
-                        className="line-comment-submit"
+                      <Button
+                        surface="comment"
+                        variant="line-submit"
                         disabled={addLine.isPending || !draft.trim()}
                         onClick={submitLineComment}
                       >
                         {addLine.isPending ? "POSTING…" : "COMMENT"}
-                      </button>
-                      <button
-                        type="button"
-                        className="line-comment-cancel"
+                      </Button>
+                      <Button
+                        surface="comment"
+                        variant="line-cancel"
                         disabled={addLine.isPending}
                         onClick={clearComposer}
                       >
                         CANCEL
-                      </button>
+                      </Button>
                     </div>
                     {error && (
                       <p className="line-comment-error">{error}</p>
@@ -356,14 +357,14 @@ function PrCommentComposer({
         disabled={add.isPending}
       />
       <div className="pr-comment-actions">
-        <button
-          type="button"
-          className="pr-comment-submit"
+        <Button
+          surface="comment"
+          variant="pr-submit"
           disabled={add.isPending || !draft.trim()}
           onClick={submit}
         >
           {add.isPending ? "POSTING…" : posted ? "POSTED" : "COMMENT"}
-        </button>
+        </Button>
       </div>
       {error && <p className="pr-comment-error">{error}</p>}
     </section>

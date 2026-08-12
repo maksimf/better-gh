@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { RepoSummary } from "../api/types";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 import { BrandMark } from "./icons";
 import { RepoPicker } from "./RepoPicker";
 import { ReviewerPicker } from "./ReviewerPicker";
@@ -26,21 +28,12 @@ export function SettingsModal({
   ntfyChannel: string;
   onNtfyChannelChange: (value: string) => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [ntfy, setNtfy] = useState(ntfyChannel);
   const [ntfyStatus, setNtfyStatus] = useState<{ text: string; cls: string }>({
     text: "",
     cls: "",
   });
   const ntfyTimerRef = useRef<number | null>(null);
-
-  // Drive the native <dialog> from the `open` prop.
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
-  }, [open]);
 
   // Keep the ntfy input synced with the persisted value while closed.
   useEffect(() => {
@@ -61,15 +54,11 @@ export function SettingsModal({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="settings-modal"
-      aria-labelledby="settings-modal-title"
+    <Dialog
+      open={open}
       onClose={onClose}
-      onClick={(e) => {
-        // Backdrop click (lands on the <dialog> itself) closes.
-        if (e.target === dialogRef.current) onClose();
-      }}
+      className="settings-modal"
+      ariaLabelledBy="settings-modal-title"
     >
       <header className="settings-modal-header">
         <BrandMark />
@@ -78,14 +67,14 @@ export function SettingsModal({
             SETTINGS
           </h2>
         </div>
-        <button
-          type="button"
-          className="settings-modal-close"
-          aria-label="Close settings"
+        <Button
+          surface="close"
+          modal="settings"
+          ariaLabel="Close settings"
           onClick={onClose}
         >
           &times;
-        </button>
+        </Button>
       </header>
       <div className="settings-modal-body">
         <section
@@ -159,6 +148,6 @@ export function SettingsModal({
           <RepoPicker repos={repos} has={has} onToggle={onToggleRepo} />
         </section>
       </div>
-    </dialog>
+    </Dialog>
   );
 }

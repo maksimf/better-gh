@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useAckComment, usePrComments, useReplyComment } from "../api/queries";
 import type { PrRef } from "../api/queries";
 import type { PrComment } from "../api/types";
+import { Button } from "../ui/Button";
 
 function truncate(text: string, max = 280): string {
   if (text.length <= max) return text;
@@ -86,20 +87,16 @@ function CommentRow({
         {acked ? (
           <span className="hcp-badge">👀 acked</span>
         ) : (
-          <button
-            className="hcp-btn hcp-btn--ack"
-            onClick={handleAck}
-            disabled={acking}
-          >
+          <Button surface="hcp" variant="ack" onClick={handleAck} disabled={acking}>
             {acking ? "…" : "Ack 👀"}
-          </button>
+          </Button>
         )}
         {replied ? (
           <span className="hcp-badge">↩ replied</span>
         ) : replyOpen ? null : (
-          <button className="hcp-btn hcp-btn--reply" onClick={openReply}>
+          <Button surface="hcp" variant="reply" onClick={openReply}>
             Reply
-          </button>
+          </Button>
         )}
       </div>
 
@@ -122,15 +119,17 @@ function CommentRow({
           />
           {replyErr && <p className="hcp-reply-err">{replyErr}</p>}
           <div className="hcp-reply-buttons">
-            <button
-              className="hcp-btn hcp-btn--submit"
+            <Button
+              surface="hcp"
+              variant="submit"
               onClick={handleReply}
               disabled={replying || !replyText.trim()}
             >
               {replying ? "Posting…" : "Post reply"}
-            </button>
-            <button
-              className="hcp-btn hcp-btn--cancel"
+            </Button>
+            <Button
+              surface="hcp"
+              variant="cancel"
               onClick={() => {
                 setReplyOpen(false);
                 setReplyText("");
@@ -138,7 +137,7 @@ function CommentRow({
               }}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

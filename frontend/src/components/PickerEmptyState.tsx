@@ -1,4 +1,5 @@
 import type { RepoSummary } from "../api/types";
+import { EmptyState } from "../ui/EmptyState";
 import { RepoPicker } from "./RepoPicker";
 
 /**
@@ -16,20 +17,14 @@ export function PickerEmptyState({
   onToggle: (repo: string, checked: boolean) => void;
 }) {
   return (
-    <section className="empty-state empty-state--picker" aria-live="polite">
-      <div className="empty-state-mark" aria-hidden="true">
-        <span className="shape shape--circle"></span>
-        <span className="shape shape--square"></span>
-        <span className="shape shape--triangle"></span>
-      </div>
-      <h2 className="empty-state-title">PICK YOUR REPOS</h2>
-      <p className="empty-state-sub">
-        Select the repositories you want this board to track. Your choice
-        stays in this browser.
-      </p>
+    <EmptyState
+      variant="picker"
+      title="PICK YOUR REPOS"
+      subtitle="Select the repositories you want this board to track. Your choice stays in this browser."
+    >
       <div className="empty-state-picker-card">
         <RepoPicker repos={repos} has={has} onToggle={onToggle} />
       </div>
-    </section>
+    </EmptyState>
   );
 }

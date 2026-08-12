@@ -2,6 +2,9 @@ import { useState } from "react";
 
 import { useSubmitReview } from "../api/queries";
 import type { ReviewEvent } from "../api/types";
+import { ActionButton } from "../ui/ActionButton";
+import { Button } from "../ui/Button";
+import { useTransientError } from "../ui/useTransientError";
 import { CheckIcon } from "./icons";
 
 type Submitted = ReviewEvent | null;
@@ -20,15 +23,10 @@ export function ReviewActions({
   const submit = useSubmitReview();
   const [summary, setSummary] = useState("");
   const [submitted, setSubmitted] = useState<Submitted>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function showError(message: string) {
-    setError(message);
-    window.setTimeout(() => setError(null), 4000);
-  }
+  const { error, showError, clearError } = useTransientError();
 
   function doSubmit(event: ReviewEvent) {
-    setError(null);
+    clearError();
     submit.mutate(
       { ref: { owner, repo, number }, event, body: summary },
       {
@@ -78,9 +76,9 @@ export function ReviewActions({
       <div className="review-actions-buttons">
         {!isOwnPr && (
           <>
-            <button
-              type="button"
-              className={`approve-button${error ? " is-error" : ""}`}
+            <ActionButton
+              kind="approve"
+              error={Boolean(error)}
               title={error ?? "Approve this PR"}
               disabled={submit.isPending}
               onClick={() => doSubmit("APPROVE")}
@@ -91,27 +89,27 @@ export function ReviewActions({
                   <CheckIcon />
                 </span>
               )}
-            </button>
-            <button
-              type="button"
-              className="review-button review-button--changes"
+            </ActionButton>
+            <Button
+              surface="review"
+              variant="changes"
               title={error ?? "Request changes (summary required)"}
               disabled={submit.isPending || !summary.trim()}
               onClick={() => doSubmit("REQUEST_CHANGES")}
             >
               REQUEST CHANGES
-            </button>
+            </Button>
           </>
         )}
-        <button
-          type="button"
-          className="review-button review-button--comment"
+        <Button
+          surface="review"
+          variant="comment"
           title={error ?? "Leave a review comment (summary required)"}
           disabled={submit.isPending || !summary.trim()}
           onClick={() => doSubmit("COMMENT")}
         >
           COMMENT
-        </button>
+        </Button>
       </div>
       {error && <p className="review-actions-error">{error}</p>}
     </div>

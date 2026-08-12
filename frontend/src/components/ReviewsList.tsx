@@ -2,23 +2,10 @@ import { useMemo, useState } from "react";
 
 import type { ReviewPr } from "../api/types";
 import { useNow } from "../hooks/useRelativeTime";
+import { EmptyState } from "../ui/EmptyState";
 import { DeferredSection } from "./DeferredSection";
 import { DiffPanel } from "./DiffPanel";
 import { ReviewRow } from "./ReviewRow";
-
-function AllClear() {
-  return (
-    <section className="empty-state empty-state--reviews" aria-live="polite">
-      <div className="empty-state-mark" aria-hidden="true">
-        <span className="shape shape--circle"></span>
-        <span className="shape shape--square"></span>
-        <span className="shape shape--triangle"></span>
-      </div>
-      <h2 className="empty-state-title">ALL CLEAR</h2>
-      <p className="empty-state-sub">No PRs are waiting for your review.</p>
-    </section>
-  );
-}
 
 function rowKey(pr: ReviewPr): string {
   return `${pr.repo}#${pr.number}`;
@@ -58,7 +45,15 @@ export function ReviewsList({
     );
   }, [selectedKey, reviews, deferredReviews]);
 
-  if (reviews.length === 0 && deferredReviews.length === 0) return <AllClear />;
+  if (reviews.length === 0 && deferredReviews.length === 0) {
+    return (
+      <EmptyState
+        variant="reviews"
+        title="ALL CLEAR"
+        subtitle="No PRs are waiting for your review."
+      />
+    );
+  }
 
   function toggleSelect(pr: ReviewPr) {
     const key = rowKey(pr);

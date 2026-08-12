@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 
 /**
  * Modal for adding or editing a personal note on a PR. Notes are stored
@@ -17,90 +20,88 @@ export function NoteModal({
   onSave: (note: string) => void;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [note, setNote] = useState(initialNote);
-
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
-  }, [open]);
 
   useEffect(() => {
     if (open) setNote(initialNote);
   }, [open, initialNote]);
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="note-modal"
-      aria-labelledby="note-modal-title"
+    <Dialog
+      open={open}
       onClose={onClose}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.target === dialogRef.current) onClose();
-      }}
+      className="note-modal"
+      ariaLabelledBy="note-modal-title"
     >
-      <header className="note-modal-header">
-        <h2 id="note-modal-title" className="note-modal-title">
-          PR NOTE
-        </h2>
-        <button
-          type="button"
-          className="note-modal-close"
-          aria-label="Cancel"
-          onClick={onClose}
-        >
-          &times;
-        </button>
-      </header>
-
-      <div className="note-modal-body">
-        <p className="note-modal-summary">
-          Add a personal note for{" "}
-          <span className="note-modal-pr">#{number}</span>. Only you can see
-          this on this device.
-        </p>
-        <label className="note-modal-label" htmlFor="note-modal-text">
-          NOTE
-        </label>
-        <textarea
-          id="note-modal-text"
-          className="note-modal-textarea"
-          rows={5}
-          value={note}
-          placeholder="Context, blockers, follow-ups…"
-          onChange={(e) => setNote(e.target.value)}
-        />
-      </div>
-
-      <footer className="note-modal-footer">
-        {initialNote.trim() && (
-          <button
-            type="button"
-            className="note-modal-btn note-modal-btn--danger"
-            onClick={() => onSave("")}
+      <div
+        onClick={(e) => {
+          // Preserve legacy stopPropagation so card click handlers don't fire.
+          e.stopPropagation();
+        }}
+      >
+        <header className="note-modal-header">
+          <h2 id="note-modal-title" className="note-modal-title">
+            PR NOTE
+          </h2>
+          <Button
+            surface="close"
+            modal="note"
+            ariaLabel="Cancel"
+            onClick={onClose}
           >
-            Delete
-          </button>
-        )}
-        <span className="note-modal-footer-spacer" />
-        <button
-          type="button"
-          className="note-modal-btn note-modal-btn--ghost"
-          onClick={onClose}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="note-modal-btn note-modal-btn--save"
-          onClick={() => onSave(note)}
-        >
-          Save
-        </button>
-      </footer>
-    </dialog>
+            &times;
+          </Button>
+        </header>
+
+        <div className="note-modal-body">
+          <p className="note-modal-summary">
+            Add a personal note for{" "}
+            <span className="note-modal-pr">#{number}</span>. Only you can see
+            this on this device.
+          </p>
+          <label className="note-modal-label" htmlFor="note-modal-text">
+            NOTE
+          </label>
+          <textarea
+            id="note-modal-text"
+            className="note-modal-textarea"
+            rows={5}
+            value={note}
+            placeholder="Context, blockers, follow-ups…"
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+
+        <footer className="note-modal-footer">
+          {initialNote.trim() && (
+            <Button
+              surface="modal"
+              modal="note"
+              variant="danger"
+              onClick={() => onSave("")}
+            >
+              Delete
+            </Button>
+          )}
+          <span className="note-modal-footer-spacer" />
+          <Button
+            surface="modal"
+            modal="note"
+            variant="ghost"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            surface="modal"
+            modal="note"
+            variant="save"
+            onClick={() => onSave(note)}
+          >
+            Save
+          </Button>
+        </footer>
+      </div>
+    </Dialog>
   );
 }

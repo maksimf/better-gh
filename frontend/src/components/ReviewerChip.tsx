@@ -2,6 +2,9 @@ import { useState } from "react";
 
 import { useAddPrComment, useRequestReview } from "../api/queries";
 import type { ReviewerStatus } from "../api/types";
+import { ActionButton } from "../ui/ActionButton";
+import { Chip } from "../ui/Chip";
+import { useTransientFlag } from "../ui/useTransientFlag";
 import { CheckIcon } from "./icons";
 
 function initial(login: string): string {
@@ -56,68 +59,60 @@ function ReviewerChip({
   const { login, approved, review_requested } = status;
   const requestReview = useRequestReview();
   const [optimisticRequested, setOptimisticRequested] = useState(false);
-  const [error, setError] = useState(false);
+  const { isError, show, clear } = useTransientFlag();
 
   if (approved) {
     return (
-      <span
-        className="chip chip--approved reviewer-chip"
+      <Chip
+        variant="approved"
+        initial={initial(login)}
         title={`Approved by @${login}`}
-      >
-        <span className="chip-key">{initial(login)}</span>
-        <span className="chip-checks" aria-hidden="true">
-          <CheckIcon />
-          <CheckIcon />
-        </span>
-      </span>
+        checks={
+          <>
+            <CheckIcon />
+            <CheckIcon />
+          </>
+        }
+      />
     );
   }
 
   if (review_requested || optimisticRequested) {
     return (
-      <span
-        className="chip chip--review reviewer-chip"
+      <Chip
+        variant="review"
+        initial={initial(login)}
         title={`Review requested from @${login}`}
-      >
-        <span className="chip-key">{initial(login)}</span>
-        <span className="chip-checks" aria-hidden="true">
-          <CheckIcon />
-        </span>
-      </span>
+        checks={<CheckIcon />}
+      />
     );
   }
 
   function onClick() {
-    setError(false);
+    clear();
     requestReview.mutate(
       { ref: { owner, repo, number }, reviewers: [login] },
       {
         onSuccess: () => setOptimisticRequested(true),
-        onError: () => {
-          setError(true);
-          window.setTimeout(() => setError(false), 2400);
-        },
+        onError: () => show(),
       },
     );
   }
 
   return (
-    <button
-      type="button"
-      className={`chip reviewer-chip reviewer-chip--pending${
-        error ? " is-error" : ""
-      }`}
+    <Chip
+      variant="pending"
+      initial={initial(login)}
+      error={isError}
       title={
-        error
+        isError
           ? `Couldn't request review from @${login}.`
           : `Request review from @${login}`
       }
-      aria-label={`Request review from @${login}`}
+      ariaLabel={`Request review from @${login}`}
       disabled={requestReview.isPending}
       onClick={onClick}
-    >
-      <span className="chip-key">{initial(login)}</span>
-    </button>
+    />
   );
 }
 
@@ -139,7 +134,7 @@ export function RequestReviewAction({
 }) {
   const requestReview = useRequestReview();
   const [done, setDone] = useState(false);
-  const [error, setError] = useState(false);
+  const { isError, show, clear } = useTransientFlag();
 
   const pending = reviewers.filter(
     (r) => !r.approved && !r.review_requested,
@@ -150,25 +145,22 @@ export function RequestReviewAction({
   const label = pending.length === 1 ? "Request review" : "Request reviews";
 
   function onClick() {
-    setError(false);
+    clear();
     requestReview.mutate(
       { ref: { owner, repo, number }, reviewers: logins },
       {
         onSuccess: () => setDone(true),
-        onError: () => {
-          setError(true);
-          window.setTimeout(() => setError(false), 2400);
-        },
+        onError: () => show(),
       },
     );
   }
 
   return (
-    <button
-      type="button"
-      className={`review-request${error ? " is-error" : ""}`}
+    <ActionButton
+      kind="review-request"
+      error={isError}
       title={
-        error
+        isError
           ? "Couldn't request review."
           : `Request review from ${logins.map((l) => `@${l}`).join(", ")}`
       }
@@ -177,7 +169,7 @@ export function RequestReviewAction({
       onClick={onClick}
     >
       {label}
-    </button>
+    </ActionButton>
   );
 }
 
@@ -199,13 +191,13 @@ export function NotifyReviewerAction({
 }) {
   const addComment = useAddPrComment();
   const [done, setDone] = useState(false);
-  const [error, setError] = useState(false);
+  const { isError, show, clear } = useTransientFlag();
   const logins = reviewers.map((reviewer) => reviewer.login);
 
   if (logins.length === 0 || done) return null;
 
   function onClick() {
-    setError(false);
+    clear();
     addComment.mutate(
       {
         ref: { owner, repo, number },
@@ -213,21 +205,18 @@ export function NotifyReviewerAction({
       },
       {
         onSuccess: () => setDone(true),
-        onError: () => {
-          setError(true);
-          window.setTimeout(() => setError(false), 2400);
-        },
+        onError: () => show(),
       },
     );
   }
 
   const mentions = logins.map((login) => `@${login}`).join(", ");
   return (
-    <button
-      type="button"
-      className={`review-request${error ? " is-error" : ""}`}
+    <ActionButton
+      kind="review-request"
+      error={isError}
       title={
-        error
+        isError
           ? "Couldn't notify reviewers."
           : `Notify ${mentions} that this PR is ready for review`
       }
@@ -236,6 +225,6 @@ export function NotifyReviewerAction({
       onClick={onClick}
     >
       Notify reviewer
-    </button>
+    </ActionButton>
   );
 }

@@ -1,3 +1,4 @@
+import { CardToggle } from "../ui/CardToggle";
 import { CheckIcon } from "./icons";
 
 export function ReviewedToggle({
@@ -11,17 +12,12 @@ export function ReviewedToggle({
     ? "Reviewed by you -- click to unmark"
     : "Mark as reviewed by you";
   return (
-    <button
-      type="button"
-      className="card-toggle card-toggle--reviewed"
+    <CardToggle
+      variant="reviewed"
+      pressed={pressed}
       title={title}
-      aria-label={title}
-      aria-pressed={pressed}
       onClick={onToggle}
-    >
-      <span className="card-toggle-icon" aria-hidden="true">
-        <CheckIcon />
-      </span>
-    </button>
+      icon={<CheckIcon />}
+    />
   );
 }

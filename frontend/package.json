@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "build-storybook:test": "storybook build --test",
+    "typecheck:storybook": "tsc --noEmit -p tsconfig.storybook.json",
+    "verify:storybook": "npm run build && npm run typecheck:storybook && npm run build-storybook"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
@@ -15,10 +20,22 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "10.5.7",
+    "@storybook/addon-docs": "10.5.7",
+    "@storybook/addon-themes": "10.5.7",
+    "@storybook/react-vite": "10.5.7",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "msw": "2.15.0",
+    "msw-storybook-addon": "3.0.0",
+    "storybook": "10.5.7",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { usePrNotes } from "../hooks/usePrNotes";
+import { CardToggle } from "../ui/CardToggle";
 import { NoteModal } from "./NoteModal";
 import { NoteIcon } from "./icons";
 
@@ -18,18 +19,13 @@ export function NoteButton({ prKey, number }: { prKey: string; number: number })
 
   return (
     <>
-      <button
-        type="button"
-        className="card-toggle card-toggle--note"
+      <CardToggle
+        variant="note"
+        pressed={hasNote}
         title={title}
-        aria-label={title}
-        aria-pressed={hasNote}
         onClick={() => setOpen(true)}
-      >
-        <span className="card-toggle-icon" aria-hidden="true">
-          <NoteIcon />
-        </span>
-      </button>
+        icon={<NoteIcon />}
+      />
       <NoteModal
         open={open}
         number={number}
