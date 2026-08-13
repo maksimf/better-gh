@@ -79,6 +79,7 @@ function basePr(overrides: Partial<Pr> = {}): Pr {
     additions: 240,
     deletions: 48,
     linear_url: "https://linear.app/acme/issue/ENG-128",
+    video_url: null,
     updated_at: "2026-08-12T12:00:00Z",
     column: "ready",
     approved: false,
