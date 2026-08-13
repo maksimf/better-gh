@@ -73,6 +73,23 @@ export function EllipsisIcon() {
   );
 }
 
+export function VideoIcon() {
+  return (
+    <svg className="video-icon" viewBox="0 0 18 14" focusable="false">
+      <rect
+        x="1"
+        y="1"
+        width="16"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path d="M7 4 L12 7 L7 10 Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function BrandMark({ large = false }: { large?: boolean }) {
   return (
     <span

@@ -58,6 +58,47 @@ class ParseRefsTests(unittest.TestCase):
         self.assertEqual(pr.additions, 120)
         self.assertEqual(pr.deletions, 45)
 
+    def test_finds_github_uploaded_video_in_description(self) -> None:
+        pr = self._client()._parse_pr(
+            _node(
+                body=(
+                    "Demo:\n"
+                    '<video src="https://github.com/user-attachments/assets/'
+                    '123e4567-e89b-12d3-a456-426614174000"></video>'
+                )
+            )
+        )
+        self.assertEqual(
+            pr.video_url,
+            "https://github.com/user-attachments/assets/"
+            "123e4567-e89b-12d3-a456-426614174000",
+        )
+
+    def test_finds_direct_and_embeddable_video_links(self) -> None:
+        direct = self._client()._parse_pr(
+            _node(body="[Demo](https://cdn.example.com/demo.webm?download=1)")
+        )
+        youtube = self._client()._parse_pr(
+            _node(body="Watch https://youtu.be/dQw4w9WgXcQ?t=3")
+        )
+        self.assertEqual(
+            direct.video_url, "https://cdn.example.com/demo.webm?download=1"
+        )
+        self.assertEqual(
+            youtube.video_url, "https://youtu.be/dQw4w9WgXcQ?t=3"
+        )
+
+    def test_image_attachment_does_not_count_as_video(self) -> None:
+        pr = self._client()._parse_pr(
+            _node(
+                body=(
+                    "![Screenshot](https://github.com/user-attachments/assets/"
+                    "123e4567-e89b-12d3-a456-426614174000)"
+                )
+            )
+        )
+        self.assertIsNone(pr.video_url)
+
 
 if __name__ == "__main__":
     unittest.main()

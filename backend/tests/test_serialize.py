@@ -25,6 +25,7 @@ def _pr(
     base_ref: str = "",
     head_ref: str = "",
     preview: str | None = "https://preview.example/x",
+    video_url: str | None = None,
 ) -> PR:
     return PR(
         number=number,
@@ -41,6 +42,7 @@ def _pr(
         updated_at="2026-05-20T10:00:00Z",
         requested_reviewers=requested,
         approver_logins=approvers,
+        video_url=video_url,
         base_ref=base_ref,
         head_ref=head_ref,
     )
@@ -92,8 +94,14 @@ class SerializePrTests(unittest.TestCase):
         self.assertEqual(out["checks"]["passed"], 1)
         self.assertEqual(out["additions"], 0)
         self.assertEqual(out["deletions"], 0)
+        self.assertIsNone(out["video_url"])
         self.assertEqual(out["stack_id"], None)
         self.assertEqual(out["stack_nodes"], [])
+
+    def test_serializes_description_video_url(self) -> None:
+        url = "https://github.com/user-attachments/assets/demo"
+        out = serialize.serialize_pr(_pr(number=1, video_url=url), [])
+        self.assertEqual(out["video_url"], url)
 
     def test_non_matching_reviewer_keeps_pr_out_of_approved(self) -> None:
         pr = _pr(number=1, approvers=("alice",))

@@ -53,6 +53,7 @@ export interface Pr {
   additions: number;
   deletions: number;
   linear_url: string | null;
+  video_url: string | null;
   updated_at: string;
   column: Column;
   approved: boolean;

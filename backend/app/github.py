@@ -5,7 +5,9 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from html import unescape
 from typing import Any, Iterable, Mapping
+from urllib.parse import urlparse
 
 import httpx
 
@@ -249,6 +251,22 @@ _FAIL_CHECK_CONCLUSIONS = {
     "ACTION_REQUIRED",
     "STARTUP_FAILURE",
     "STALE",
+}
+
+_BODY_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*<?https?://[^)]+\)", re.IGNORECASE)
+_HTML_IMAGE_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+_VIDEO_FILE_EXTENSIONS = (".mp4", ".m4v", ".mov", ".webm", ".ogv")
+_VIDEO_PAGE_HOSTS = {
+    "loom.com",
+    "www.loom.com",
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "youtu.be",
+    "vimeo.com",
+    "www.vimeo.com",
+    "player.vimeo.com",
 }
 
 _PASS_STATUS_STATES = {"SUCCESS", "EXPECTED"}
@@ -1111,6 +1129,7 @@ class GitHubClient:
         requested_reviewers = self._extract_requested_reviewers(node)
         approver_logins = self._extract_approver_logins(node)
         linear_url = self._find_linear_url(node)
+        video_url = self._find_video_url(node.get("body") or "")
 
         return PR(
             number=int(node.get("number") or 0),
@@ -1128,11 +1147,36 @@ class GitHubClient:
             requested_reviewers=requested_reviewers,
             approver_logins=approver_logins,
             linear_url=linear_url,
+            video_url=video_url,
             base_ref=node.get("baseRefName") or "",
             head_ref=node.get("headRefName") or "",
             additions=max(0, int(node.get("additions") or 0)),
             deletions=max(0, int(node.get("deletions") or 0)),
         )
+
+    @staticmethod
+    def _find_video_url(body: str) -> str | None:
+        """Return the first playable video URL from a PR description.
+
+        GitHub renders uploaded videos as bare ``user-attachments`` links,
+        while externally hosted clips are commonly direct files or links to
+        YouTube, Loom, or Vimeo. Markdown/HTML images are stripped first so a
+        screenshot attachment does not produce a false video badge.
+        """
+        without_images = _MARKDOWN_IMAGE_RE.sub("", body)
+        without_images = _HTML_IMAGE_RE.sub("", without_images)
+        for match in _BODY_URL_RE.finditer(without_images):
+            url = unescape(match.group(0)).rstrip(".,;:!?)]}")
+            parsed = urlparse(url)
+            host = (parsed.hostname or "").lower()
+            path = parsed.path.lower()
+            if path.endswith(_VIDEO_FILE_EXTENSIONS):
+                return url
+            if host == "github.com" and path.startswith("/user-attachments/assets/"):
+                return url
+            if host in _VIDEO_PAGE_HOSTS:
+                return url
+        return None
 
     @staticmethod
     def _find_linear_url(node: dict[str, Any]) -> str | None:

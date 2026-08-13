@@ -2538,6 +2538,11 @@ button.reviewer-chip {
     background: #000;
 }
 
+.video-modal-embed {
+    aspect-ratio: 16 / 9;
+    border: 0;
+}
+
 .video-modal-msg {
     margin: 0;
     padding: 28px 8px;
@@ -2550,6 +2555,10 @@ button.reviewer-chip {
 
 .video-modal-msg--error {
     color: var(--red);
+}
+
+.video-modal-msg--error a {
+    color: var(--yellow);
 }
 
 .chip-key {
@@ -2599,6 +2608,34 @@ button.reviewer-chip {
 
 .preview--pending {
     color: var(--muted);
+}
+
+.pr-video-button {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 24px;
+    padding: 0;
+    border: 2px solid currentColor;
+    background: transparent;
+    color: var(--blue);
+    cursor: pointer;
+}
+
+.pr-video-button:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.pr-video-button:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.video-icon {
+    display: block;
+    width: 18px;
+    height: 14px;
 }
 
 .linear-link {
@@ -4707,6 +4744,7 @@ button.reviewer-chip {
     .chip,
     .conflicts,
     .preview,
+    .pr-video-button,
     .linear-link,
     .cloud-agent-link,
     .cloud-agent-video,
@@ -4714,6 +4752,9 @@ button.reviewer-chip {
     .review-request {
         height: var(--pill-height);
         box-sizing: border-box;
+    }
+    .pr-video-button {
+        width: var(--pill-height);
     }
     /* .checks / .comments stay align-items: stretch so their cells fill the
      full pill height; simple chips centre their content. */

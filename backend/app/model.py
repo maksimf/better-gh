@@ -166,6 +166,7 @@ class PR(BaseModel):
     requested_reviewers: tuple[str, ...] = ()
     approver_logins: tuple[str, ...] = ()
     linear_url: str | None = None
+    video_url: str | None = None
     base_ref: str = ""
     head_ref: str = ""
     stack: Stack | None = None
@@ -246,6 +247,7 @@ class PR(BaseModel):
             self.requested_reviewers,
             self.approver_logins,
             self.linear_url,
+            self.video_url,
             self.base_ref,
             self.head_ref,
         )

@@ -112,6 +112,7 @@ def serialize_pr(pr: PR, reviewers: list[str]) -> dict[str, object]:
         "additions": pr.additions,
         "deletions": pr.deletions,
         "linear_url": pr.linear_url,
+        "video_url": pr.video_url,
         "updated_at": pr.updated_at,
         "column": pr.column_for(reviewers),
         "approved": any(s["approved"] for s in reviewer_status),

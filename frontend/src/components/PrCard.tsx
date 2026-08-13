@@ -18,6 +18,7 @@ import { NoteButton } from "./NoteButton";
 import { OverflowMenu } from "./OverflowMenu";
 import { PrLocStats } from "./PrLocStats";
 import { PrStack } from "./PrStack";
+import { PrVideoButton } from "./PrVideoButton";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
 import {
@@ -214,6 +215,9 @@ export function PrCard({
 
         <div className="pr-links">
           <PreviewLink url={pr.preview_url} />
+          {pr.video_url && (
+            <PrVideoButton url={pr.video_url} number={pr.number} />
+          )}
           {pr.linear_url && (
             <a
               className="linear-link"
