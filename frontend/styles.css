@@ -2801,10 +2801,19 @@ button.reviewer-chip {
 }
 
 .review-meta {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
     flex: 0 0 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Keep each control at its intrinsic size so the cluster wraps as
+   whole buttons instead of compressing labels. */
+.review-meta > * {
+    flex-shrink: 0;
 }
 
 /* ---------- Review selection + split diff layout ---------- */
@@ -4655,11 +4664,19 @@ button.reviewer-chip {
     .reviews-list {
         padding: 14px;
         gap: 10px;
+        max-width: 100%;
+    }
+    .reviews-layout--split {
+        width: 100%;
+        max-width: 100%;
+        padding: 14px;
     }
     .review-row {
         padding: 10px 12px;
         gap: 10px;
         border-width: 2px;
+        min-width: 0;
+        max-width: 100%;
     }
     .review-title {
         font-size: 13px;
@@ -4667,10 +4684,14 @@ button.reviewer-chip {
     }
     .review-main {
         gap: 8px;
+        flex: 1 1 100%;
+        min-width: 0;
     }
     .review-meta {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
         gap: 6px;
-        flex-wrap: wrap;
     }
     .column {
         padding: 12px;
