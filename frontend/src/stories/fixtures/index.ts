@@ -8,6 +8,7 @@ import type {
   ReviewPr,
   ReviewerStatus,
   RepoSummary,
+  StackNode,
 } from "../../api/types";
 
 export const meFixture: Me = {
@@ -130,40 +131,70 @@ export const prFailing = basePr({
   preview_url: null,
 });
 
+const stack1Nodes = (self: number): StackNode[] => [
+  {
+    number: 129,
+    title: "Stacked: extract Button primitive",
+    url: "https://github.com/acme/app/pull/129",
+    depth: 0,
+    column: "approved",
+    is_self: self === 129,
+  },
+  {
+    number: 130,
+    title: "Stacked: extract Dialog primitive",
+    url: "https://github.com/acme/app/pull/130",
+    depth: 1,
+    column: "ready",
+    is_self: self === 130,
+  },
+  {
+    number: 131,
+    title: "Stacked: add Storybook stories",
+    url: "https://github.com/acme/app/pull/131",
+    depth: 2,
+    column: "progress",
+    is_self: self === 131,
+  },
+];
+
+export const prStackRoot = basePr({
+  number: 129,
+  title: "Stacked: extract Button primitive",
+  column: "approved",
+  approved: true,
+  is_ready: true,
+  reviewers: reviewersApproved,
+  stack_id: "stack-1",
+  stack_order: 0,
+  stack_depth: 0,
+  stack_co_column: false,
+  stack_nodes: stack1Nodes(129),
+});
+
 export const prStacked = basePr({
   number: 130,
   title: "Stacked: extract Dialog primitive",
   column: "ready",
   stack_id: "stack-1",
-  stack_order: 2,
+  stack_order: 1,
   stack_depth: 1,
   stack_co_column: false,
-  stack_nodes: [
-    {
-      number: 129,
-      title: "Stacked: extract Button primitive",
-      url: "https://github.com/acme/app/pull/129",
-      depth: 0,
-      column: "approved",
-      is_self: false,
-    },
-    {
-      number: 130,
-      title: "Stacked: extract Dialog primitive",
-      url: "https://github.com/acme/app/pull/130",
-      depth: 1,
-      column: "ready",
-      is_self: true,
-    },
-    {
-      number: 131,
-      title: "Stacked: add Storybook stories",
-      url: "https://github.com/acme/app/pull/131",
-      depth: 2,
-      column: "progress",
-      is_self: false,
-    },
-  ],
+  stack_nodes: stack1Nodes(130),
+});
+
+export const prStackLeaf = basePr({
+  number: 131,
+  title: "Stacked: add Storybook stories",
+  column: "progress",
+  is_ready: false,
+  checks: checksPending,
+  reviewers: reviewersPending,
+  stack_id: "stack-1",
+  stack_order: 2,
+  stack_depth: 2,
+  stack_co_column: false,
+  stack_nodes: stack1Nodes(131),
 });
 
 export const prExternal = basePr({
@@ -204,7 +235,15 @@ export const repoSummaries: RepoSummary[] = [
 ];
 
 export const dashboardFixture: Dashboard = {
-  prs: [prDraft, prReady, prApproved, prFailing, prStacked],
+  prs: [
+    prDraft,
+    prReady,
+    prApproved,
+    prFailing,
+    prStackRoot,
+    prStacked,
+    prStackLeaf,
+  ],
   reviews: [reviewPr, reviewPrDraft],
   repos: repoSummaries,
   reviewers: ["alice", "bob"],

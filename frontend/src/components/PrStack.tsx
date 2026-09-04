@@ -17,6 +17,17 @@ function prefixFor(depth: number): string {
   return "\u00a0\u00a0".repeat(depth - 1) + "\u2514\u2500";
 }
 
+export function ColumnBadge({ column }: { column: Column }) {
+  return (
+    <span
+      className={`pr-stack-col pr-stack-col--${column}`}
+      title={`In ${COLUMN_LABELS[column]}`}
+    >
+      {COLUMN_BADGES[column]}
+    </span>
+  );
+}
+
 /**
  * Inline tree shown on each card of a stack that's split across columns
  * (when a stack is co-column the cards are grouped adjacently instead,
@@ -48,14 +59,7 @@ export function PrStack({ nodes }: { nodes: StackNode[] }) {
               #{node.number}
             </a>
             <span className="pr-stack-title">{node.title}</span>
-            {!node.is_self && (
-              <span
-                className={`pr-stack-col pr-stack-col--${node.column}`}
-                title={`In ${COLUMN_LABELS[node.column]}`}
-              >
-                {COLUMN_BADGES[node.column]}
-              </span>
-            )}
+            {!node.is_self && <ColumnBadge column={node.column} />}
           </li>
         ))}
       </ol>

@@ -368,6 +368,13 @@ button {
     grid-template-columns: 1fr 1fr;
 }
 
+/* Stacks sit in their own full-width row under IN PROGRESS / READY /
+   APPROVED so a stack is never split across status columns. */
+.board > .column--stacks {
+    grid-column: 1 / -1;
+    min-height: 0;
+}
+
 /* ---------- Empty state ---------- */
 .empty-state {
     display: flex;
@@ -635,6 +642,16 @@ button {
     background: var(--green);
 }
 
+.column--stacks .column-title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 72px;
+    height: 6px;
+    background: var(--blue);
+}
+
 .column-count {
     font-weight: 800;
     font-size: 13px;
@@ -841,6 +858,11 @@ button {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.pr-head > .pr-stack-col {
+    align-self: center;
+    flex-shrink: 0;
 }
 
 .pr-number {
@@ -3730,11 +3752,11 @@ button.reviewer-chip {
 }
 
 /* ---------- Stacked PRs ----------
-   Each stacked card carries the same inline tree so a reader can locate
-   the rest of the stack without leaving the card. The "self" row is
-   bolded; siblings show a small column badge so it's obvious when the
-   stack is split across IN PROGRESS / READY / APPROVED. The badge
-   palette mirrors the column-title accents above:
+   Stacks live in a dedicated STACKS row under the status columns, so
+   the inline tree is only a fallback (e.g. a deferred member shown
+   alone). The "self" row is bolded; siblings show a small column badge
+   so it's obvious when the rest of the stack sits in another column.
+   The badge palette mirrors the column-title accents above:
    - progress -> yellow (matches .column--progress)
    - ready    -> green outline (matches .column--ready)
    - approved -> solid green  (matches .column--approved) */
@@ -3846,21 +3868,41 @@ button.reviewer-chip {
     color: var(--white);
 }
 
-/* When every PR in a stack lands in the same column, the inline tree
-   on each card is redundant -- the relationship is obvious if we just
-   stack the cards literally. JS wraps those cards in a .pr-stack-group
-   (root first, children in pre-order), and each child gets a left
-   indent proportional to its --stack-depth so the chain reads at a
-   glance. The wrapper's gap is tighter than the column's gap so the
-   cards feel attached instead of merely adjacent. */
+/* Every stack is a framed block in the STACKS row (root first, children
+   in pre-order). Each child gets a left indent proportional to its
+   --stack-depth so the chain reads at a glance. The wrapper's gap is
+   tighter than the column's gap so the cards feel attached instead of
+   merely adjacent. */
 .pr-stack-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding: 10px;
+    background: var(--grey-2);
+    border: 2px solid var(--border);
+}
+
+.column--stacks .column-body {
+    gap: 20px;
 }
 
 .pr-card.is-stack-co-column {
     margin-left: calc(var(--stack-depth, 0) * 28px);
+}
+
+.pr-card.is-stack-grouped[data-column="progress"] {
+    border-left-width: 8px;
+    border-left-color: var(--yellow);
+}
+
+.pr-card.is-stack-grouped[data-column="ready"] {
+    border-left-width: 8px;
+    border-left-color: var(--green);
+}
+
+.pr-card.is-stack-grouped[data-column="approved"] {
+    border-color: var(--green);
+    background: var(--approved-bg);
 }
 
 @media (max-width: 640px) {

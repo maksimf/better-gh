@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
 import { EmptyState } from "../ui/EmptyState";
@@ -20,36 +20,33 @@ function splitRepo(repo: string): { owner: string; name: string } {
   return { owner: repo.slice(0, slash), name: repo.slice(slash + 1) };
 }
 
-type GroupItem =
-  | { kind: "card"; pr: Pr }
-  | { kind: "group"; stackId: string; cards: Pr[] };
+type StackGroup = { stackId: string; cards: Pr[] };
 
 /**
- * Arrange a column so co-column stack cards sit next to each other (root
- * first, then children in pre-order) inside a .pr-stack-group wrapper.
- * Bare cards keep their position relative to whichever stack-group
- * appeared first. Ports the old groupStacks() pass.
+ * Pull every stacked PR out of the status columns and keep each stack
+ * together (root first, then children in pre-order). First-seen order
+ * across the incoming list is preserved so a newly opened stack doesn't
+ * jump around on poll.
  */
-function groupColumn(prs: Pr[]): GroupItem[] {
+function groupStacks(prs: Pr[]): StackGroup[] {
   const groups = new Map<string, Pr[]>();
-  const ordered: GroupItem[] = [];
+  const order: string[] = [];
   for (const pr of prs) {
-    if (pr.stack_id && pr.stack_co_column) {
-      let bucket = groups.get(pr.stack_id);
-      if (!bucket) {
-        bucket = [];
-        groups.set(pr.stack_id, bucket);
-        ordered.push({ kind: "group", stackId: pr.stack_id, cards: bucket });
-      }
-      bucket.push(pr);
-    } else {
-      ordered.push({ kind: "card", pr });
+    if (!pr.stack_id) continue;
+    let bucket = groups.get(pr.stack_id);
+    if (!bucket) {
+      bucket = [];
+      groups.set(pr.stack_id, bucket);
+      order.push(pr.stack_id);
     }
+    bucket.push(pr);
   }
-  for (const bucket of groups.values()) {
-    bucket.sort((a, b) => (a.stack_order ?? 0) - (b.stack_order ?? 0));
-  }
-  return ordered;
+  return order.map((stackId) => ({
+    stackId,
+    cards: (groups.get(stackId) ?? []).sort(
+      (a, b) => (a.stack_order ?? 0) - (b.stack_order ?? 0),
+    ),
+  }));
 }
 
 export function Board({
@@ -82,15 +79,25 @@ export function Board({
     );
   }, [selectedKey, prs, deferredPrs]);
 
+  const stackGroups = useMemo(() => groupStacks(prs), [prs]);
+  const stackCount = stackGroups.length;
+
   const buckets: Record<ColumnKey, Pr[]> = {
     progress: [],
     ready: [],
     approved: [],
   };
-  for (const pr of prs) buckets[pr.column].push(pr);
+  for (const pr of prs) {
+    if (!pr.stack_id) buckets[pr.column].push(pr);
+  }
+
+  const stackedApproved = stackGroups.flatMap((group) =>
+    group.cards.filter((pr) => pr.column === "approved"),
+  );
+  const allApprovedPrs = [...buckets.approved, ...stackedApproved];
 
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(() => new Set());
-  const approvedKeys = buckets.approved.map(rowKey);
+  const approvedKeys = allApprovedPrs.map(rowKey);
   const approvedKeySignature = approvedKeys.join("\0");
   useEffect(() => {
     const visible = new Set(
@@ -102,12 +109,12 @@ export function Board({
     });
   }, [approvedKeySignature]);
 
-  const selectedApprovedPrs = buckets.approved.filter((pr) =>
+  const selectedApprovedPrs = allApprovedPrs.filter((pr) =>
     bulkSelected.has(rowKey(pr)),
   );
   const allApprovedSelected =
-    buckets.approved.length > 0 &&
-    selectedApprovedPrs.length === buckets.approved.length;
+    allApprovedPrs.length > 0 &&
+    selectedApprovedPrs.length === allApprovedPrs.length;
 
   function toggleBulkPr(pr: Pr) {
     const key = rowKey(pr);
@@ -122,7 +129,7 @@ export function Board({
   function toggleAllApproved() {
     setBulkSelected((current) => {
       const next = new Set(current);
-      for (const pr of buckets.approved) {
+      for (const pr of allApprovedPrs) {
         const key = rowKey(pr);
         if (allApprovedSelected) next.delete(key);
         else next.add(key);
@@ -140,20 +147,6 @@ export function Board({
     });
   }
 
-  const allCardsFlat = useMemo(() => {
-    const flat: Pr[] = [];
-    for (const column of COLUMNS) {
-      for (const item of groupColumn(buckets[column])) {
-        if (item.kind === "card") {
-          flat.push(item.pr);
-        } else {
-          flat.push(...item.cards);
-        }
-      }
-    }
-    return flat;
-  }, [prs]);
-
   const counts: Record<ColumnKey, number> = {
     progress: buckets.progress.length,
     ready: buckets.ready.length,
@@ -161,7 +154,7 @@ export function Board({
   };
   const visibleCols = COLUMNS.filter((c) => counts[c] > 0).length;
 
-  if (visibleCols === 0 && deferredPrs.length === 0) {
+  if (visibleCols === 0 && stackCount === 0 && deferredPrs.length === 0) {
     return (
       <EmptyState
         title="INBOX ZERO"
@@ -189,7 +182,7 @@ export function Board({
     watchDisabled,
   };
 
-  function renderCard(pr: Pr, bulkSelectable = false) {
+  function renderCard(pr: Pr, bulkSelectable = false, inStackGroup = false) {
     const key = rowKey(pr);
     return (
       <PrCard
@@ -199,9 +192,42 @@ export function Board({
         onSelect={() => setSelectedKey((cur) => (cur === key ? null : key))}
         bulkSelected={bulkSelectable ? bulkSelected.has(key) : undefined}
         onToggleBulkSelected={bulkSelectable ? () => toggleBulkPr(pr) : undefined}
+        inStackGroup={inStackGroup}
         {...boardProps}
       />
     );
+  }
+
+  const bulkMergeActions =
+    allApprovedPrs.length > 0 ? (
+      <div className="bulk-merge-actions">
+        <label className="bulk-select-all">
+          <input
+            type="checkbox"
+            checked={allApprovedSelected}
+            onChange={toggleAllApproved}
+          />
+          <span>ALL</span>
+        </label>
+        <BulkMergeButton
+          prs={selectedApprovedPrs}
+          onMerged={removeMergedSelections}
+        />
+      </div>
+    ) : undefined;
+
+  function renderStackGroups() {
+    return stackGroups.map((group) => (
+      <div
+        key={group.stackId}
+        className="pr-stack-group"
+        data-stack-id={group.stackId}
+      >
+        {group.cards.map((pr) =>
+          renderCard(pr, pr.column === "approved", true),
+        )}
+      </div>
+    ));
   }
 
   if (selectedPr) {
@@ -209,9 +235,10 @@ export function Board({
     return (
       <div className="reviews-layout reviews-layout--split">
         <div className="reviews-column">
-          {allCardsFlat.map((pr) =>
-            renderCard(pr, pr.column === "approved"),
+          {COLUMNS.flatMap((column) =>
+            buckets[column].map((pr) => renderCard(pr, column === "approved")),
           )}
+          {stackCount > 0 && renderStackGroups()}
           {deferredPrs.length > 0 && (
             <DeferredSection count={deferredPrs.length}>
               {deferredPrs.map((pr) => renderCard(pr))}
@@ -233,7 +260,7 @@ export function Board({
   }
 
   const board =
-    visibleCols === 0 ? null : (
+    visibleCols === 0 && stackCount === 0 ? null : (
       <div className={boardClass}>
         {COLUMNS.map((column) => (
           <Column
@@ -241,44 +268,25 @@ export function Board({
             column={column}
             count={counts[column]}
             hidden={counts[column] === 0}
-            actions={
-              column === "approved" ? (
-                <div className="bulk-merge-actions">
-                  <label className="bulk-select-all">
-                    <input
-                      type="checkbox"
-                      checked={allApprovedSelected}
-                      onChange={toggleAllApproved}
-                    />
-                    <span>ALL</span>
-                  </label>
-                  <BulkMergeButton
-                    prs={selectedApprovedPrs}
-                    onMerged={removeMergedSelections}
-                  />
-                </div>
-              ) : undefined
-            }
+            actions={column === "approved" ? bulkMergeActions : undefined}
           >
-            {groupColumn(buckets[column]).map((item) =>
-              item.kind === "card" ? (
-                renderCard(item.pr, column === "approved")
-              ) : (
-                <div
-                  key={item.stackId}
-                  className="pr-stack-group"
-                  data-stack-id={item.stackId}
-                >
-                  {item.cards.map((pr) => (
-                    <Fragment key={`${pr.repo}#${pr.number}`}>
-                      {renderCard(pr, column === "approved")}
-                    </Fragment>
-                  ))}
-                </div>
-              ),
+            {buckets[column].map((pr) =>
+              renderCard(pr, column === "approved"),
             )}
           </Column>
         ))}
+        {stackCount > 0 && (
+          <Column
+            column="stacks"
+            count={stackCount}
+            hidden={false}
+            actions={
+              buckets.approved.length === 0 ? bulkMergeActions : undefined
+            }
+          >
+            {renderStackGroups()}
+          </Column>
+        )}
       </div>
     );
 

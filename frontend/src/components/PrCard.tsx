@@ -17,7 +17,7 @@ import { MergeButton } from "./MergeButton";
 import { NoteButton } from "./NoteButton";
 import { OverflowMenu } from "./OverflowMenu";
 import { PrLocStats } from "./PrLocStats";
-import { PrStack } from "./PrStack";
+import { ColumnBadge, PrStack } from "./PrStack";
 import { PrVideoButton } from "./PrVideoButton";
 import { PreviewLink } from "./PreviewLink";
 import { ReviewedToggle } from "./ReviewedToggle";
@@ -47,6 +47,7 @@ export function PrCard({
   onSelect,
   bulkSelected,
   onToggleBulkSelected,
+  inStackGroup = false,
 }: {
   pr: Pr;
   reviewedHas: (key: string) => boolean;
@@ -60,13 +61,16 @@ export function PrCard({
   onSelect: () => void;
   bulkSelected?: boolean;
   onToggleBulkSelected?: () => void;
+  inStackGroup?: boolean;
 }) {
   const { owner, name } = splitRepo(pr.repo);
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
   const isDeferred = deferredHas(key);
   const isWatched = watchedHas(key);
-  const showInlineStack = pr.stack_nodes.length > 0 && !pr.stack_co_column;
+  const grouped = inStackGroup || pr.stack_co_column;
+  const showInlineStack =
+    pr.stack_nodes.length > 0 && !pr.stack_co_column && !inStackGroup;
   const { data: me } = useMe();
   const isOwnPr =
     me?.login == null
@@ -126,7 +130,8 @@ export function PrCard({
     pr.is_ready && "is-ready",
     pr.is_draft && "is-draft",
     pr.stack_id && "is-stacked",
-    pr.stack_co_column && "is-stack-co-column",
+    grouped && "is-stack-co-column",
+    inStackGroup && "is-stack-grouped",
     isReviewed && "is-manually-reviewed",
     selected && "is-selected",
     bulkSelected && "is-bulk-selected",
@@ -134,7 +139,7 @@ export function PrCard({
     .filter(Boolean)
     .join(" ");
 
-  const style: CSSProperties | undefined = pr.stack_co_column
+  const style: CSSProperties | undefined = grouped
     ? ({ "--stack-depth": pr.stack_depth ?? 0 } as CSSProperties)
     : undefined;
 
@@ -160,6 +165,7 @@ export function PrCard({
           <a className="pr-number" href={pr.url} target="_blank" rel="noopener">
             #{pr.number}
           </a>
+          {inStackGroup && <ColumnBadge column={pr.column} />}
           <div className="pr-head-main">
             <h3 className="pr-title">
               <a href={pr.url} target="_blank" rel="noopener">

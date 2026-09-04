@@ -2,10 +2,13 @@ import type { ReactNode } from "react";
 
 import type { Column as ColumnKey } from "../api/types";
 
-const TITLES: Record<ColumnKey, string> = {
+export type BoardColumn = ColumnKey | "stacks";
+
+const TITLES: Record<BoardColumn, string> = {
   progress: "IN PROGRESS",
   ready: "READY FOR REVIEW",
   approved: "APPROVED",
+  stacks: "STACKS",
 };
 
 export function Column({
@@ -15,7 +18,7 @@ export function Column({
   actions,
   children,
 }: {
-  column: ColumnKey;
+  column: BoardColumn;
   count: number;
   hidden: boolean;
   actions?: ReactNode;

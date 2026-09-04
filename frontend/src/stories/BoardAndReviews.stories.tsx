@@ -10,6 +10,9 @@ import {
   prApproved,
   prDraft,
   prReady,
+  prStackLeaf,
+  prStackRoot,
+  prStacked,
   repoSummaries,
   reviewPr,
   reviewPrDraft,
@@ -38,6 +41,29 @@ export const BoardPopulated: Story = {
   render: () => (
     <Board
       prs={[prDraft, prReady, prApproved]}
+      deferredPrs={[]}
+      reviewedHas={alwaysFalse}
+      onToggleReviewed={() => undefined}
+      deferredHas={alwaysFalse}
+      onToggleDeferred={() => undefined}
+      watchedHas={alwaysFalse}
+      onToggleWatch={() => undefined}
+      watchDisabled={false}
+    />
+  ),
+};
+
+export const BoardWithStacks: Story = {
+  render: () => (
+    <Board
+      prs={[
+        prDraft,
+        prReady,
+        prApproved,
+        prStackRoot,
+        prStacked,
+        prStackLeaf,
+      ]}
       deferredPrs={[]}
       reviewedHas={alwaysFalse}
       onToggleReviewed={() => undefined}
