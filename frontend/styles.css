@@ -368,11 +368,14 @@ button {
     grid-template-columns: 1fr 1fr;
 }
 
-/* Stacks sit in their own full-width row under IN PROGRESS / READY /
-   APPROVED so a stack is never split across status columns. */
+/* Stacks sit in their own row under IN PROGRESS / READY / APPROVED so
+   a stack is never split across status columns. Cap and center match
+   the single-column board track (board--cols-1). */
 .board > .column--stacks {
     grid-column: 1 / -1;
     min-height: 0;
+    width: min(100%, 760px);
+    justify-self: center;
 }
 
 /* ---------- Empty state ---------- */
