@@ -339,6 +339,50 @@ class GitHubClient:
             )
         return resp.json() if resp.content else {}
 
+    async def get_pr(
+        self, owner: str, repo: str, pr_number: int
+    ) -> dict[str, Any]:
+        """Fetch a PR via ``GET /repos/{owner}/{repo}/pulls/{n}``."""
+        if not self._token:
+            raise RuntimeError("No GitHub access token on session; cannot read PRs.")
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.get(url, headers=headers)
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} when reading "
+                f"{owner}/{repo}#{pr_number}: {resp.text}"
+            )
+        return resp.json() if resp.content else {}
+
+    async def update_pr_base(
+        self, owner: str, repo: str, pr_number: int, base: str
+    ) -> dict[str, Any]:
+        """Retarget a PR via ``PATCH /repos/{owner}/{repo}/pulls/{n}``."""
+        if not self._token:
+            raise RuntimeError(
+                "No GitHub access token on session; cannot retarget PRs."
+            )
+        url = f"{self._api_url}/repos/{owner}/{repo}/pulls/{pr_number}"
+        headers = {
+            "Authorization": f"bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        resp = await self._client.patch(
+            url, headers=headers, json={"base": base}
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"GitHub returned {resp.status_code} when retargeting "
+                f"{owner}/{repo}#{pr_number} to {base}: {resp.text}"
+            )
+        return resp.json() if resp.content else {}
+
     async def mark_pr_ready_for_review(
         self, owner: str, repo: str, pr_number: int
     ) -> None:

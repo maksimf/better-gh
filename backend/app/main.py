@@ -714,6 +714,26 @@ class BulkMergeBody(BaseModel):
     prs: list[BulkMergePr] = Field(min_length=1, max_length=50)
 
 
+class StackMergeBody(BaseModel):
+    """Body for ``POST /pulls/stack-merge``.
+
+    ``prs`` must be the full stack, root first (the PR that targets the
+    trunk, typically ``main``), then each child in stack order.
+    """
+
+    prs: list[BulkMergePr] = Field(min_length=1, max_length=50)
+
+
+def _result(pr: BulkMergePr, *, merged: bool, error: str | None) -> dict[str, Any]:
+    return {
+        "owner": pr.owner,
+        "repo": pr.repo,
+        "number": pr.number,
+        "merged": merged,
+        "error": error,
+    }
+
+
 @app.post("/pulls/bulk-merge")
 async def bulk_merge_prs_endpoint(
     body: BulkMergeBody,
@@ -759,6 +779,71 @@ async def bulk_merge_prs_endpoint(
                 "error": None,
             }
         )
+
+    if merged_any:
+        await _safe_poll_once(session.token, session.login)
+    return JSONResponse(content={"results": results})
+
+
+@app.post("/pulls/stack-merge")
+async def stack_merge_prs_endpoint(
+    body: StackMergeBody,
+    session: Session = Depends(require_session),
+) -> JSONResponse:
+    """Merge a stack root-first, retargeting each child onto the trunk.
+
+    Does not wait for CI. After the root lands, each remaining PR is
+    pointed at the root's original base (typically ``main``) and merged
+    immediately. A failure stops the walk so a child is never merged
+    while its parent is still open.
+    """
+    http_client: httpx.AsyncClient = app.state.http_client
+    gh = build_user_client(session.token, http_client=http_client)
+    method = settings.MERGE_METHOD or "merge"
+    results: list[dict[str, Any]] = []
+    merged_any = False
+
+    root = body.prs[0]
+    try:
+        root_data = await gh.get_pr(root.owner, root.repo, root.number)
+        trunk = (root_data.get("base") or {}).get("ref") or ""
+        if not trunk:
+            raise RuntimeError(
+                f"{root.owner}/{root.repo}#{root.number} has no base branch"
+            )
+    except Exception as exc:
+        log.exception(
+            "stack merge could not read root %s/%s#%s",
+            root.owner,
+            root.repo,
+            root.number,
+        )
+        return JSONResponse(
+            content={
+                "results": [
+                    _result(pr, merged=False, error=str(exc)) for pr in body.prs
+                ]
+            }
+        )
+
+    for index, pr in enumerate(body.prs):
+        try:
+            if index > 0:
+                await gh.update_pr_base(pr.owner, pr.repo, pr.number, trunk)
+            await gh.merge_pr(pr.owner, pr.repo, pr.number, method=method)
+        except Exception as exc:
+            log.exception(
+                "stack merge failed for %s/%s#%s", pr.owner, pr.repo, pr.number
+            )
+            results.append(_result(pr, merged=False, error=str(exc)))
+            results.extend(
+                _result(rest, merged=False, error="skipped: earlier stack PR failed")
+                for rest in body.prs[index + 1 :]
+            )
+            break
+
+        merged_any = True
+        results.append(_result(pr, merged=True, error=None))
 
     if merged_any:
         await _safe_poll_once(session.token, session.login)

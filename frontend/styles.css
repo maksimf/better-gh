@@ -3885,6 +3885,12 @@ button.reviewer-chip {
     border: 2px solid var(--border);
 }
 
+.pr-stack-group-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+}
+
 .column--stacks .column-body {
     gap: 20px;
 }

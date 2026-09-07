@@ -58,6 +58,20 @@ export const handlers = [
     return HttpResponse.json({ results: [] });
   }),
 
+  http.post("/pulls/stack-merge", async ({ request }) => {
+    const body = (await request.json()) as {
+      prs: Array<{ owner: string; repo: string; number: number }>;
+    };
+    await delay(300);
+    return HttpResponse.json({
+      results: (body.prs ?? []).map((pr) => ({
+        ...pr,
+        merged: true,
+        error: null,
+      })),
+    });
+  }),
+
   http.post("/pulls/:owner/:repo/:number/review", async () => {
     await delay(300);
     return HttpResponse.json({ approved: true });

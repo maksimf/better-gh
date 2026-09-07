@@ -5,12 +5,19 @@ import { ApproveButton } from "../components/ApproveButton";
 import { MergeButton } from "../components/MergeButton";
 import { DraftButton } from "../components/DraftButton";
 import { BulkMergeButton } from "../components/BulkMergeButton";
+import { MergeStackButton } from "../components/MergeStackButton";
 import { MergeModal } from "../components/MergeModal";
 import { NoteModal } from "../components/NoteModal";
 import { SettingsModal } from "../components/SettingsModal";
 import { CloudAgentModal } from "../components/CloudAgentModal";
 import { ReviewActions } from "../components/ReviewActions";
-import { prApproved, repoSummaries } from "./fixtures";
+import {
+  prApproved,
+  prStackLeaf,
+  prStackRoot,
+  prStacked,
+  repoSummaries,
+} from "./fixtures";
 import { failingMutationHandlers } from "./mocks/handlers";
 
 const meta = {
@@ -44,6 +51,15 @@ export const MarkReady: Story = {
 export const BulkMerge: Story = {
   render: () => (
     <BulkMergeButton prs={[prApproved]} onMerged={() => undefined} />
+  ),
+};
+
+export const MergeStack: Story = {
+  render: () => (
+    <MergeStackButton
+      prs={[prStackRoot, prStacked, prStackLeaf]}
+      onMerged={() => undefined}
+    />
   ),
 };
 

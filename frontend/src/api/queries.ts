@@ -243,6 +243,15 @@ export function useBulkMergePr() {
   });
 }
 
+export function useStackMergePr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (prs: PrRef[]) =>
+      postJson<BulkMergeResult>("/pulls/stack-merge", { prs }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  });
+}
+
 export function useMarkReady() {
   const qc = useQueryClient();
   return useMutation({

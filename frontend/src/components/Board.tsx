@@ -4,6 +4,7 @@ import type { Column as ColumnKey, Pr } from "../api/types";
 import { EmptyState } from "../ui/EmptyState";
 import { BulkMergeButton } from "./BulkMergeButton";
 import { Column } from "./Column";
+import { MergeStackButton } from "./MergeStackButton";
 import { DeferredSection } from "./DeferredSection";
 import { DiffPanel } from "./DiffPanel";
 import { PrCard } from "./PrCard";
@@ -227,6 +228,12 @@ export function Board({
         className="pr-stack-group"
         data-stack-id={group.stackId}
       >
+        <div className="pr-stack-group-header">
+          <MergeStackButton
+            prs={group.cards}
+            onMerged={removeMergedSelections}
+          />
+        </div>
         {group.cards.map((pr) =>
           renderCard(pr, pr.column === "approved", true),
         )}

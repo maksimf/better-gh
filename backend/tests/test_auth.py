@@ -277,6 +277,13 @@ class RouteGatingTests(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 401)
 
+    def test_stack_merge_returns_401_when_signed_out(self) -> None:
+        r = self._client.post(
+            "/pulls/stack-merge",
+            json={"prs": [{"owner": "acme", "repo": "widgets", "number": 1}]},
+        )
+        self.assertEqual(r.status_code, 401)
+
     # --- /me round-trip ------------------------------------------------------
 
     def test_me_returns_login_when_signed_in(self) -> None:
