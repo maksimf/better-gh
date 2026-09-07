@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import type { Pr } from "./api/types";
 import { useDashboard, usePrefs } from "./api/queries";
 import { Board } from "./components/Board";
 import { Loader } from "./components/Loader";
@@ -22,6 +23,18 @@ import { useSelectedRepos } from "./hooks/useSelectedRepos";
 import { useWatchedKeys } from "./hooks/useWatchedKeys";
 
 const TAB_LABELS = { mine: "MY PRs", reviews: "REVIEWING" } as const;
+
+function countMyPrColumns(prs: Pr[]) {
+  let wip = 0;
+  let ready = 0;
+  let approved = 0;
+  for (const pr of prs) {
+    if (pr.column === "progress") wip += 1;
+    else if (pr.column === "ready") ready += 1;
+    else if (pr.column === "approved") approved += 1;
+  }
+  return { wip, ready, approved };
+}
 
 export function App() {
   const {
@@ -65,11 +78,6 @@ export function App() {
     if (data) migrateFromRepos(data.repos.map((r) => r.repo));
   }, [data, migrateFromRepos]);
 
-  // Reflect the active tab in the document title.
-  useEffect(() => {
-    document.title = `${TAB_LABELS[tab]} \u00B7 BETTER//GH`;
-  }, [tab]);
-
   const visiblePrs = useMemo(
     () => (data ? data.prs.filter((pr) => repoStore.isVisible(pr.repo)) : []),
     [data, repoStore],
@@ -101,6 +109,17 @@ export function App() {
     () => splitByDeferred(visibleReviews),
     [visibleReviews, deferred.has],
   );
+
+  // Browser tab: "W: N, R: M, A: X ⋅ MY PRs · BETTER//GH"
+  useEffect(() => {
+    const suffix = `${TAB_LABELS[tab]} \u00B7 BETTER//GH`;
+    if (!data) {
+      document.title = suffix;
+      return;
+    }
+    const { wip, ready, approved } = countMyPrColumns(activePrs);
+    document.title = `W: ${wip}, R: ${ready}, A: ${approved} \u22C5 ${suffix}`;
+  }, [tab, data, activePrs]);
 
   const loading = dashboard.isLoading && !data;
   const selectionEmpty = repoStore.isSelectionEmpty();
