@@ -368,10 +368,10 @@ button {
     grid-template-columns: 1fr 1fr;
 }
 
-/* Stacks sit in their own row under IN PROGRESS / READY / APPROVED so
-   a stack is never split across status columns. Cap and center match
-   the single-column board track (board--cols-1). */
-.board > .column--stacks {
+/* STACKS joins the first row when a slot is free (1–2 status columns).
+   Only wrap when all three status columns are already present; then
+   cap and center match the single-column board track (board--cols-1). */
+.board--stacks-wrap > .column--stacks {
     grid-column: 1 / -1;
     min-height: 0;
     width: min(100%, 760px);

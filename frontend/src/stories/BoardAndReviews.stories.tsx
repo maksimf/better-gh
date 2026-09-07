@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 
+import type { Pr } from "../api/types";
 import { Board } from "../components/Board";
 import { ReviewsList } from "../components/ReviewsList";
 import { PickerEmptyState } from "../components/PickerEmptyState";
@@ -53,6 +54,17 @@ export const BoardPopulated: Story = {
   ),
 };
 
+const stackBoardProps = {
+  deferredPrs: [] as Pr[],
+  reviewedHas: alwaysFalse,
+  onToggleReviewed: () => undefined,
+  deferredHas: alwaysFalse,
+  onToggleDeferred: () => undefined,
+  watchedHas: alwaysFalse,
+  onToggleWatch: () => undefined,
+  watchDisabled: false,
+};
+
 export const BoardWithStacks: Story = {
   render: () => (
     <Board
@@ -64,14 +76,25 @@ export const BoardWithStacks: Story = {
         prStacked,
         prStackLeaf,
       ]}
-      deferredPrs={[]}
-      reviewedHas={alwaysFalse}
-      onToggleReviewed={() => undefined}
-      deferredHas={alwaysFalse}
-      onToggleDeferred={() => undefined}
-      watchedHas={alwaysFalse}
-      onToggleWatch={() => undefined}
-      watchDisabled={false}
+      {...stackBoardProps}
+    />
+  ),
+};
+
+export const BoardWithStacksAndTwoColumns: Story = {
+  render: () => (
+    <Board
+      prs={[prDraft, prReady, prStackRoot, prStacked, prStackLeaf]}
+      {...stackBoardProps}
+    />
+  ),
+};
+
+export const BoardWithStacksAndOneColumn: Story = {
+  render: () => (
+    <Board
+      prs={[prDraft, prStackRoot, prStacked, prStackLeaf]}
+      {...stackBoardProps}
     />
   ),
 };

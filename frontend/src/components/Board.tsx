@@ -153,6 +153,9 @@ export function Board({
     approved: buckets.approved.length,
   };
   const visibleCols = COLUMNS.filter((c) => counts[c] > 0).length;
+  const hasStacks = stackCount > 0;
+  const stacksWrap = hasStacks && visibleCols >= 3;
+  const rowCols = hasStacks && !stacksWrap ? visibleCols + 1 : visibleCols;
 
   if (visibleCols === 0 && stackCount === 0 && deferredPrs.length === 0) {
     return (
@@ -165,9 +168,10 @@ export function Board({
 
   const boardClass = [
     "board",
-    visibleCols === 1 && "board--cols-1",
-    visibleCols === 2 && "board--cols-2",
-    visibleCols === 3 && "board--cols-3",
+    rowCols === 1 && "board--cols-1",
+    rowCols === 2 && "board--cols-2",
+    rowCols === 3 && "board--cols-3",
+    stacksWrap && "board--stacks-wrap",
   ]
     .filter(Boolean)
     .join(" ");
