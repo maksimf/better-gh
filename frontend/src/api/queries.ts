@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -54,12 +55,36 @@ function dashboardUrl(reviewers: string | null): string {
   return `/api/dashboard?reviewers=${encodeURIComponent(reviewers)}`;
 }
 
+/** Gmail-style cadence for refreshing the tab-title W/R/A counts. */
+const HIDDEN_TAB_POLL_MS = 10 * 60 * 1000;
+
+function useDocumentHidden(): boolean {
+  const [hidden, setHidden] = useState(
+    () => typeof document !== "undefined" && document.hidden,
+  );
+  useEffect(() => {
+    const onChange = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return hidden;
+}
+
 export function useDashboard(reviewers: string | null) {
+  const hidden = useDocumentHidden();
   return useQuery({
     queryKey: [...DASHBOARD_KEY, reviewers],
     queryFn: () => getJson<Dashboard>(dashboardUrl(reviewers)),
+    // Focused tabs keep the server poll cadence (~5 min). Hidden tabs
+    // keep fetching on a slower 10-minute beat so document.title stays
+    // current without hammering GitHub. That fetch also touches the
+    // backend keep-alive (idle TTL is 15 min), so the snapshot poller
+    // stays warm.
     refetchInterval: (query) =>
-      (query.state.data?.poll_interval_seconds ?? 300) * 1000,
+      hidden
+        ? HIDDEN_TAB_POLL_MS
+        : (query.state.data?.poll_interval_seconds ?? 300) * 1000,
+    refetchIntervalInBackground: true,
   });
 }
 
