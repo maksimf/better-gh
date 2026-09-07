@@ -3890,7 +3890,7 @@ button.reviewer-chip {
 }
 
 .pr-card.is-stack-co-column {
-    margin-left: calc(var(--stack-depth, 0) * 28px);
+    margin-left: calc(var(--stack-depth, 0) * 15px);
 }
 
 .pr-card.is-stack-grouped[data-column="progress"] {
