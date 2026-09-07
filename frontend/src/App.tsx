@@ -110,7 +110,7 @@ export function App() {
     [visibleReviews, deferred.has],
   );
 
-  // Browser tab: "W: N, R: M, A: X ⋅ MY PRs · BETTER//GH"
+  // Browser tab: "2/1/3 ⋅ MY PRs · BETTER//GH"
   useEffect(() => {
     const suffix = `${TAB_LABELS[tab]} \u00B7 BETTER//GH`;
     if (!data) {
@@ -118,7 +118,7 @@ export function App() {
       return;
     }
     const { wip, ready, approved } = countMyPrColumns(activePrs);
-    document.title = `W: ${wip}, R: ${ready}, A: ${approved} \u22C5 ${suffix}`;
+    document.title = `${wip}/${ready}/${approved} \u22C5 ${suffix}`;
   }, [tab, data, activePrs]);
 
   const loading = dashboard.isLoading && !data;
