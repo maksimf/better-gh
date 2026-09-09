@@ -4484,7 +4484,8 @@ button.reviewer-chip {
 [data-theme="dark"] .card-toggle--note[aria-pressed="true"],
 [data-theme="dark"] .card-toggle--deferred[aria-pressed="true"],
 [data-theme="dark"] .settings-modal-close,
-[data-theme="dark"] .error-banner {
+[data-theme="dark"] .error-banner,
+[data-theme="dark"] .tab-count {
     color: #111111;
 }
 

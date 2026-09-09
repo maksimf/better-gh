@@ -201,8 +201,99 @@ export const prExternal = basePr({
   number: 77,
   title: "Docs: clarify reviewer picker",
   author: "alice",
+  url: "https://github.com/acme/app/pull/77",
   column: "ready",
   reviewers: reviewersPending,
+});
+
+export const prNoChecks = basePr({
+  number: 90,
+  title: "Just opened — checks have not started",
+  url: "https://github.com/acme/app/pull/90",
+  column: "progress",
+  is_ready: false,
+  checks: checksZero,
+  preview_url: null,
+  linear_url: null,
+  comments_human: 0,
+  comments_bot: 0,
+  additions: 18,
+  deletions: 2,
+  reviewers: [],
+  review_requested: false,
+});
+
+export const prConflicts = basePr({
+  number: 104,
+  title: "Rebase onto main — 4 conflicts",
+  url: "https://github.com/acme/app/pull/104",
+  column: "progress",
+  is_ready: false,
+  checks: checksPass,
+  conflicts: 4,
+  preview_url: null,
+  comments_human: 1,
+  comments_bot: 0,
+});
+
+export const prAwaitingReview = basePr({
+  number: 110,
+  title: "Ready: waiting on first review",
+  url: "https://github.com/acme/app/pull/110",
+  column: "ready",
+  review_requested: false,
+  reviewers: reviewersPending,
+  comments_human: 0,
+  comments_bot: 0,
+  additions: 96,
+  deletions: 14,
+});
+
+export const prBusyThread = basePr({
+  number: 133,
+  title: "Hot discussion on the settings modal",
+  url: "https://github.com/acme/app/pull/133",
+  column: "ready",
+  comments_human: 18,
+  comments_bot: 7,
+  additions: 820,
+  deletions: 340,
+});
+
+export const prOtherRepo = basePr({
+  number: 12,
+  title: "API: paginate dashboard snapshot",
+  url: "https://github.com/acme/api/pull/12",
+  repo: "acme/api",
+  column: "ready",
+  linear_url: "https://linear.app/acme/issue/API-12",
+  preview_url: null,
+  additions: 64,
+  deletions: 21,
+});
+
+export const prParked = basePr({
+  number: 88,
+  title: "Parked: rewrite preview cache later",
+  url: "https://github.com/acme/app/pull/88",
+  column: "ready",
+  comments_human: 2,
+  comments_bot: 0,
+  preview_url: null,
+});
+
+export const prApprovedWithVideo = basePr({
+  number: 150,
+  title: "Approved: includes QA walkthrough video",
+  url: "https://github.com/acme/app/pull/150",
+  column: "approved",
+  approved: true,
+  is_ready: true,
+  reviewers: reviewersApproved,
+  video_url:
+    "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+  additions: 310,
+  deletions: 22,
 });
 
 export const reviewPr: ReviewPr = {
@@ -224,12 +315,35 @@ export const reviewPrDraft: ReviewPr = {
   ...reviewPr,
   number: 56,
   title: "Draft review request",
+  url: "https://github.com/acme/app/pull/56",
   is_draft: true,
   checks: checksPending,
 };
 
+export const reviewPrFailing: ReviewPr = {
+  ...reviewPr,
+  number: 61,
+  title: "Review: CI is red on the webhook path",
+  url: "https://github.com/acme/app/pull/61",
+  checks: checksFail,
+  conflicts: 1,
+  additions: 210,
+  deletions: 40,
+  requested_at: "2026-08-12T08:30:00Z",
+};
+
+export const reviewPrOtherRepo: ReviewPr = {
+  ...reviewPr,
+  number: 9,
+  title: "Review: tighten auth cookie flags",
+  url: "https://github.com/acme/api/pull/9",
+  repo: "acme/api",
+  author: "carol",
+  requested_at: "2026-08-10T09:00:00Z",
+};
+
 export const repoSummaries: RepoSummary[] = [
-  { repo: "acme/app", count: 4 },
+  { repo: "acme/app", count: 14 },
   { repo: "acme/api", count: 2 },
   { repo: "acme/docs", count: 0 },
 ];
@@ -237,19 +351,46 @@ export const repoSummaries: RepoSummary[] = [
 export const dashboardFixture: Dashboard = {
   prs: [
     prDraft,
-    prReady,
-    prApproved,
+    prNoChecks,
     prFailing,
+    prConflicts,
+    prReady,
+    prAwaitingReview,
+    prBusyThread,
+    prExternal,
+    prOtherRepo,
+    prParked,
+    prApproved,
+    prApprovedWithVideo,
     prStackRoot,
     prStacked,
     prStackLeaf,
   ],
-  reviews: [reviewPr, reviewPrDraft],
+  reviews: [reviewPr, reviewPrDraft, reviewPrFailing, reviewPrOtherRepo],
   repos: repoSummaries,
   reviewers: ["alice", "bob"],
   last_polled_at: "2026-08-12T12:05:00Z",
   error: null,
   poll_interval_seconds: 300,
+};
+
+export const dashboardEmptyFixture: Dashboard = {
+  ...dashboardFixture,
+  prs: [],
+  reviews: [],
+  repos: [
+    { repo: "acme/app", count: 0 },
+    { repo: "acme/api", count: 0 },
+    { repo: "acme/docs", count: 0 },
+  ],
+};
+
+export const dashboardRateLimitedFixture: Dashboard = {
+  ...dashboardFixture,
+  error: {
+    message: "GitHub rate limit exceeded",
+    reset_at: "2026-08-12T13:00:00Z",
+  },
 };
 
 export const prComments: PrComment[] = [
