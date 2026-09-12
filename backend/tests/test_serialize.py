@@ -48,7 +48,13 @@ def _pr(
     )
 
 
-def _review(*, number: int, repo: str = "acme/widgets") -> ReviewPR:
+def _review(
+    *,
+    number: int,
+    repo: str = "acme/widgets",
+    base_ref: str = "",
+    head_ref: str = "",
+) -> ReviewPR:
     return ReviewPR(
         number=number,
         title=f"Review {number}",
@@ -60,6 +66,8 @@ def _review(*, number: int, repo: str = "acme/widgets") -> ReviewPR:
         conflicts=0,
         updated_at="2026-05-20T10:00:00Z",
         requested_at="2026-05-20T09:00:00Z",
+        base_ref=base_ref,
+        head_ref=head_ref,
     )
 
 
@@ -199,6 +207,30 @@ class SerializeDashboardTests(unittest.TestCase):
         # Inline tree carries both nodes with their per-viewer columns.
         node_cols = {n["number"]: n["column"] for n in by_number[1]["stack_nodes"]}
         self.assertEqual(node_cols, {1: "progress", 2: "approved"})
+
+    def test_review_stack_serializes_layout_fields(self) -> None:
+        root = _review(number=10, head_ref="feat/a", base_ref="main")
+        child = _review(number=11, head_ref="feat/b", base_ref="feat/a")
+        payload = serialize.serialize_dashboard(
+            prs=[],
+            reviews=[child, root],
+            reviewers_param="",
+            last_polled_at=None,
+            error_message="",
+            error_reset_at=None,
+            poll_interval_seconds=300,
+        )
+        by_number = {pr["number"]: pr for pr in payload["reviews"]}
+        self.assertEqual(by_number[10]["stack_id"], "acme/widgets#10")
+        self.assertEqual(by_number[11]["stack_id"], "acme/widgets#10")
+        self.assertEqual(by_number[10]["stack_order"], 0)
+        self.assertEqual(by_number[11]["stack_order"], 1)
+        self.assertEqual(by_number[10]["stack_depth"], 0)
+        self.assertEqual(by_number[11]["stack_depth"], 1)
+        self.assertEqual(
+            [n["number"] for n in by_number[10]["stack_nodes"]],
+            [10, 11],
+        )
 
 
 if __name__ == "__main__":

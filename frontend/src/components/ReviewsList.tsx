@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import type { ReviewPr } from "../api/types";
 import { useNow } from "../hooks/useRelativeTime";
+import { interleaveStacks } from "../stackGroups";
 import { EmptyState } from "../ui/EmptyState";
 import { DeferredSection } from "./DeferredSection";
 import { DiffPanel } from "./DiffPanel";
@@ -68,7 +69,7 @@ export function ReviewsList({
     onToggleDeferred,
   };
 
-  function renderRow(pr: ReviewPr) {
+  function renderRow(pr: ReviewPr, inStackGroup = false) {
     const key = rowKey(pr);
     return (
       <ReviewRow
@@ -76,9 +77,27 @@ export function ReviewsList({
         pr={pr}
         selected={key === selectedKey}
         onSelect={() => toggleSelect(pr)}
+        inStackGroup={inStackGroup}
         {...rowProps}
       />
     );
+  }
+
+  function renderRows(items: ReviewPr[]): ReactNode[] {
+    return interleaveStacks(items).map((entry) => {
+      if (entry.kind === "item") return renderRow(entry.item);
+      const { group } = entry;
+      return (
+        <div
+          key={group.stackId}
+          className="pr-stack-group"
+          data-stack-id={group.stackId}
+          aria-label={`Stack of ${group.cards.length} pull requests`}
+        >
+          {group.cards.map((pr) => renderRow(pr, true))}
+        </div>
+      );
+    });
   }
 
   const split = selectedPr !== null;
@@ -88,13 +107,13 @@ export function ReviewsList({
       <div className="reviews-column">
         {reviews.length > 0 && (
           <div className="reviews-list" aria-live="polite">
-            {reviews.map((pr) => renderRow(pr))}
+            {renderRows(reviews)}
           </div>
         )}
         {deferredReviews.length > 0 && (
           <div className="reviews-list reviews-list--deferred-only">
             <DeferredSection count={deferredReviews.length}>
-              {deferredReviews.map((pr) => renderRow(pr))}
+              {renderRows(deferredReviews)}
             </DeferredSection>
           </div>
         )}

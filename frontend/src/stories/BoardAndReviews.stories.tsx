@@ -17,6 +17,9 @@ import {
   repoSummaries,
   reviewPr,
   reviewPrDraft,
+  reviewStackLeaf,
+  reviewStackRoot,
+  reviewStacked,
 } from "./fixtures";
 import { storyQueryClient } from "../../.storybook/query-client";
 
@@ -119,6 +122,25 @@ export const ReviewsPopulated: Story = {
   render: () => (
     <ReviewsList
       reviews={[reviewPr, reviewPrDraft]}
+      deferredReviews={[]}
+      reviewedHas={alwaysFalse}
+      onToggleReviewed={() => undefined}
+      deferredHas={alwaysFalse}
+      onToggleDeferred={() => undefined}
+    />
+  ),
+};
+
+export const ReviewsWithStacks: Story = {
+  render: () => (
+    <ReviewsList
+      reviews={[
+        reviewPr,
+        reviewStackLeaf,
+        reviewPrDraft,
+        reviewStacked,
+        reviewStackRoot,
+      ]}
       deferredReviews={[]}
       reviewedHas={alwaysFalse}
       onToggleReviewed={() => undefined}

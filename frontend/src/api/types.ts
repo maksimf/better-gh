@@ -79,6 +79,11 @@ export interface ReviewPr {
   deletions: number;
   updated_at: string;
   requested_at: string;
+  stack_id: string | null;
+  stack_order: number | null;
+  stack_depth: number | null;
+  stack_co_column: boolean;
+  stack_nodes: StackNode[];
 }
 
 export interface RepoSummary {

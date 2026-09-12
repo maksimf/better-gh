@@ -126,10 +126,12 @@ A full tour of what the app does, grouped by area.
 
 - **Automatic stack detection.** PRs whose base branch is another
   dashboard PR's head are linked into a stack (a forest, structurally — no
-  hardcoded `main`/`master`), with cycle detection.
+  hardcoded `main`/`master`), with cycle detection. The same linking
+  applies to the Reviewing tab.
 - **Two rendering modes.** A stack whose members all land in the same
   column collapses into a single indented group; a stack split across
   columns shows an inline tree on each card with a per-node column badge.
+  Reviewing uses the grouped, indented treatment (there are no columns).
 
 ### Cursor Cloud Agent QA
 

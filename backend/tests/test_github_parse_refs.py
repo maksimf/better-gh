@@ -44,6 +44,14 @@ class ParseRefsTests(unittest.TestCase):
         self.assertEqual(pr.base_ref, "main")
         self.assertEqual(pr.head_ref, "feat/a")
 
+    def test_parses_review_base_and_head_ref_names(self) -> None:
+        pr = self._client()._parse_review_pr(
+            _node(baseRefName="main", headRefName="feat/a"),
+            viewer_login="me",
+        )
+        self.assertEqual(pr.base_ref, "main")
+        self.assertEqual(pr.head_ref, "feat/a")
+
     def test_missing_refs_default_to_empty_string(self) -> None:
         # Belt-and-braces: GitHub may occasionally omit fields on archived
         # branches; the PR model should still construct cleanly.

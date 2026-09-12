@@ -309,6 +309,77 @@ export const reviewPr: ReviewPr = {
   deletions: 12,
   updated_at: "2026-08-12T10:00:00Z",
   requested_at: "2026-08-11T18:00:00Z",
+  stack_id: null,
+  stack_order: null,
+  stack_depth: null,
+  stack_co_column: false,
+  stack_nodes: [],
+};
+
+const reviewStackNodes = (self: number): StackNode[] => [
+  {
+    number: 70,
+    title: "Review stack: auth foundation",
+    url: "https://github.com/acme/app/pull/70",
+    depth: 0,
+    column: "progress",
+    is_self: self === 70,
+  },
+  {
+    number: 71,
+    title: "Review stack: session store",
+    url: "https://github.com/acme/app/pull/71",
+    depth: 1,
+    column: "progress",
+    is_self: self === 71,
+  },
+  {
+    number: 72,
+    title: "Review stack: login UI",
+    url: "https://github.com/acme/app/pull/72",
+    depth: 2,
+    column: "progress",
+    is_self: self === 72,
+  },
+];
+
+export const reviewStackRoot: ReviewPr = {
+  ...reviewPr,
+  number: 70,
+  title: "Review stack: auth foundation",
+  url: "https://github.com/acme/app/pull/70",
+  requested_at: "2026-08-12T09:00:00Z",
+  stack_id: "acme/app#70",
+  stack_order: 0,
+  stack_depth: 0,
+  stack_co_column: true,
+  stack_nodes: reviewStackNodes(70),
+};
+
+export const reviewStacked: ReviewPr = {
+  ...reviewPr,
+  number: 71,
+  title: "Review stack: session store",
+  url: "https://github.com/acme/app/pull/71",
+  requested_at: "2026-08-12T09:10:00Z",
+  stack_id: "acme/app#70",
+  stack_order: 1,
+  stack_depth: 1,
+  stack_co_column: true,
+  stack_nodes: reviewStackNodes(71),
+};
+
+export const reviewStackLeaf: ReviewPr = {
+  ...reviewPr,
+  number: 72,
+  title: "Review stack: login UI",
+  url: "https://github.com/acme/app/pull/72",
+  requested_at: "2026-08-12T09:20:00Z",
+  stack_id: "acme/app#70",
+  stack_order: 2,
+  stack_depth: 2,
+  stack_co_column: true,
+  stack_nodes: reviewStackNodes(72),
 };
 
 export const reviewPrDraft: ReviewPr = {
@@ -343,7 +414,7 @@ export const reviewPrOtherRepo: ReviewPr = {
 };
 
 export const repoSummaries: RepoSummary[] = [
-  { repo: "acme/app", count: 14 },
+  { repo: "acme/app", count: 17 },
   { repo: "acme/api", count: 2 },
   { repo: "acme/docs", count: 0 },
 ];
@@ -366,7 +437,15 @@ export const dashboardFixture: Dashboard = {
     prStacked,
     prStackLeaf,
   ],
-  reviews: [reviewPr, reviewPrDraft, reviewPrFailing, reviewPrOtherRepo],
+  reviews: [
+    reviewPr,
+    reviewPrDraft,
+    reviewPrFailing,
+    reviewPrOtherRepo,
+    reviewStackRoot,
+    reviewStacked,
+    reviewStackLeaf,
+  ],
   repos: repoSummaries,
   reviewers: ["alice", "bob"],
   last_polled_at: "2026-08-12T12:05:00Z",

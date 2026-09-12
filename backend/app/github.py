@@ -190,6 +190,8 @@ fragment slimReviewFields on PullRequest {
   isDraft
   updatedAt
   author { login }
+  baseRefName
+  headRefName
   baseRepository { nameWithOwner }
   mergeable
   commits(last: 1) {
@@ -1007,6 +1009,8 @@ class GitHubClient:
             requested_at=requested_at,
             additions=max(0, int(node.get("additions") or 0)),
             deletions=max(0, int(node.get("deletions") or 0)),
+            base_ref=node.get("baseRefName") or "",
+            head_ref=node.get("headRefName") or "",
         )
 
     @staticmethod

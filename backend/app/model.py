@@ -257,9 +257,9 @@ class ReviewPR(BaseModel):
     """A PR where the viewer has been requested as a reviewer.
 
     Slim sibling of ``PR`` -- the "Reviewing" tab only needs enough to
-    show a clickable title, a checks pill, a conflicts badge, and "when
-    was the review requested" hint, so we deliberately don't carry
-    comments / preview / approval state here.
+    show a clickable title, a checks pill, a conflicts badge, "when was
+    the review requested", and stack grouping. We deliberately don't
+    carry comments / preview / approval state here.
 
     ``requested_at`` is the ISO-8601 timestamp of the most recent
     ReviewRequestedEvent that targets the viewer; empty when GitHub's
@@ -281,6 +281,15 @@ class ReviewPR(BaseModel):
     deletions: int = Field(default=0, ge=0)
     updated_at: str
     requested_at: str = ""
+    base_ref: str = ""
+    head_ref: str = ""
+    # Same derived stack-layout fields as ``PR``, populated by
+    # ``attach_stacks`` at serialize time so the Reviewing tab can
+    # group stacked review requests the same way MY PRs does.
+    stack: Stack | None = None
+    stack_depth: int | None = None
+    stack_order: int | None = None
+    stack_co_column: bool = False
 
     def fingerprint(self) -> tuple:
         return (
@@ -298,4 +307,6 @@ class ReviewPR(BaseModel):
             self.additions,
             self.deletions,
             self.requested_at,
+            self.base_ref,
+            self.head_ref,
         )

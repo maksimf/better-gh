@@ -63,7 +63,7 @@ def _serialize_checks(pr_checks) -> dict[str, object]:
 
 
 def _serialize_stack_nodes(
-    pr: PR, reviewers: list[str]
+    pr: PR | ReviewPR, reviewers: list[str]
 ) -> list[dict[str, object]]:
     if pr.stack is None:
         return []
@@ -126,7 +126,12 @@ def serialize_pr(pr: PR, reviewers: list[str]) -> dict[str, object]:
     }
 
 
-def serialize_review(pr: ReviewPR) -> dict[str, object]:
+def serialize_review(
+    pr: ReviewPR, reviewers: list[str] | None = None
+) -> dict[str, object]:
+    stack_id = (
+        f"{pr.repo}#{pr.stack.nodes[0].number}" if pr.stack is not None else None
+    )
     return {
         "number": pr.number,
         "title": pr.title,
@@ -140,6 +145,11 @@ def serialize_review(pr: ReviewPR) -> dict[str, object]:
         "deletions": pr.deletions,
         "updated_at": pr.updated_at,
         "requested_at": pr.requested_at,
+        "stack_id": stack_id,
+        "stack_order": pr.stack_order,
+        "stack_depth": pr.stack_depth,
+        "stack_co_column": pr.stack_co_column,
+        "stack_nodes": _serialize_stack_nodes(pr, reviewers or []),
     }
 
 
@@ -175,9 +185,12 @@ def serialize_dashboard(
 
     Stack attachment happens here (not in the poller) because the
     co-column layout decision depends on the viewer's tracked reviewers.
+    Review PRs get the same structural pass so the Reviewing tab can
+    group stacked requests.
     """
     reviewers = effective_reviewers(reviewers_param)
     stacked = attach_stacks(prs, reviewers)
+    stacked_reviews = attach_stacks(reviews, reviewers)
     error = None
     if error_message:
         error = {
@@ -186,7 +199,7 @@ def serialize_dashboard(
         }
     return {
         "prs": [serialize_pr(pr, reviewers) for pr in stacked],
-        "reviews": [serialize_review(pr) for pr in reviews],
+        "reviews": [serialize_review(pr, reviewers) for pr in stacked_reviews],
         "repos": _serialize_repos(prs, reviews),
         "reviewers": reviewers,
         "last_polled_at": _iso_z(last_polled_at) if last_polled_at else None,

@@ -15,14 +15,16 @@ branch.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable
+from typing import Any, Iterable, TypeVar
 
-from .model import PR, Stack, StackNode
+from .model import Stack, StackNode
+
+T = TypeVar("T")
 
 
 def attach_stacks(
-    prs: list[PR], reviewer: str | Iterable[str] | None = None
-) -> list[PR]:
+    prs: list[T], reviewer: str | Iterable[str] | None = None
+) -> list[T]:
     """Return PRs with ``.stack`` populated for every PR in a 2+ stack.
 
     Preserves input ordering. PRs that end up in a stack of size 1 (or
@@ -73,7 +75,7 @@ def attach_stacks(
     ]
 
 
-def _stacks_for_repo(prs: Iterable[PR]) -> list[Stack]:
+def _stacks_for_repo(prs: Iterable[Any]) -> list[Stack]:
     """Walk one repo's PRs and emit every stack of size >= 2."""
     head_to_pr: dict[str, PR] = {}
     for pr in prs:
@@ -112,7 +114,7 @@ def _stacks_for_repo(prs: Iterable[PR]) -> list[Stack]:
 
 
 def _walk_tree(
-    root: PR, children_by_parent_head: dict[str, list[PR]]
+    root: Any, children_by_parent_head: dict[str, list[Any]]
 ) -> list[StackNode] | None:
     """Pre-order DFS from ``root``; returns ``None`` if a cycle is hit.
 
@@ -136,8 +138,11 @@ def _walk_tree(
                 repo=pr.repo,
                 depth=depth,
                 parent_number=parent_number,
-                is_ready=pr.is_ready,
-                approver_logins=pr.approver_logins,
+                # ReviewPR is a slim sibling of PR and doesn't carry
+                # readiness / approvers; those only affect column badges
+                # on the MY PRs board.
+                is_ready=bool(getattr(pr, "is_ready", False)),
+                approver_logins=tuple(getattr(pr, "approver_logins", ())),
             )
         )
         for child in sorted(

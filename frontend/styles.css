@@ -2912,6 +2912,10 @@ button.reviewer-chip {
     margin: 0;
 }
 
+.reviews-layout--split .pr-stack-group {
+    min-width: 0;
+}
+
 /* Let the action cluster wrap onto a second line when the rail is tight,
    so buttons never spill outside the card. */
 .reviews-layout--split .review-meta,
@@ -3895,7 +3899,12 @@ button.reviewer-chip {
     gap: 20px;
 }
 
-.pr-card.is-stack-co-column {
+.review-row.is-stack-grouped {
+    border-left-width: 8px;
+}
+
+.pr-card.is-stack-co-column,
+.review-row.is-stack-co-column {
     margin-left: calc(var(--stack-depth, 0) * 15px);
 }
 
@@ -3917,7 +3926,8 @@ button.reviewer-chip {
 @media (max-width: 640px) {
     /* Phones don't have the horizontal room to spare 28px per level --
      halve it so a depth-2 child still leaves a usable card width. */
-    .pr-card.is-stack-co-column {
+    .pr-card.is-stack-co-column,
+    .review-row.is-stack-co-column {
         margin-left: calc(var(--stack-depth, 0) * 14px);
     }
 }

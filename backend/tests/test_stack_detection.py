@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.model import PR, Checks
+from app.model import PR, Checks, ReviewPR
 from app.stack import attach_stacks
 
 
@@ -293,5 +293,43 @@ class StackNodeShapeTests(unittest.TestCase):
         )
 
 
+class ReviewPRStackTests(unittest.TestCase):
+    def test_attach_stacks_accepts_review_prs(self) -> None:
+        root = ReviewPR(
+            number=10,
+            title="root",
+            url="https://github.com/acme/web/pull/10",
+            repo="acme/web",
+            author="other",
+            is_draft=False,
+            checks=Checks(passed=1),
+            conflicts=0,
+            updated_at="2026-05-20T10:00:00Z",
+            base_ref="main",
+            head_ref="feat/a",
+        )
+        child = ReviewPR(
+            number=11,
+            title="child",
+            url="https://github.com/acme/web/pull/11",
+            repo="acme/web",
+            author="other",
+            is_draft=False,
+            checks=Checks(passed=1),
+            conflicts=0,
+            updated_at="2026-05-20T10:00:00Z",
+            base_ref="feat/a",
+            head_ref="feat/b",
+        )
+        result = attach_stacks([root, child])
+        by_number = {p.number: p for p in result}
+        self.assertIsNotNone(by_number[10].stack)
+        self.assertEqual(by_number[10].stack_depth, 0)
+        self.assertEqual(by_number[11].stack_depth, 1)
+        self.assertEqual(by_number[10].stack_order, 0)
+        self.assertEqual(by_number[11].stack_order, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
+

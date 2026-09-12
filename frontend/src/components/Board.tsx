@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { Column as ColumnKey, Pr } from "../api/types";
+import { groupStacks } from "../stackGroups";
 import { EmptyState } from "../ui/EmptyState";
 import { BulkMergeButton } from "./BulkMergeButton";
 import { Column } from "./Column";
@@ -19,35 +20,6 @@ function splitRepo(repo: string): { owner: string; name: string } {
   const slash = repo.indexOf("/");
   if (slash < 0) return { owner: repo, name: "" };
   return { owner: repo.slice(0, slash), name: repo.slice(slash + 1) };
-}
-
-type StackGroup = { stackId: string; cards: Pr[] };
-
-/**
- * Pull every stacked PR out of the status columns and keep each stack
- * together (root first, then children in pre-order). First-seen order
- * across the incoming list is preserved so a newly opened stack doesn't
- * jump around on poll.
- */
-function groupStacks(prs: Pr[]): StackGroup[] {
-  const groups = new Map<string, Pr[]>();
-  const order: string[] = [];
-  for (const pr of prs) {
-    if (!pr.stack_id) continue;
-    let bucket = groups.get(pr.stack_id);
-    if (!bucket) {
-      bucket = [];
-      groups.set(pr.stack_id, bucket);
-      order.push(pr.stack_id);
-    }
-    bucket.push(pr);
-  }
-  return order.map((stackId) => ({
-    stackId,
-    cards: (groups.get(stackId) ?? []).sort(
-      (a, b) => (a.stack_order ?? 0) - (b.stack_order ?? 0),
-    ),
-  }));
 }
 
 export function Board({

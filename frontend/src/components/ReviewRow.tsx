@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import type { ReviewPr } from "../api/types";
 import { reviewedKey } from "../hooks/useReviewedKeys";
 import { formatRelative } from "../hooks/useRelativeTime";
@@ -24,6 +26,7 @@ export function ReviewRow({
   onToggleDeferred,
   selected = false,
   onSelect,
+  inStackGroup = false,
 }: {
   pr: ReviewPr;
   now: number;
@@ -33,19 +36,27 @@ export function ReviewRow({
   onToggleDeferred: (key: string) => void;
   selected?: boolean;
   onSelect?: () => void;
+  inStackGroup?: boolean;
 }) {
   const key = reviewedKey(pr.repo, pr.number);
   const isReviewed = reviewedHas(key);
   const isDeferred = deferredHas(key);
   const { owner, name } = splitRepo(pr.repo);
+  const grouped = inStackGroup || pr.stack_co_column;
   const classes = [
     "review-row",
     pr.is_draft && "is-draft",
+    pr.stack_id && "is-stacked",
+    grouped && "is-stack-co-column",
+    inStackGroup && "is-stack-grouped",
     isReviewed && "is-manually-reviewed",
     selected && "is-selected",
   ]
     .filter(Boolean)
     .join(" ");
+  const style: CSSProperties | undefined = grouped
+    ? ({ "--stack-depth": pr.stack_depth ?? 0 } as CSSProperties)
+    : undefined;
 
   // Select the row to open the diff, but let real links/buttons inside
   // the row do their own thing (open GitHub, toggle markers, approve).
@@ -60,6 +71,7 @@ export function ReviewRow({
       className={classes}
       data-repo={pr.repo}
       aria-current={selected || undefined}
+      style={style}
       onClick={handleRowClick}
     >
       <div className="review-main">
